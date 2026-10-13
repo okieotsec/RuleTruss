@@ -202,7 +202,7 @@ class FlowTracker:
         if votes[0] != votes[1]:
             d = 0 if votes[0] > votes[1] else 1
             hit = named.get(d)
-            return d, "medium", [f"payload semantics: {end[d]} sent a {hit.name} request-type message ({hit.detail})"], notes
+            return d, "medium", [f"payload semantics: {end[d]} sent a {hit.name} request-type message"], notes
         guess = self._port_heuristic(state)
         if guess is not None:
             return guess[0], "low", [guess[1]], notes
@@ -229,7 +229,7 @@ class FlowTracker:
         if votes[0] != votes[1]:
             d = 0 if votes[0] > votes[1] else 1
             hit = named.get(d)
-            return d, "medium", [f"payload semantics: {end[d]} sent a {hit.name} request-type message ({hit.detail})"], notes
+            return d, "medium", [f"payload semantics: {end[d]} sent a {hit.name} request-type message"], notes
         try:
             dst0 = ipaddress.ip_address(state.ends[1][0])
         except ValueError:

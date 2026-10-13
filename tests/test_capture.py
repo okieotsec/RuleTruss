@@ -195,7 +195,7 @@ class HostileCaptureTests(unittest.TestCase):
     def test_absurd_packet_length_does_not_allocate_or_hang(self):
         header = struct.pack("<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, 65535, 1)
         bomb = header + struct.pack("<IIII", 1, 0, 0x7FFFFFFF, 0x7FFFFFFF) + b"\x00" * 100
-        info, flows = analyze_capture(self.write("bomb.pcap", bomb), "c", "s", "bomb.pcap")
+        _, flows = analyze_capture(self.write("bomb.pcap", bomb), "c", "s", "bomb.pcap")
         self.assertEqual(flows, [])
 
     def test_packet_limit_is_reported(self):
@@ -249,7 +249,7 @@ class DecoderTests(unittest.TestCase):
 
     def test_decoders_never_raise_on_random_bytes(self):
         import random
-        rng = random.Random(7)
+        rng = random.Random(7)  # noqa: S311 - a fixed seed for reproducible test data, not security
         for _ in range(3000):
             blob = bytes(rng.randrange(256) for _ in range(rng.randrange(0, 200)))
             for proto in ("tcp", "udp"):
@@ -299,7 +299,7 @@ class ZeekTests(unittest.TestCase):
     def test_json_conn_log_and_garbage(self):
         lines = ('{"ts":1700000000.0,"uid":"C1","id.orig_h":"10.0.0.1","id.orig_p":1234,"id.resp_h":"10.0.0.2",'
                  '"id.resp_p":80,"proto":"tcp","history":"ShAdDaFf","service":"http"}\nnot json\n[1,2]\n')
-        info, flows = zeek.parse_conn_log(self.write(lines), "z2", "s3", "conn.log")
+        _, flows = zeek.parse_conn_log(self.write(lines), "z2", "s3", "conn.log")
         self.assertEqual(len(flows), 1)
         self.assertEqual(flows[0].responder_port, 80)
 

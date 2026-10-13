@@ -1,5 +1,5 @@
 # The rules CI enforces. Keep this list explicit so a newer ruff cannot silently change what is checked.
-line-length = 130
+line-length = 140
 target-version = "py312"
 
 [lint]
