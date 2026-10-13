@@ -108,7 +108,7 @@ class Store:
         self._lock = threading.RLock()
         self.root = os.path.abspath(root or default_data_dir())
         os.makedirs(self.root, mode=0o700, exist_ok=True)
-        os.chmod(self.root, 0o700)
+        os.chmod(self.root, 0o700)  # nosemgrep: insecure-file-permissions - 0o700 is owner-only; directories need the execute bit
         self.projects_dir = os.path.join(self.root, "projects")
         os.makedirs(self.projects_dir, mode=0o700, exist_ok=True)
         self._cache = {}

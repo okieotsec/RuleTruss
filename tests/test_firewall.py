@@ -227,3 +227,20 @@ class SecurityLevelDefaultTests(unittest.TestCase):
         self.assertIn("default-security-level", {i.code for i in t.issues})
         report = val.validate_preserve(src, t, CTX)
         self.assertGreater(report["summary"]["explained_by_source_default"], 0)
+
+
+class ReturnPathPlacementTests(unittest.TestCase):
+    def test_return_rules_come_before_a_catch_all_deny_in_their_acl(self):
+        from pbridge.samples import SUBNETS
+        ctx = analysis.build_context(subnets=[Subnet(**s) for s in SUBNETS])
+        src = parse_config((Path(__file__).parent.parent / "pbridge" / "samples" / "demo_asa.cfg").read_text(), "demo")
+        t = fw.translate_policy(src, "cisco-ios", {z["zone"]: z["zone"] for z in SUBNETS}, ctx=ctx)
+        text = fw.render(t, "cisco-ios", identity=True)
+        hist = text.split("ip access-list extended PB-hist-IN")[1].split("ip access-list extended")[0]
+        lines = [x.strip() for x in hist.splitlines() if x.strip() and not x.strip().startswith(("remark", "!"))]
+        first_deny = next(i for i, x in enumerate(lines) if x.startswith("deny"))
+        returns = [i for i, x in enumerate(lines) if "eq 4840" in x or "eq 123" in x]
+        self.assertTrue(returns)
+        self.assertTrue(all(i < first_deny for i in returns), lines)
+        report = val.validate_preserve(src, t, ctx)
+        self.assertEqual(report["summary"]["target_narrower"], 0, report["mismatches"])

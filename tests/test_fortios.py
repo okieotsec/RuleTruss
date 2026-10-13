@@ -72,6 +72,9 @@ class FortiosTests(unittest.TestCase):
         self.assertEqual(dnat.translated_dst.nets, ["10.30.5.10/32"])
         self.assertEqual(self.p.address_context, "original-packet")
 
+    def test_vip_priority_is_flagged_because_list_order_is_not_what_the_device_does(self):
+        self.assertIn("vip-priority", {i.code for i in self.p.issues})
+
     def test_policy_nat_is_recorded(self):
         self.assertTrue(any(n.kind == "source" and "policy 4" in " ".join(n.notes) for n in self.p.nat_rules))
 

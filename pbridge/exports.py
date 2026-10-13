@@ -163,8 +163,16 @@ def translation_markdown(t, validation=None, project_name=""):
         lines += [f"| {md(k.replace('_', ' '))} | {md(v)} |" for k, v in s.items() if k != "result"] + [""]
         lines += ["Limits of this comparison:", ""] + [f"- {md(x)}" for x in validation["limits"]] + [""]
         for m in validation.get("mismatches", [])[:40]:
+            why = []
+            if m.get("explained_by_known_broader_rule"):
+                why.append("a known broader stateless return rule")
+            if m.get("explained_by_blocked_rule"):
+                why.append(f"source rule {m['explained_by_blocked_rule']} was not translated")
+            if m.get("explained_by_source_default"):
+                why.append(m["explained_by_source_default"])
+            note = f"Explained: {md('; '.join(why))}." if why else "Not explained by a known cause."
             lines.append(f"- {md(m['kind'])}: {md(m['connection'])} ({md(m['case'])}). Source: {md(m['source'])}. "
-                         f"Destination: {md(m['destination'])}")
+                         f"Destination: {md(m['destination'])}. {note}")
         lines.append("")
     lines += ["## Generated configuration (review before use)", "", "```text", t.text.replace("```", "'''"), "```", ""]
     return "\n".join(lines)

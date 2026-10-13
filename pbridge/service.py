@@ -359,8 +359,10 @@ class Service:
         if parsed.scheme not in ("http", "https") or (not local and parsed.scheme != "https"):
             raise ApiError("the AI endpoint must be https (or http on this machine)", 403)
         payload = json.dumps({"messages": [{"role": "user", "content": package["prompt"]}]}).encode()
+        # nosemgrep: dynamic-urllib-use-detected - the scheme is restricted to http/https above, so file: and ftp: cannot be used
         request = urllib.request.Request(self.ai_endpoint, data=payload, headers={"Content-Type": "application/json"}, method="POST")  # noqa: S310  # nosec B310
         try:
+            # nosemgrep: dynamic-urllib-use-detected - same check as above; the response is read with a size cap and shown as text
             with urllib.request.urlopen(request, timeout=60) as response:   # noqa: S310  # nosec B310 - scheme and host checked above
                 body = response.read(1_000_000)
         except OSError as error:

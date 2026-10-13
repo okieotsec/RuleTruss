@@ -413,7 +413,8 @@ def analyze_rules(policy, max_pairs=2_000_000):
                                        "rule is ignored.")),
                         "evidence": [*earlier.evidence[:1], *later.evidence[:1]]})
                     break
-                if earlier.action != later.action and rule_overlap(earlier, later):
+                catch_all_deny = later.action == "deny" and later.src.is_unrestricted() and later.dst.is_unrestricted() and later.svc.any
+                if earlier.action != later.action and not catch_all_deny and rule_overlap(earlier, later):
                     findings.append({
                         "kind": "conflict", "severity": "info", "rule_id": later.rule_id, "rule": later.original_id,
                         "by_rule_id": earlier.rule_id, "by_rule": earlier.original_id,

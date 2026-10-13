@@ -401,6 +401,11 @@ class _Parser:
         self.policy.stats = {"rules": len(self.policy.rules), "nat_rules": len(self.policy.nat_rules),
                              "addresses": len(self.addresses), "address_groups": len(self.groups),
                              "services": len(self.services) + len(self.service_groups)}
+        used_vips = sorted({n for r in self.policy.rules for n in r.dst.refs if n in self.vips})
+        if used_vips:
+            self.issue("warning", "vip-priority", "Policies that use a virtual IP (" + ", ".join(used_vips[:4]) + ") are given "
+                       "priority over other policies by FortiOS, whatever their position in the list. This tool evaluates policies in "
+                       "list order, so decisions for traffic to those addresses may differ from the device.")
         if not self.policy.rules:
             self.issue("warning", "no-rules", "no `config firewall policy` entries were found in this export")
         return self.policy

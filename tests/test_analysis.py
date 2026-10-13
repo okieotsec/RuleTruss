@@ -174,3 +174,10 @@ class MixedFamilyTests(unittest.TestCase):
         inv = analysis.inventory(flows, ctx)
         self.assertEqual([d["ip"] for d in inv["devices"]], ["10.0.0.1", "10.0.0.2", "2001:db8::1", "2001:db8::2"])
         self.assertEqual(grp.suggest_groups(ctx, flows)["unassigned"], ["2001:db8::1", "2001:db8::2"])
+
+
+class ConflictNoiseTests(unittest.TestCase):
+    def test_a_final_catch_all_deny_is_not_reported_as_a_conflict_with_every_allow(self):
+        policy = cisco.parse("interface Gi0/0\n nameif a\n security-level 1\naccess-list X extended permit tcp host 10.0.0.1 any eq 80\n"
+                             "access-list X extended deny ip any any log\naccess-group X in interface a\n", "x", "asa")
+        self.assertEqual([f for f in analysis.analyze_rules(policy) if f["kind"] == "conflict"], [])

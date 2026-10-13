@@ -1,6 +1,11 @@
 """Parse untrusted XML configuration exports (PAN-OS, pfSense, OPNsense) without entity expansion or deep nesting."""
 import re
-from xml.etree import ElementTree  # nosec B405 - input is checked for DOCTYPE/ENTITY below before parsing
+
+# The stdlib parser is used on purpose: input containing a DOCTYPE or any entity declaration is refused before parsing (tests:
+# billion laughs, external entity), depth and element counts are bounded, and the parser runs in a memory-limited subprocess.
+# This avoids a third-party runtime dependency. See SECURITY_TEST_PLAN.md and reports/cp0-baseline.
+# nosemgrep: use-defused-xml
+from xml.etree import ElementTree  # nosec B405
 
 from .. import limits
 

@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<pfsense>
+  <version>22.3</version>
+  <system>
+    <hostname>plant-pf</hostname>
+    <user><name>admin</name><password>shouldneverappear</password><bcrypt-hash>$2y$10$abcdeverysecret</bcrypt-hash></user>
+  </system>
+  <interfaces>
+    <wan><if>em0</if><ipaddr>dhcp</ipaddr><descr>WAN</descr></wan>
+    <lan><if>em1</if><ipaddr>10.20.0.1</ipaddr><subnet>16</subnet><descr>ENG</descr></lan>
+    <opt1><if>em2</if><ipaddr>10.30.0.1</ipaddr><subnet>16</subnet><descr>OT</descr></opt1>
+  </interfaces>
+  <aliases>
+    <alias><name>EWS</name><type>host</type><address>10.20.1.15 10.20.1.16</address></alias>
+    <alias><name>ENG_ALL</name><type>network</type><address>EWS 10.20.8.0/24</address></alias>
+    <alias><name>PLC_NET</name><type>network</type><address>10.30.2.0/24</address></alias>
+    <alias><name>ICS_PORTS</name><type>port</type><address>502 44818:44819</address></alias>
+    <alias><name>VENDOR</name><type>host</type><address>updates.vendor.example</address></alias>
+    <alias><name>BLOCKLIST</name><type>urltable</type><address>https://example.invalid/list.txt</address></alias>
+  </aliases>
+  <filter>
+    <rule>
+      <type>pass</type><interface>lan</interface><ipprotocol>inet</ipprotocol><protocol>tcp</protocol>
+      <source><address>ENG_ALL</address></source>
+      <destination><address>PLC_NET</address><port>ICS_PORTS</port></destination>
+      <descr>Engineering to controllers</descr><tracker>1000001</tracker>
+    </rule>
+    <rule>
+      <type>pass</type><interface>lan</interface><ipprotocol>inet</ipprotocol><protocol>icmp</protocol>
+      <icmptype>echoreq</icmptype>
+      <source><network>lan</network></source><destination><address>PLC_NET</address></destination>
+      <descr>ping controllers</descr><tracker>1000002</tracker>
+    </rule>
+    <rule>
+      <type>block</type><interface>lan</interface><ipprotocol>inet</ipprotocol><protocol>any</protocol>
+      <source><any/></source><destination><address>PLC_NET</address></destination>
+      <log/><descr>deny everything else to controllers</descr><tracker>1000003</tracker>
+    </rule>
+    <rule>
+      <type>pass</type><interface>lan</interface><ipprotocol>inet</ipprotocol><protocol>tcp</protocol>
+      <source><any/></source><destination><address>PLC_NET</address><port>80</port></destination>
+      <descr>shadowed web</descr><tracker>1000004</tracker>
+    </rule>
+    <rule>
+      <type>pass</type><interface>lan</interface><ipprotocol>inet</ipprotocol><protocol>tcp/udp</protocol>
+      <source><network>lan</network></source><destination><any/><port>53</port></destination>
+      <descr>dns</descr><tracker>1000005</tracker>
+    </rule>
+    <rule>
+      <type>pass</type><interface>opt1</interface><ipprotocol>inet</ipprotocol><protocol>tcp</protocol>
+      <source><address>PLC_NET</address></source><destination><address>VENDOR</address><port>443</port></destination>
+      <descr>updates</descr><tracker>1000006</tracker>
+    </rule>
+    <rule>
+      <type>pass</type><interface>opt1</interface><ipprotocol>inet</ipprotocol><protocol>udp</protocol><statetype>none</statetype>
+      <source><address>PLC_NET</address></source><destination><any/><port>123</port></destination>
+      <descr>ntp stateless</descr><tracker>1000007</tracker>
+    </rule>
+    <rule>
+      <type>pass</type><interface>opt1</interface><ipprotocol>inet</ipprotocol><protocol>tcp</protocol><disabled/>
+      <source><any/></source><destination><any/></destination><descr>disabled any</descr><tracker>1000008</tracker>
+    </rule>
+    <rule>
+      <type>block</type><interface>wan</interface><ipprotocol>inet</ipprotocol><protocol>any</protocol><floating>yes</floating><quick/>
+      <direction>in</direction><source><address>BLOCKLIST</address></source><destination><any/></destination>
+      <descr>blocklist</descr><tracker>1000009</tracker>
+    </rule>
+    <rule>
+      <type>pass</type><interface>wan</interface><ipprotocol>inet</ipprotocol><protocol>tcp</protocol>
+      <source><any/></source><destination><address>10.30.5.10</address><port>443</port></destination>
+      <descr>forwarded historian</descr><tracker>1000010</tracker>
+    </rule>
+  </filter>
+  <nat>
+    <rule>
+      <interface>wan</interface><protocol>tcp</protocol>
+      <source><any/></source><destination><network>wanip</network><port>443</port></destination>
+      <target>10.30.5.10</target><local-port>443</local-port><descr>historian</descr>
+    </rule>
+  </nat>
+</pfsense>

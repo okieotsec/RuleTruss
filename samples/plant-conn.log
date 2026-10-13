@@ -1,0 +1,12 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	conn
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	proto	service	duration	orig_bytes	resp_bytes	conn_state	history	orig_pkts	resp_pkts
+#types	time	string	addr	port	addr	port	enum	string	interval	count	count	string	string	count	count
+1700000000.0	Ca1	10.20.1.15	50000	10.30.2.40	502	tcp	modbus	1.5	12	23	SF	ShADadFf	6	5
+1700000010.0	Ca2	10.20.1.15	50001	10.30.2.40	502	tcp	modbus	1.2	12	23	SF	ShADadFf	6	5
+1700000020.0	Ca3	10.30.2.40	49500	10.30.5.10	4840	tcp	-	0.4	36	0	SF	ShADadFf	5	4
+1700000030.0	Ca4	10.20.1.50	41000	10.30.2.40	161	udp	snmp	0.1	60	70	SF	Dd	1	1
+1700000040.0	Ca5	10.20.1.15	51500	10.30.2.40	502	tcp	-	3.0	10	10	OTH	Dd	2	2

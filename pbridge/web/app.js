@@ -184,7 +184,7 @@ VIEWS.inventory = async () => {
   out.push(h("section", { class: "card" }, h("h2", { text: "How sure is the direction of each flow?" }),
     conf.length ? h("div", { class: "row" }, conf.map(([k, v]) => h("span", {}, chip(k), ` ${v}  `))) : h("p", { class: "muted", text: "-" }),
     h("p", { class: "small muted", text: "high: a handshake (SYN) or echo request was seen. medium: indirect evidence such as a payload that is clearly a request. low or unknown: a capture that starts mid-conversation, one-way UDP, or no evidence. Low and unknown are never turned into policy proposals unless you choose to." }),
-    h("h3", { text: "Applications" }), h("ul", { class: "plain" }, Object.entries(o.applications).map(([k, v]) => h("li", { text: `${k}: ${v} flows` })))));
+    h("h3", { text: "Applications" }), h("ul", { class: "plain" }, Object.entries(o.applications).map(([k, v]) => h("li", { text: `${k}: ${v} ${v === 1 ? "flow" : "flows"}` })))));
   out.push(h("section", { class: "card" }, h("h2", { text: "Devices" }),
     h("p", { class: "small muted", text: "Counts of what this capture saw. A device's function is never inferred from its traffic; labels are yours." }),
     table(["Address", "Your label", "Subnet", "Initiated", "Received", "Peers (out/in)", "Uncertain direction"],

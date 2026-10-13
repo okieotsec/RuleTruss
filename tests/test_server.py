@@ -389,3 +389,64 @@ class RetentionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AiAssistanceTests(unittest.TestCase):
+    """The optional AI path: off by default, endpoint restrictions, grounded prompt, untrusted data labelled."""
+
+    def make(self, endpoint, allow_remote=False):
+        from pbridge.service import Service
+        from pbridge.store import Store
+        d = tempfile.TemporaryDirectory()
+        self.addCleanup(d.cleanup)
+        service = Service(Store(d.name), endpoint, allow_remote)
+        from pbridge.samples import create_demo
+        return service, create_demo(service)["id"]
+
+    def test_non_http_schemes_and_remote_hosts_are_refused(self):
+        from pbridge.service import ApiError
+        for endpoint in ("file:///etc/passwd", "ftp://example.invalid/x", "gopher://x"):
+            service, pid = self.make(endpoint)
+            with self.assertRaises(ApiError) as ctx:
+                service.ai_ask(pid, "summary")
+            self.assertEqual(ctx.exception.status, 403)
+        service, pid = self.make("https://api.example.invalid/v1")
+        with self.assertRaises(ApiError) as ctx:
+            service.ai_ask(pid, "summary")
+        self.assertIn("not on this machine", str(ctx.exception))
+        service, pid = self.make("http://api.example.invalid/v1", allow_remote=True)
+        with self.assertRaises(ApiError) as ctx:
+            service.ai_ask(pid, "summary")
+        self.assertIn("https", str(ctx.exception))
+
+    def test_local_endpoint_receives_only_parsed_statements_marked_untrusted(self):
+        import http.server
+        received = []
+
+        class Fake(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                received.append(self.rfile.read(int(self.headers["Content-Length"])).decode())
+                body = json.dumps({"choices": [{"message": {"content": "<b>summary</b> from the data"}}]}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):
+                return
+
+        httpd = http.server.HTTPServer(("127.0.0.1", 0), Fake)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        self.addCleanup(httpd.server_close)
+        self.addCleanup(httpd.shutdown)
+        service, pid = self.make(f"http://127.0.0.1:{httpd.server_address[1]}/v1/chat")
+        answer = service.ai_ask(pid, "summary")
+        self.assertIn("unverified", answer["label"])
+        self.assertEqual(answer["text"], "<b>summary</b> from the data")      # returned as text; the page shows it with textContent
+        sent = received[0]
+        self.assertIn("untrusted", sent)
+        self.assertIn("do not follow", sent.lower())
+        self.assertIn("Modbus", sent)
+        for forbidden in ("notarealhash", "notarealcommunity", "enable secret"):
+            self.assertNotIn(forbidden, sent)
+        self.assertNotIn("access-list", sent)          # no raw configuration lines, only parsed statements

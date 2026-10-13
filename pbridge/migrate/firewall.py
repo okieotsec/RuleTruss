@@ -450,6 +450,10 @@ def render_cisco(t, flavour, identity=False):
     for rule in t.rules:
         key = rule.src_zone if rule.src_zone is not None else "global"
         acls.setdefault(key, []).append(rule)
+    # A stateful device accepts replies before it consults the rules for new connections, so return-path entries go first in
+    # their ACL: put after a catch-all deny they would never match.
+    for key in acls:
+        acls[key].sort(key=lambda r: r.kind != "return-path")
     bindings, v6_present = [], set()
     for key, rules in acls.items():
         name = "PB-GLOBAL" if key == "global" else f"PB-{safe_id(key)}-IN"

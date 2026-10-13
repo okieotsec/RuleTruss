@@ -1,0 +1,71 @@
+{
+  "preserve/cisco-asa": {
+    "cases": 67,
+    "same_allow": 18,
+    "same_deny": 43,
+    "target_broader": 0,
+    "target_narrower": 0,
+    "not_compared": 6,
+    "explained_by_blocked_rule": 0,
+    "explained_by_source_default": 0,
+    "unexplained_broader": 0,
+    "result": "no difference found on the sampled connections"
+  },
+  "preserve/cisco-ios": {
+    "cases": 67,
+    "same_allow": 18,
+    "same_deny": 41,
+    "target_broader": 2,
+    "target_narrower": 0,
+    "not_compared": 6,
+    "explained_by_blocked_rule": 0,
+    "explained_by_source_default": 0,
+    "unexplained_broader": 0,
+    "result": "destination allows connections the source denied"
+  },
+  "preserve/fortios": {
+    "cases": 67,
+    "same_allow": 18,
+    "same_deny": 43,
+    "target_broader": 0,
+    "target_narrower": 0,
+    "not_compared": 6,
+    "explained_by_blocked_rule": 0,
+    "explained_by_source_default": 0,
+    "unexplained_broader": 0,
+    "result": "no difference found on the sampled connections"
+  },
+  "narrow/cisco-asa": {
+    "not_compared": 1,
+    "observed_allowed": 13,
+    "observed_blocked": 0,
+    "reverse_denied": 13,
+    "reverse_allowed": 0,
+    "reverse_allowed_known_return_rule": 0,
+    "other_port_denied": 13,
+    "other_port_allowed": 0,
+    "result": "observed traffic is allowed, reverse initiation and unobserved ports are denied, on the sampled connections"
+  },
+  "narrow/cisco-ios": {
+    "not_compared": 2,
+    "observed_allowed": 12,
+    "observed_blocked": 0,
+    "reverse_denied": 9,
+    "reverse_allowed": 0,
+    "reverse_allowed_known_return_rule": 3,
+    "other_port_denied": 12,
+    "other_port_allowed": 0,
+    "result": "observed traffic is allowed, reverse initiation and unobserved ports are denied, on the sampled connections (apart from the known stateless UDP return rules)"
+  },
+  "narrow/fortios": {
+    "not_compared": 0,
+    "observed_allowed": 14,
+    "observed_blocked": 0,
+    "reverse_denied": 14,
+    "reverse_allowed": 0,
+    "reverse_allowed_known_return_rule": 0,
+    "other_port_denied": 14,
+    "other_port_allowed": 0,
+    "result": "observed traffic is allowed, reverse initiation and unobserved ports are denied, on the sampled connections"
+  }
+}
