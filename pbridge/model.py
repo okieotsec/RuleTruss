@@ -80,6 +80,15 @@ class AddrSet:
     def is_unrestricted(self):
         return self.any and not self.negate
 
+    def fqdn_names(self):
+        """Host names among the unresolved members (FQDN objects, alias host names), in lower case."""
+        out = []
+        for u in self.unresolved:
+            for prefix in ("fqdn:", "fqdn ", "host name "):
+                if u.startswith(prefix) and u[len(prefix):].strip():
+                    out.append(u[len(prefix):].strip().lower())
+        return out
+
     def text(self):
         if self.any:
             return "any"
@@ -230,7 +239,9 @@ class PolicySet:
     interfaces: dict = field(default_factory=dict)     # name to {"nets": [...], "zone": str}
     rules: list = field(default_factory=list)
     nat_rules: list = field(default_factory=list)
-    address_context: str = "unknown"    # pre-nat | post-nat | unknown: which addresses the rules are written against
+    # Which addresses rules are written against: original-packet (as received, before any NAT), internal-real (the real
+    # internal host after destination NAT is undone), or unknown.
+    address_context: str = "unknown"
     objects_summary: dict = field(default_factory=dict)
     issues: list = field(default_factory=list)
     unresolved: list = field(default_factory=list)
@@ -271,6 +282,7 @@ class Flow:
     icmp_code: int = None
     apps: list = field(default_factory=list)
     tcp_flags_seen: list = field(default_factory=list)
+    hostnames: list = field(default_factory=list)   # names seen in the payload (TLS server name, HTTP Host, DNS query): untrusted text
     notes: list = field(default_factory=list)
     evidence: list = field(default_factory=list)
     vlan: int = None
@@ -314,5 +326,5 @@ class DeviceLabel:
 class Group:
     name: str
     members: list = field(default_factory=list)       # IP addresses or CIDRs
-    gateway_endpoint: bool = False      # members are endpoints isolated behind a gateway
+    gateway_isolated: bool = False      # members are endpoints isolated behind a gateway (they reach outside only through an egress policy)
     note: str = ""

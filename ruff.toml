@@ -22,7 +22,8 @@ select = [
 #  SIM105  an explicit try/except/pass is clearer than contextlib.suppress for the Tk and file-system cleanups here
 #  SIM108  long ternaries are harder to read than the if/else they replace
 #  RUF005  [*a, b] is not clearer than a + [b] for the short lists in the threat-level code
-ignore = ["SIM105", "SIM108", "RUF005"]
+#  ISC004  long explanatory strings in lists are written as adjacent literals; parenthesising each one adds noise
+ignore = ["SIM105", "SIM108", "RUF005", "ISC004"]
 
 [lint.per-file-ignores]
 # Test classes keep read-only fixture dicts as class attributes.

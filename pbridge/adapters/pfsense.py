@@ -34,7 +34,7 @@ class _Parser:
         vendor = "opnsense" if root.tag == "opnsense" else "pfsense"
         self.policy = PolicySet(policy_id=source_id, source_id=source_id, vendor=vendor,
                                 platform="OPNsense" if vendor == "opnsense" else "pfSense", stateful=True,
-                                default_action="deny", default_basis="default block on interfaces", address_context="post-nat",
+                                default_action="deny", default_basis="default block on interfaces", address_context="internal-real",
                                 version=limits.clip(text(root, "version")), hostname=limits.clip(text(root, "system/hostname")))
         self.aliases = {}
         self.seen = set()

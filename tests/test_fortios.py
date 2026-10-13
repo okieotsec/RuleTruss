@@ -70,7 +70,7 @@ class FortiosTests(unittest.TestCase):
         self.assertEqual(self.rule("7").dst.nets, ["203.0.113.50/32"])
         dnat = next(n for n in self.p.nat_rules if n.kind == "destination")
         self.assertEqual(dnat.translated_dst.nets, ["10.30.5.10/32"])
-        self.assertEqual(self.p.address_context, "pre-nat")
+        self.assertEqual(self.p.address_context, "original-packet")
 
     def test_policy_nat_is_recorded(self):
         self.assertTrue(any(n.kind == "source" and "policy 4" in " ".join(n.notes) for n in self.p.nat_rules))

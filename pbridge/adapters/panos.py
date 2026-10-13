@@ -32,7 +32,7 @@ class _Parser:
         self.policy = PolicySet(policy_id=source_id, source_id=source_id, vendor="panos", platform="Palo Alto PAN-OS",
                                 version=limits.clip(root.get("version", "")), stateful=True, default_mode="panos",
                                 default_action="deny", default_basis="interzone-default deny / intrazone-default allow",
-                                address_context="pre-nat")
+                                address_context="original-packet")
         self.addresses, self.groups, self.services, self.service_groups = {}, {}, {}, {}
         self.seen = set()
 

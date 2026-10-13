@@ -266,7 +266,7 @@ class FlowTracker:
         if state.icmp:
             first = state.icmp[0]
             icmp_type, icmp_code = first[2], first[3]
-        apps, app_notes = appid.identify(state.proto, state.samples, (src_port, dst_port), state.payload_seen)
+        apps, app_notes, hostnames = appid.identify(state.proto, state.samples, (src_port, dst_port), state.payload_seen)
         notes = notes + app_notes
         if state.truncated:
             notes.append(f"{state.truncated} packet(s) in this flow were cut short by the capture (snap length), so payload "
@@ -284,7 +284,7 @@ class FlowTracker:
                     direction_confidence=confidence, direction_basis=basis, pkts_fwd=state.pkts[initiator],
                     pkts_rev=state.pkts[responder], bytes_fwd=state.bytes[initiator], bytes_rev=state.bytes[responder],
                     first_ts=state.first_ts, last_ts=state.last_ts, icmp_type=icmp_type, icmp_code=icmp_code, apps=apps,
-                    tcp_flags_seen=flags_seen, notes=notes, evidence=evidence, vlan=state.vlan)
+                    tcp_flags_seen=flags_seen, hostnames=hostnames, notes=notes, evidence=evidence, vlan=state.vlan)
 
 
 def coverage_notes(info, stats, dropped):

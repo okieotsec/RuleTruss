@@ -60,7 +60,7 @@ class PfsenseTests(unittest.TestCase):
         self.assertFalse(self.rule("1000008").enabled)
 
     def test_port_forward_is_nat_context(self):
-        self.assertEqual(self.p.address_context, "post-nat")
+        self.assertEqual(self.p.address_context, "internal-real")
         self.assertEqual(self.p.nat_rules[0].translated_dst.nets, ["10.30.5.10/32"])
 
     def test_secrets_are_not_stored(self):

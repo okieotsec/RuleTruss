@@ -116,7 +116,7 @@ class AsaTests(unittest.TestCase):
     def test_nat_is_recorded_not_applied(self):
         kinds = [n.kind for n in self.p.nat_rules]
         self.assertIn("static", kinds)
-        self.assertEqual(self.p.address_context, "pre-nat")
+        self.assertEqual(self.p.address_context, "internal-real")
         self.assertTrue(all(n.evidence for n in self.p.nat_rules))
 
     def test_ipv6_any6(self):

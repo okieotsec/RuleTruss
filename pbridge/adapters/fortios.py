@@ -120,7 +120,7 @@ class _Parser:
         self.tree = build_tree(self.lines)
         self.policy = PolicySet(policy_id=source_id, source_id=source_id, vendor="fortios", platform="Fortinet FortiOS",
                                 stateful=True, default_action="deny", default_basis="implicit deny policy",
-                                address_context="pre-nat")
+                                address_context="original-packet")
         self.addresses, self.groups, self.services, self.service_groups, self.vips = {}, {}, {}, {}, {}
         self.zones = {}
         self.seen = set()
@@ -225,7 +225,8 @@ class _Parser:
                 pass
             self.issue("warning", "address-unresolved", f"address {name!r} (type {kind_set}) cannot be resolved to IP "
                        "addresses; rules that use it are reported as undecidable", entry.line)
-            return [], [f"{kind_set}:{name}"]
+            value = entry.sets.get("fqdn", [name])[0] if kind_set == "fqdn" else name
+            return [], [f"{kind_set}:{value}"]
         self.issue("warning", "unresolved-object", f"address {name!r} is not defined in this export")
         return [], [name]
 

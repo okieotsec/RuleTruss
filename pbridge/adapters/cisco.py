@@ -78,7 +78,7 @@ class _Parser:
                                 platform="Cisco ASA" if flavour == "asa" else "Cisco IOS / IOS-XE",
                                 stateful=(flavour == "asa"), default_mode="acl_binding",
                                 default_basis="implicit deny at the end of each applied ACL",
-                                address_context="pre-nat" if flavour == "asa" else "unknown")
+                                address_context="internal-real" if flavour == "asa" else "original-packet")
         self.names = {}                              # ASA `name` entries
         self.net_objects = {}                        # name to ("leaf" members)
         self.net_defs = {}                           # object / object-group network

@@ -48,6 +48,7 @@ class Hit:
     confidence: str
     detail: str
     role: str = None           # "client" or "server": which role the sender of this payload played
+    names: tuple = ()          # host names carried in the payload (sanitised); never used as instructions
 
 
 def safe_text(raw, limit=80):
@@ -175,7 +176,8 @@ def decode_dns(p, proto, sport, dport):
     label = "mDNS" if 5353 in (sport, dport) else "DNS"
     role = "server" if msg.qr else "client"
     kind = "response" if msg.qr else "query"
-    return Hit(label, CONFIRMED, f"decoded DNS message ({kind} for {safe_text(name.encode())})", role)
+    return Hit(label, CONFIRMED, f"decoded DNS message ({kind} for {safe_text(name.encode())})", role,
+               (name.lower(),) if not msg.qr else ())
 
 
 HTTP_REQUEST = re.compile(rb"^(GET|POST|PUT|DELETE|HEAD|OPTIONS|PATCH|CONNECT) \S{1,2000} HTTP/1\.[01]\r\n")
@@ -187,7 +189,9 @@ def decode_http(p, proto, sport, dport):
         return None
     if HTTP_REQUEST.match(p):
         line = p.split(b"\r\n", 1)[0]
-        return Hit("HTTP", CONFIRMED, f"decoded HTTP request line ({safe_text(line, 60)})", "client")
+        host = re.search(rb"\r\nHost: ?([A-Za-z0-9.\-]{1,253})(?::\d+)?\r\n", p[:2000], re.IGNORECASE)
+        return Hit("HTTP", CONFIRMED, f"decoded HTTP request line ({safe_text(line, 60)})", "client",
+                   (host.group(1).decode().lower(),) if host else ())
     if HTTP_RESPONSE.match(p):
         status_line = p.split(b"\r\n", 1)[0]
         return Hit("HTTP", CONFIRMED, f"decoded HTTP response status line ({safe_text(status_line, 40)})", "server")
@@ -226,7 +230,9 @@ def decode_tls(p, proto, sport, dport):
         htype = p[5]
         if htype == 1 and p[6] == 0 and len(p) >= 43:
             sni = _sni(p[9:5 + length])
-            return Hit("TLS", CONFIRMED, "decoded TLS ClientHello" + (f" with server name {sni}" if sni else ""), "client")
+            valid = sni if sni and re.fullmatch(r"[A-Za-z0-9.\-]{1,253}", sni) else None
+            return Hit("TLS", CONFIRMED, "decoded TLS ClientHello" + (f" with server name {sni}" if sni else ""), "client",
+                       (valid.lower(),) if valid else ())
         if htype == 2 and p[6] == 0:
             return Hit("TLS", CONFIRMED, "decoded TLS ServerHello", "server")
     return Hit("TLS", PROBABLE, f"valid TLS record header (type {p[0]}, length {length})", None)
@@ -337,12 +343,14 @@ def identify(proto, hit_samples, ports, payload_seen):
     """Combine payload evidence for one flow.
 
     hit_samples: list of (direction_index, packet_number, [Hit, ...]) from decode_payload on the first payload packets.
-    ports: the two port numbers, used only for the port-hint fallback. Returns (list of AppGuess, notes).
+    ports: the two port numbers, used only for the port-hint fallback. Returns (list of AppGuess, notes, host names).
     """
     best = {}
     roles = {}
+    names = []
     for _direction, number, hits in hit_samples:
         for hit in hits:
+            names.extend(n for n in hit.names if n not in names)
             current = best.get(hit.name)
             if current is None or _rank(hit.confidence) > _rank(current[0].confidence):
                 best[hit.name] = (hit, number)
@@ -368,7 +376,7 @@ def identify(proto, hit_samples, ports, payload_seen):
             else:
                 guesses.append(AppGuess(hint, POSSIBLE, "only the port number suggests this" + (
                     "; the captured payload did not decode as it" if payload_seen else "; no payload was captured to check")))
-    return guesses, notes
+    return guesses, notes, names[:8]
 
 
 def _rank(confidence):

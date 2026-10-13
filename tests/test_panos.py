@@ -79,7 +79,7 @@ class PanosTests(unittest.TestCase):
         self.assertIsNone(reply)
 
     def test_nat_rules_are_recorded_with_pre_nat_context(self):
-        self.assertEqual(self.p.address_context, "pre-nat")
+        self.assertEqual(self.p.address_context, "original-packet")
         kinds = {n.kind for n in self.p.nat_rules}
         self.assertEqual(kinds, {"destination", "source"})
         dnat = next(n for n in self.p.nat_rules if n.kind == "destination")
