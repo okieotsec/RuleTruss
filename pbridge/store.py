@@ -5,12 +5,14 @@ whole data folder can be deleted from the interface. Deletion overwrites file co
 SSDs, copy-on-write or journaling file systems and in backups that cannot be guaranteed, and the documentation says so.
 """
 import contextlib
+import functools
 import json
 import os
 import re
 import secrets
 import shutil
 import tempfile
+import threading
 import time
 
 from . import limits
@@ -92,8 +94,18 @@ def wipe_tree(path):
     return count
 
 
+def _locked(method):
+    """Serialise read-modify-write of project files: several uploads can arrive at once."""
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapper
+
+
 class Store:
     def __init__(self, root=None):
+        self._lock = threading.RLock()
         self.root = os.path.abspath(root or default_data_dir())
         os.makedirs(self.root, mode=0o700, exist_ok=True)
         os.chmod(self.root, 0o700)
@@ -136,6 +148,7 @@ class Store:
                     continue
         return out
 
+    @_locked
     def create_project(self, name):
         name = limits.clip(str(name).strip(), 100)
         if not name:
@@ -162,6 +175,7 @@ class Store:
     def save_project(self, project):
         self._write_json(os.path.join(self.project_dir(project["id"]), "project.json"), project)
 
+    @_locked
     def update_context(self, project_id, subnets=None, labels=None, groups=None, name=None, notes=None):
         from .migrate.groups import validate_groups
         project = self.get_project(project_id)
@@ -170,7 +184,10 @@ class Store:
         if labels is not None:
             project["labels"] = _validate_labels(labels)
         if groups is not None:
-            project["groups"] = [to_plain(g) for g in validate_groups(groups)]
+            try:
+                project["groups"] = [to_plain(g) for g in validate_groups(groups)]
+            except ValueError as error:
+                raise StoreError(str(error)) from error
         if name is not None:
             project["name"] = limits.clip(str(name).strip(), 100) or project["name"]
         if notes is not None:
@@ -179,6 +196,7 @@ class Store:
         self._cache.clear()
         return project
 
+    @_locked
     def delete_project(self, project_id):
         path = self.project_dir(project_id)
         if not os.path.isdir(path):
@@ -187,6 +205,7 @@ class Store:
         self._cache.clear()
         return count
 
+    @_locked
     def delete_everything(self):
         count = 0
         for name in os.listdir(self.projects_dir):
@@ -195,6 +214,7 @@ class Store:
         self._cache.clear()
         return count
 
+    @_locked
     def purge_older_than(self, days):
         """Delete projects created more than `days` days ago. days <= 0 does nothing."""
         if days <= 0:
@@ -217,6 +237,7 @@ class Store:
         return {"data_dir": self.root, "bytes": total, "files": files}
 
     # ------------------------------------------------------------ sources
+    @_locked
     def add_source(self, project_id, kind, filename, upload_path, meta, parsed, source_id=None):
         """Move a validated upload into place and store its parse result. `kind` is capture, flows or policy."""
         project = self.get_project(project_id)
@@ -234,6 +255,7 @@ class Store:
         self._cache.clear()
         return entry
 
+    @_locked
     def delete_source(self, project_id, source_id):
         project = self.get_project(project_id)
         if not any(s["id"] == source_id for s in project["sources"]):

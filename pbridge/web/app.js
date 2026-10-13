@@ -491,6 +491,8 @@ VIEWS.privacy = async () => {
 
 // ------------------------------------------------------------------ start
 async function main() {
+  const wanted = location.hash.match(/tab=([a-z]+)/);
+  if (wanted && TABS.some(([id]) => id === wanted[1])) state.tab = wanted[1];
   const m = location.hash.match(/token=([A-Za-z0-9_-]+)/);
   if (m) { try { sessionStorage.setItem("pb-token", m[1]); } catch (e) { /* storage may be unavailable */ } history.replaceState(null, "", location.pathname); }
   try { state.token = sessionStorage.getItem("pb-token") || ""; } catch (e) { state.token = ""; }

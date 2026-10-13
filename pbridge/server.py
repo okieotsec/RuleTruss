@@ -57,6 +57,15 @@ class App:
         self.ai_enabled = bool(ai_endpoint)
 
 
+class QuietServer(ThreadingHTTPServer):
+    """A client that disconnects or sends a malformed request is routine, not an error worth a stack trace."""
+
+    def handle_error(self, request, client_address):
+        error = sys.exc_info()[1]
+        if not isinstance(error, (BrokenPipeError, ConnectionResetError, socket.timeout, TimeoutError)):
+            traceback.print_exc(file=sys.stderr)
+
+
 def make_handler(app):
     class Handler(BaseHTTPRequestHandler):
         server_version = "PolicyBridge"
@@ -342,7 +351,7 @@ def build_server(host, port, data_dir, ai_endpoint=None, ai_allow_remote=False, 
                          "if you understand that anyone who can reach the port and learns the token can use it.")
     data_store = Store(data_dir)
     token = token or secrets.token_urlsafe(32)
-    server = ThreadingHTTPServer((host, port), BaseHTTPRequestHandler)
+    server = QuietServer((host, port), BaseHTTPRequestHandler)
     server.daemon_threads = True
     app = App(data_store, token, host, server.server_address[1], ai_endpoint, ai_allow_remote)
     server.RequestHandlerClass = make_handler(app)

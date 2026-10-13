@@ -27,4 +27,5 @@ ignore = ["SIM105", "SIM108", "RUF005", "ISC004"]
 
 [lint.per-file-ignores]
 # Test classes keep read-only fixture dicts as class attributes.
-"test_*.py" = ["RUF012"]
+"test_*.py" = ["RUF012", "RUF059", "S106", "S101"]
+"tests/*.py" = ["RUF012", "RUF059", "S106", "S101"]
