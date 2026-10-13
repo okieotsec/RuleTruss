@@ -204,7 +204,8 @@ class RejectionTests(unittest.TestCase):
             cisco.parse("hello world\n", "x")
 
     def test_garbage_lines_do_not_crash(self):
-        text = "access-list A extended permit tcp any\naccess-list A extended permit ??? any any\nip access-list extended B\n permit\n"
+        text = ("access-list A extended permit tcp any\naccess-list A extended permit ??? any any\n"
+                "ip access-list extended B\n permit\n")
         policy = cisco.parse(text, "x", "asa")
         self.assertGreaterEqual(len(policy.rules), 1)
         self.assertTrue(all(r.unsupported for r in policy.rules))

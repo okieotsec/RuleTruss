@@ -48,7 +48,16 @@ def _zone_match(rule_zones, probe_zone):
 
 def rule_matches(rule, probe, tcp_established=False):
     """True, False or None for one rule and one probe, ignoring enabled/ordering."""
+    rule_type = rule.extra.get("rule_type", "universal")
+    if rule_type in ("intrazone", "interzone"):
+        if probe.src_zone is None or probe.dst_zone is None:
+            type_result = None
+        else:
+            type_result = (probe.src_zone == probe.dst_zone) == (rule_type == "intrazone")
+    else:
+        type_result = True
     results = [
+        type_result,
         _zone_match(rule.src_zones, probe.src_zone),
         _zone_match(rule.dst_zones, probe.dst_zone),
         rule.src.contains(probe.src),
@@ -76,6 +85,13 @@ def default_decision(policy, probe):
                                          f"level {b} is allowed by default")
         return Decision(DENY, basis=f"no ACL is applied inbound; traffic from security level {a} to {b} is denied "
                                     "by default")
+    if policy.default_mode == "panos":
+        if probe.src_zone is None or probe.dst_zone is None:
+            return Decision(INDETERMINATE, basis="no rule matched; PAN-OS default rules depend on whether the source and "
+                            "destination zones are the same", uncertain=["source and destination zone are needed"])
+        if probe.src_zone == probe.dst_zone:
+            return Decision(ALLOW, basis="no rule matched; the intrazone-default rule allows traffic within a zone")
+        return Decision(DENY, basis="no rule matched; the interzone-default rule denies traffic between zones")
     return Decision(ALLOW if policy.default_action == "allow" else DENY,
                     basis=f"no rule matched; the default action is {policy.default_action} "
                           f"({policy.default_basis or 'implicit'})")
