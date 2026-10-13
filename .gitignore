@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.ruff_cache/
+.hypothesis/
+data/
+.idea/
+.vscode/
+.claude/settings.local.json
+reports/**/semgrep-cache/

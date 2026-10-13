@@ -1,0 +1,29 @@
+# The rules CI enforces. Keep this list explicit so a newer ruff cannot silently change what is checked.
+line-length = 130
+target-version = "py312"
+
+[lint]
+select = [
+    "E", "W",   # pycodestyle errors and warnings
+    "F",        # pyflakes: unused names, undefined names
+    "B",        # bugbear: likely bugs
+    "S",        # bandit-style security checks
+    "I",        # import order
+    "UP",       # use modern Python syntax
+    "C4",       # simpler comprehensions and literals
+    "SIM",      # simplifications
+    "RUF",      # ruff's own checks, including unused noqa comments
+    "ISC",      # implicit string concatenation
+    "FLY",      # f-strings instead of join
+    "EXE",      # executable files have a shebang
+]
+
+# Deliberate choices:
+#  SIM105  an explicit try/except/pass is clearer than contextlib.suppress for the Tk and file-system cleanups here
+#  SIM108  long ternaries are harder to read than the if/else they replace
+#  RUF005  [*a, b] is not clearer than a + [b] for the short lists in the threat-level code
+ignore = ["SIM105", "SIM108", "RUF005"]
+
+[lint.per-file-ignores]
+# Test classes keep read-only fixture dicts as class attributes.
+"test_*.py" = ["RUF012"]

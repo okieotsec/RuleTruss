@@ -1,0 +1,7 @@
+hypothesis==6.169.0
+ruff==0.16.10
+bandit==1.9.4
+semgrep==1.180.0
+pip-audit
+cyclonedx-bom==7.5.0
+pip-tools==7.6.2
