@@ -209,7 +209,7 @@ def midstream_capture():
     c.udp(5.0, ws1, 44818, "10.30.2.255", 44818, s.enip_list_identity())          # a broadcast discovery
     for k, plc in enumerate(("10.30.2.21", "10.30.2.22", "10.30.2.30")):
         c.udp(5.01 + k * 0.01, plc, 44818, ws1, 44818, s.enip_list_identity_reply())
-    c.udp(20.0, "0.0.0.0", 68, "255.255.255.255", 67, s.dhcp_discover())            # a replaced device asking for an address
+    c.udp(20.0, "0.0.0.0", 68, "255.255.255.255", 67, s.dhcp_discover())  # nosec B104 - a packet source address in generated data, not a bind; a replaced device asking for an address
     c.udp(40.0, ws2, 51700, "239.255.255.250", 1900, s.ssdp_search())
     c.udp(41.0, ws2, 5353, "224.0.0.251", 5353, s.dns_message("_services._dns-sd._udp.local"))
     # a first look at a protocol we do not know, on a very common port
