@@ -181,3 +181,31 @@ class ConflictNoiseTests(unittest.TestCase):
         policy = cisco.parse("interface Gi0/0\n nameif a\n security-level 1\naccess-list X extended permit tcp host 10.0.0.1 any eq 80\n"
                              "access-list X extended deny ip any any log\naccess-group X in interface a\n", "x", "asa")
         self.assertEqual([f for f in analysis.analyze_rules(policy) if f["kind"] == "conflict"], [])
+
+
+class ShortWordingTests(unittest.TestCase):
+    ctx = analysis.build_context({"10.20.1.15": "Engineering workstation", "10.30.2.40": "controller"})
+
+    def short(self, **kw):
+        return analysis.explain_short(analysis.aggregate([flow(1, "10.20.1.15", "10.30.2.40", 502, **kw)])[0], self.ctx)
+
+    def test_the_short_statement_is_one_line_with_the_same_facts(self):
+        confirmed = AppGuess("Modbus/TCP", "confirmed", "decoded Modbus/TCP header in packet 4")
+        text = self.short(apps=[confirmed])
+        self.assertEqual(text, "Engineering workstation 10.20.1.15 initiated 1 TCP connection to controller 10.30.2.40 on port 502 "
+                               "· Modbus/TCP identified by decoding.")
+        self.assertLess(len(text), 200)
+        self.assertNotIn("\n", text)
+
+    def test_uncertainty_is_never_dropped_from_the_short_form(self):
+        self.assertIn("possible (port number only)", self.short(apps=[AppGuess("Modbus/TCP", "possible", "x")]))
+        self.assertIn("application not identified", self.short())
+        self.assertIn("direction low confidence", self.short(conf="low"))
+        self.assertIn("initiator unclear", self.short(conf="low"))
+        self.assertIn("most likely initiated", self.short(conf="medium"))
+        self.assertIn("no reply seen", self.short(rev=0))
+
+    def test_a_decision_that_cannot_be_made_says_why_in_a_few_words(self):
+        from ruletruss.evaluate import Decision
+        reason = analysis._why_short(Decision("indeterminate", uncertain=["identity (user group) condition", "schedule: HOURS"]))
+        self.assertEqual(reason, "identity condition, schedule")

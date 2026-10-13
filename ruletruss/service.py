@@ -93,6 +93,7 @@ class Service:
                 "packets_rev": c.packets_rev, "first_ts": c.first_ts, "last_ts": c.last_ts, "replied": c.replied,
                 "direction_confidence": c.direction_confidence, "direction_basis": c.direction_basis,
                 "apps": [to_plain(x) for x in c.apps], "notes": c.notes, "explanation": analysis.explain_communication(c, ctx),
+                "explanation_short": analysis.explain_short(c, ctx),
                 "evidence": [to_plain(e) for e in c.evidence], "evidence_text": exports._evidence(c.evidence),
                 "flow_ids": c.flow_ids[:20], "observed": True})
         return infos, flows, comms, rows, ctx

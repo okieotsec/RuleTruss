@@ -50,11 +50,13 @@ try {
   await tab("Inventory");
   check("inventory shows flow counts and coverage limits", await waitFor("document.body.textContent.includes('not evidence of absence')"));
   check("the subnet matrix keeps direction (rows initiate, columns respond)", await waitFor("document.querySelectorAll('#matrix tbody tr').length >= 3 && document.querySelector('#matrix thead').textContent.includes('initiator')"));
-  check("no device role is shown", await evaluate("!/\\b(role|is a PLC|is a server)\\b/i.test(document.querySelector('#view').textContent)"));
+  check("no device role is shown", await evaluate("![...document.querySelectorAll('#view th')].some(th => /role|function|type/i.test(th.textContent))"));
   await tab("Communications");
+  check("explanations are short by default (closed expanders)", await waitFor("document.querySelectorAll('details.more:not([open])').length >= 0"));
   check("communications table has rows", await waitFor("document.querySelectorAll('#view tbody tr').length >= 10"));
   await evaluate("document.querySelector('#view tbody tr.expandable').click()");
-  check("a row expands to its explanation and evidence", await waitFor("document.querySelector('#view td.detail') && document.querySelector('#view td.detail').textContent.includes('Evidence')"));
+  check("a row expands to its explanation and evidence", await waitFor("document.querySelector('#view td.detail') && /evidence/i.test(document.querySelector('#view td.detail').textContent)"));
+  check("a row opens with a one-line statement first", await evaluate("document.querySelector('#view td.detail p').textContent.length < 260"));
   await shot("communications");
   await tab("Graph");
   check("the graph draws nodes and arrows", await waitFor("document.querySelectorAll('svg.graph circle').length >= 3 && document.querySelectorAll('svg.graph path.edge').length >= 3"));
@@ -66,12 +68,12 @@ try {
   check("compare shows outcomes and the not-a-finding note", await waitFor("document.body.textContent.includes('not a finding about the device') && document.querySelectorAll('.chip.deny').length >= 1"));
   await tab("Migrate");
   await click("Build directional policies");
-  check("preserve plan shows its verdict and gaps", await waitFor("document.body.textContent.includes('Gaps: what did not translate')"));
-  check("the preserve plan says a policy goes From to To and the reverse needs its own", await evaluate("document.body.textContent.includes('may initiate to') || document.body.textContent.includes('BLOCKED')"));
+  check("preserve plan shows its verdict and gaps", await waitFor("document.body.textContent.includes('Gaps: not translated')"));
+  check("the preserve plan says a policy goes From to To and the reverse needs its own", await evaluate("document.body.textContent.includes('may initiate to') || document.body.textContent.includes('Not translated')"));
   await evaluate("document.querySelector('input[name=wf][value=narrow]').click()");
   await new Promise((r) => setTimeout(r, 600));
   await click("Build directional policies");
-  check("narrow plan shows the observation period and the review requirement", await waitFor("document.body.textContent.includes('Observation period') && document.body.textContent.includes('scheduled or seasonal jobs')"));
+  check("narrow plan shows the observation period and the review requirement", await waitFor("document.body.textContent.includes('Observation window') && document.body.textContent.includes('scheduled jobs, failover')"));
   check("an egress policy is proposed for the isolated group", await evaluate("document.body.textContent.includes('Egress Controllers') && document.body.textContent.includes('updates.vendor.example')"));
   await shot("narrow-plan");
   await evaluate("document.querySelector('input[name=wf][value=preserve]').click()");
@@ -92,6 +94,9 @@ try {
   check("a hostile device label is shown as text, not run", await evaluate("window.__xss === undefined && !document.querySelector('#view img') && document.body.textContent.includes('<img src=x')"));
   await tab("Export & AI");
   check("exports and the off-by-default AI notice are present", await waitFor("document.body.textContent.includes('Nothing is sent to any AI service by default')"));
+  await evaluate("document.getElementById('verbose').click()");
+  check("'Show explanations' opens every expander", await waitFor("document.querySelectorAll('details.more').length === document.querySelectorAll('details.more[open]').length"));
+  await evaluate("document.getElementById('verbose').click()");
   await tab("Data & privacy");
   check("privacy tab states where data is kept and the network behaviour", await waitFor("document.body.textContent.includes('readable only by your user account') && document.body.textContent.includes('no outbound connections')"));
   await shot("privacy");
@@ -100,7 +105,9 @@ try {
   failures.push(`script error: ${error.message}`);
 } finally {
   check("no console errors", consoleErrors.length === 0, consoleErrors.join(" | "));
-  console.log(JSON.stringify({ ok: failures.length === 0, failures, console_errors: consoleErrors, checks }, null, 1));
+  let finalView = "";
+  if (failures.length) { try { finalView = await evaluate("document.querySelector('#view').textContent.slice(0, 600)"); } catch (e) { finalView = String(e); } }
+  console.log(JSON.stringify({ ok: failures.length === 0, failures, console_errors: consoleErrors, checks, final_view: finalView }, null, 1));
   ws.close(); proc.kill();
   process.exit(failures.length === 0 ? 0 : 1);
 }

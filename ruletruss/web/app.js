@@ -6,7 +6,7 @@ const TABS = [
   ["start", "Import"], ["inventory", "Inventory"], ["comms", "Communications"], ["graph", "Graph"], ["config", "Configuration"],
   ["compare", "Compare"], ["groups", "Groups & labels"], ["migrate", "Migrate"], ["export", "Export & AI"], ["privacy", "Data & privacy"],
 ];
-const state = { token: "", projects: [], pid: "", tab: "start", overview: null, status: null, plan: null, translation: null, zoneMap: {} };
+const state = { verbose: false, token: "", projects: [], pid: "", tab: "start", overview: null, status: null, plan: null, translation: null, zoneMap: {} };
 
 function h(tag, props, ...kids) {
   const el = document.createElement(tag);
@@ -19,7 +19,7 @@ function h(tag, props, ...kids) {
     else if (k === "checked") el.checked = !!v;
     else el.setAttribute(k, v === true ? "" : String(v));
   }
-  for (const kid of kids.flat()) {
+  for (const kid of kids.flat(Infinity)) {
     if (kid === null || kid === undefined || kid === false) continue;
     el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
   }
@@ -77,7 +77,9 @@ async function loadProjects(select) {
   if (!state.projects.find((p) => p.id === state.pid)) state.pid = state.projects.length ? state.projects[0].id : "";
   renderProjects();
 }
+let renderTicket = 0;
 async function render() {
+  const ticket = ++renderTicket;       // a slow render must never overwrite a newer one
   renderTabs();
   const view = document.getElementById("view");
   view.replaceChildren(h("p", { class: "muted", text: "Loading..." }));
@@ -87,7 +89,7 @@ async function render() {
     return;
   }
   const out = await guarded(() => fn());
-  if (out) view.replaceChildren(...[].concat(out));
+  if (out && ticket === renderTicket) view.replaceChildren(...[].concat(out));
 }
 function table(headers, rows, opts = {}) {
   const t = h("table", {}, h("thead", {}, h("tr", {}, headers.map((x) => h("th", { scope: "col", text: x })))),
@@ -111,6 +113,21 @@ function evidenceList(ev) {
   return h("ul", { class: "plain small" }, ev.map((e) => h("li", {}, h("b", { text: `${e.kind} ${e.ref}` }), e.text ? `: ${e.text}` : "")));
 }
 function notice(text, cls) { return h("div", { class: `notice ${cls || ""}`, text }); }
+// Long explanations stay one click away. "Show explanations" (top right) opens all of them.
+function more(label, ...kids) {
+  const opts = typeof kids[0] === "object" && kids[0] && kids[0].__open !== undefined ? kids.shift() : {};
+  return h("details", { class: "more", open: state.verbose || opts.__open }, h("summary", { text: label }), h("div", { class: "morebody" }, kids));
+}
+function splitSentence(text) {
+  const m = text.match(/^(.{20,170}?[.;])\s+(.*)$/s);
+  if (m) return [m[1], m[2]];
+  if (text.length > 170) { const cut = text.lastIndexOf(" ", 150); return [text.slice(0, cut) + "\u2026", text]; }
+  return [text, ""];
+}
+function brief(text) {
+  const [head, tail] = splitSentence(String(text));
+  return tail ? h("details", { class: "inline", open: state.verbose }, h("summary", { text: head }), h("span", { class: "morebody", text: tail })) : h("span", { text: head });
+}
 function stat(label, value) { return h("div", { class: "stat" }, h("b", { text: String(value) }), h("span", { class: "muted", text: label })); }
 function sectionTitle(title, kind) { return h("h2", {}, title, " ", kind ? kindChip(kind) : null); }
 
@@ -118,23 +135,22 @@ function sectionTitle(title, kind) { return h("h2", {}, title, " ", kind ? kindC
 const VIEWS = {};
 
 VIEWS.start = async () => {
-  const proj_ = proj();
   const out = [];
-  const project = proj_ ? await api(`/api/projects/${state.pid}`) : null;
-  out.push(h("section", { class: "card" }, h("h2", { text: "1. Import" }),
-    h("p", { text: "Add packet captures (PCAP, PCAPNG), Zeek conn.log files, and firewall or router/switch exports. The file type is recognised from its content, not its name. Files are stored only on this computer." }),
-    project ? importForm(project) : notice("Create a project first (New project, top right), or load the sample project.", "info"),
-    h("div", { class: "row" }, h("button", { type: "button", class: "primary", onclick: () => loadSample("riverbend") }, "Create the Riverbend example (recommended)"),
-      h("span", { class: "muted small", text: "A fictional water-treatment plant: 3 captures, a flow log, 5 device exports in 5 formats, subnets, labels and groups. The same files are in samples/riverbend/ with a guide." })),
-    h("div", { class: "row" }, h("button", { type: "button", onclick: () => loadSample("small") }, "Create the small example"),
-      h("span", { class: "muted small", text: "One capture and one firewall export: quicker to read through." }))));
+  const project = proj() ? await api(`/api/projects/${state.pid}`) : null;
+  out.push(h("section", { class: "card" }, h("h2", { text: "Import" }),
+    h("p", { class: "small", text: "Drop in captures (PCAP, PCAPNG), Zeek logs and device exports. The type is detected from the content; files stay on this computer." }),
+    project ? importForm(project) : notice("Create a project first (New project, top right), or load an example below.", "info"),
+    h("div", { class: "row" }, h("button", { type: "button", class: "primary", onclick: () => loadSample("riverbend") }, "Load the Riverbend example"),
+      h("span", { class: "muted small", text: "Fictional plant: 3 captures, a flow log, 5 device exports. Guide: samples/riverbend/GUIDE.md" })),
+    h("div", { class: "row" }, h("button", { type: "button", onclick: () => loadSample("small") }, "Load the small example"),
+      h("span", { class: "muted small", text: "One capture, one firewall." }))));
   if (project) out.push(sourcesCard(project));
   out.push(supportCard());
   return out;
 };
 function importForm(project) {
   const input = h("input", { type: "file", id: "fileInput", multiple: true, "aria-label": "Files to import" });
-  const point = h("input", { type: "text", id: "obsPoint", placeholder: "e.g. SPAN port on distribution switch 1", size: 44 });
+  const point = h("input", { type: "text", id: "obsPoint", placeholder: "e.g. SPAN on distribution switch 1", size: 40 });
   const drop = h("div", { class: "dropzone" }, h("p", { text: "Drop files here or choose files" }), input);
   const go = async (files) => {
     for (const f of files) {
@@ -149,23 +165,22 @@ function importForm(project) {
   drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
   drop.addEventListener("dragleave", () => drop.classList.remove("over"));
   drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); go([...e.dataTransfer.files]); });
-  return h("div", {}, h("label", { class: "field", for: "obsPoint" }, "Where was the capture taken? (stored with the capture; never guessed)", point), h("p"), drop);
+  return h("div", {}, h("label", { class: "field", for: "obsPoint" }, "Capture point (optional; never guessed)", point), h("p"), drop);
 }
 function sourcesCard(project) {
   const rows = project.sources.map((src) => ({ cells: [
     kindChip(src.kind === "policy" ? "CONFIGURED" : "OBSERVED"), src.filename, src.format || "",
-    src.kind === "policy" ? `${src.vendor}${src.hostname ? " / " + src.hostname : ""}: ${src.rules} rules, ${src.issues} notes` : `${src.flows} flows, ${src.packets} records`,
+    src.kind === "policy" ? `${src.vendor}${src.hostname ? " / " + src.hostname : ""}: ${src.rules} rules` : `${src.flows} flows`,
     src.observation_point || "-", h("button", { type: "button", class: "danger", onclick: async () => { if (confirm(`Delete ${src.filename} and its analysis from this computer?`)) { await guarded(() => api(`/api/projects/${project.id}/sources/${src.id}`, { method: "DELETE" })); await loadProjects(); render(); } } }, "Delete")] }));
-  return h("section", { class: "card" }, h("h2", { text: "Files in this project" }),
-    rows.length ? table(["Type", "File", "Format", "Contents", "Observation point", ""], rows) : h("p", { class: "muted", text: "No files yet." }));
+  return h("section", { class: "card" }, h("h2", { text: "Files" }),
+    rows.length ? table(["Type", "File", "Format", "Contents", "Capture point", ""], rows) : h("p", { class: "muted", text: "No files yet." }));
 }
 function supportCard() {
   const st = state.status;
   if (!st) return h("span");
   return h("section", { class: "card" }, h("h2", { text: "What can be read" }),
-    h("ul", { class: "plain" }, Object.values(st.formats).map((f) => h("li", { text: f })), h("li", { text: "PCAP and PCAPNG captures (Ethernet, raw IP, Linux cooked, loopback)" }), h("li", { text: "Zeek conn.log (TSV or JSON lines)" })),
-    h("p", { class: "muted small", text: "A format is listed only because an adapter exists and has tests against synthetic exports. It has not been validated on every version of every product. See the support matrix in the documentation." }),
-    h("p", { class: "small", text: `Limits: captures up to ${fmtBytes(st.limits.max_capture_bytes)}, exports up to ${fmtBytes(st.limits.max_config_bytes)}, parsing stops after ${st.limits.parse_seconds} s.` }));
+    h("p", { class: "small", text: ["PCAP, PCAPNG, Zeek conn.log", ...Object.values(st.formats)].join(" \u00b7 ") }),
+    more("Limits and caveats", h("p", { class: "small", text: `Captures up to ${fmtBytes(st.limits.max_capture_bytes)}, exports up to ${fmtBytes(st.limits.max_config_bytes)}; parsing stops after ${st.limits.parse_seconds} s. A format is listed because an adapter exists and is tested on synthetic exports, not on every product version.` })));
 }
 async function loadSample(which) {
   const res = await guarded(() => api("/api/sample", { method: "POST", json: { name: which } }));
@@ -179,23 +194,24 @@ async function getOverview() {
 VIEWS.inventory = async () => {
   const o = await getOverview();
   const out = [h("section", { class: "card" }, sectionTitle("What was captured", "OBSERVED"),
-    h("div", { class: "grid" }, stat("flows", o.flows), stat("communications (initiator, responder, service)", o.communications), stat("devices seen", o.inventory.devices.length), stat("files", o.sources.length)),
-    h("h3", { text: "Coverage and limits" }), h("ul", { class: "plain" }, o.coverage.length ? o.coverage.map((n) => h("li", { text: n })) : h("li", { text: "No capture imported yet." })),
-    o.captures.map((c) => h("p", { class: "small muted", text: `${c.filename}: ${c.format}, ${fmtTime(c.first_ts)} to ${fmtTime(c.last_ts)}, ${c.packets_read} records, observation point: ${c.observation_point || "not supplied"}` })))];
+    h("div", { class: "grid" }, stat("flows", o.flows), stat("communications", o.communications), stat("devices", o.inventory.devices.length), stat("files", o.sources.length)),
+    h("p", { class: "small muted", text: "Seen only from the capture points below. Absence from a capture is not evidence of absence." }),
+    more(`Capture points and limits (${o.captures.length})`, o.captures.map((c) => h("p", { class: "small", text: `${c.filename}: ${c.format}, ${fmtTime(c.first_ts)} to ${fmtTime(c.last_ts)}, ${c.packets_read} records. Point: ${c.observation_point || "not supplied"}` })),
+      h("ul", { class: "plain small" }, o.coverage.map((n) => h("li", { text: n })))))];
   const conf = Object.entries(o.direction_confidence);
-  out.push(h("section", { class: "card" }, h("h2", { text: "How sure is the direction of each flow?" }),
-    conf.length ? h("div", { class: "row" }, conf.map(([k, v]) => h("span", {}, chip(k), ` ${v}  `))) : h("p", { class: "muted", text: "-" }),
-    h("p", { class: "small muted", text: "high: a handshake (SYN) or echo request was seen. medium: indirect evidence such as a payload that is clearly a request. low or unknown: a capture that starts mid-conversation, one-way UDP, or no evidence. Low and unknown are never turned into policy proposals unless you choose to." }),
-    h("h3", { text: "Applications" }), h("ul", { class: "plain" }, Object.entries(o.applications).map(([k, v]) => h("li", { text: `${k}: ${v} ${v === 1 ? "flow" : "flows"}` })))));
+  out.push(h("section", { class: "card" }, h("h2", { text: "Direction confidence" }),
+    h("div", { class: "row" }, conf.length ? conf.map(([k, v]) => h("span", {}, chip(k), ` ${v}  `)) : "-"),
+    more("What do high, medium and low mean?", h("p", { class: "small", text: "high: a handshake (SYN) or echo request was seen. medium: indirect evidence, such as a payload that is clearly a request. low or unknown: mid-conversation capture, one-way UDP, or no evidence. Low and unknown are never turned into policy unless you choose to." })),
+    h("h3", { text: "Applications" }),
+    h("p", { class: "small", text: Object.entries(o.applications).map(([k, v]) => `${k} ${v}`).join(" \u00b7 ") })));
   out.push(matrixCard(o.matrix));
   out.push(h("section", { class: "card" }, h("h2", { text: "Devices" }),
-    h("p", { class: "small muted", text: "Counts of what this capture saw. A device's function is never inferred from its traffic; labels are yours." }),
-    table(["Address", "Your label", "Subnet", "Initiated", "Received", "Peers (out/in)", "Uncertain direction"],
-      o.inventory.devices.slice(0, 1000).map((d) => ({ cells: [d.ip, d.label || "-", d.subnet_label || d.subnet || "(not in a defined subnet)", d.initiated_flows, d.received_flows, `${d.peers_initiated_to} / ${d.peers_received_from}`, d.uncertain_direction_flows] }))),
-    h("h3", { text: "Subnets" }), table(["Subnet", "Label", "Devices seen"], o.inventory.subnets.map((x) => ({ cells: [x.subnet, x.label || "-", x.devices] })))));
+    h("p", { class: "small muted", text: "Counts only. A device's role is never inferred; labels are yours." }),
+    table(["Address", "Label", "Subnet", "Initiated", "Received", "Peers out/in", "Uncertain"],
+      o.inventory.devices.slice(0, 1000).map((d) => ({ cells: [d.ip, d.label || "-", d.subnet_label || d.subnet || "-", d.initiated_flows, d.received_flows, `${d.peers_initiated_to} / ${d.peers_received_from}`, d.uncertain_direction_flows] }))),
+    h("h3", { text: "Subnets" }), table(["Subnet", "Label", "Devices"], o.inventory.subnets.map((x) => ({ cells: [x.subnet, x.label || "-", x.devices] })))));
   return out;
 };
-
 function matrixCard(cells) {
   const names = [...new Set(cells.flatMap((c) => [c.from, c.to]))].sort();
   const cell = (a, b) => cells.find((c) => c.from === a && c.to === b);
@@ -205,7 +221,7 @@ function matrixCard(cells) {
       c ? `${c.communications} / ${c.flows}${c.low_confidence ? " \u26A0" : ""}` : "");
   })));
   return h("section", { class: "card" }, sectionTitle("Who initiated to whom, by subnet", "OBSERVED"),
-    h("p", { class: "small muted", text: "Rows are the initiating subnet, columns the responding subnet. Each cell is communications / flows; a warning mark means some of them have an uncertain initiator. An empty cell means nothing was seen, not that nothing happens." }),
+    h("p", { class: "small muted", text: "Row initiated to column. Cell = communications / flows; \u26A0 = some initiators uncertain; empty = nothing seen." }),
     cells.length ? h("div", { class: "tablewrap" }, h("table", { id: "matrix" }, h("thead", {}, h("tr", {}, h("th", { text: "initiator \u2192 responder" }), names.map((n) => h("th", { scope: "col", text: n })))), h("tbody", {}, body))) : h("p", { class: "muted", text: "No flows yet." }));
 }
 
@@ -217,7 +233,7 @@ VIEWS.comms = async () => {
     const q = new URLSearchParams(Object.entries(f).filter(([, v]) => v)); q.set("limit", "300");
     const data = await guarded(() => api(`/api/projects/${state.pid}/communications?${q}`));
     if (!data) return;
-    holder.replaceChildren(h("p", { class: "muted small", text: `${data.total} communications match${data.total > 300 ? " (showing the first 300; narrow the filter)" : ""}. Click a row for the explanation and evidence.` }),
+    holder.replaceChildren(h("p", { class: "muted small", text: `${data.total} match${data.total > 300 ? " (first 300 shown)" : ""}. Click a row for details.` }),
       table(["Initiator", "Responder", "Service", "Application", "Direction", "Flows"], data.rows.map((r) => ({ r, cells: [
         h("span", {}, r.initiator, r.initiator_label ? ` (${r.initiator_label})` : ""), h("span", {}, r.responder, r.responder_label ? ` (${r.responder_label})` : ""),
         r.port !== null ? `${r.proto}/${r.port}` : (r.icmp_type !== null ? `${r.proto} type ${r.icmp_type}` : r.proto),
@@ -235,10 +251,12 @@ VIEWS.comms = async () => {
 };
 function commDetail(row) {
   const r = row.r;
-  return h("div", {}, h("p", { text: r.explanation }), h("h3", { text: "Why this direction" }), h("ul", { class: "plain small" }, r.direction_basis.map((b) => h("li", { text: b }))),
-    h("h3", { text: "Applications" }), r.apps.length ? h("ul", { class: "plain small" }, r.apps.map((a) => h("li", {}, h("b", { text: a.name }), " ", chip(a.confidence), `: ${a.basis}`))) : h("p", { class: "small muted", text: "None identified." }),
-    r.notes.length ? [h("h3", { text: "Notes" }), h("ul", { class: "plain small" }, r.notes.map((n) => h("li", { text: n })))] : null,
-    h("h3", { text: "Evidence" }), evidenceList(r.evidence), h("p", { class: "small muted", text: `${r.packets_fwd} packets initiator to responder, ${r.packets_rev} back. First ${fmtTime(r.first_ts)}, last ${fmtTime(r.last_ts)}.` }));
+  return h("div", {}, h("p", { text: r.explanation_short }),
+    h("p", { class: "small" }, "Direction: ", chip(r.direction_confidence), " ", r.direction_basis[0] || ""),
+    more("Full explanation, applications and evidence", h("p", { text: r.explanation }),
+      r.apps.length ? h("ul", { class: "plain small" }, r.apps.map((a) => h("li", {}, h("b", { text: a.name }), " ", chip(a.confidence), `: ${a.basis}`))) : null,
+      r.notes.length ? h("ul", { class: "plain small" }, r.notes.map((n) => h("li", { text: n }))) : null,
+      evidenceList(r.evidence), h("p", { class: "small muted", text: `${r.packets_fwd} packets initiator to responder, ${r.packets_rev} back. ${fmtTime(r.first_ts)} to ${fmtTime(r.last_ts)}.` })));
 }
 
 VIEWS.graph = async () => {
@@ -248,7 +266,7 @@ VIEWS.graph = async () => {
   sel.addEventListener("change", () => { state.graphLevel = sel.value; render(); });
   return h("section", { class: "card" }, sectionTitle("Directional relationship graph", "OBSERVED"),
     h("div", { class: "row" }, h("label", { class: "field" }, "Show", sel)),
-    h("p", { class: "small muted", text: "An arrow points from the side that initiated to the side that answered. Two arrows between the same pair mean each side initiated something. Dashed red edges include flows whose initiator is uncertain." }),
+    h("p", { class: "small muted", text: "Arrows point from initiator to responder. Dashed red = some initiators uncertain." }),
     drawGraph(data), data.truncated ? notice("Only the busiest devices are drawn.", "info") : null);
 };
 function drawGraph(data) {
@@ -286,18 +304,19 @@ function drawGraph(data) {
 VIEWS.config = async () => {
   const project = await api(`/api/projects/${state.pid}`);
   const policies = project.sources.filter((x) => x.kind === "policy");
-  if (!policies.length) return h("section", { class: "card" }, sectionTitle("Configuration", "CONFIGURED"), h("p", { text: "Import a firewall, router or switch export on the Import tab." }));
+  if (!policies.length) return h("section", { class: "card" }, sectionTitle("Configuration", "CONFIGURED"), h("p", { text: "Import a firewall, router or switch export first." }));
   const id = state.policyId && policies.find((p) => p.id === state.policyId) ? state.policyId : policies[0].id; state.policyId = id;
   const v = await api(`/api/projects/${state.pid}/policies/${id}`);
+  const bad = v.issues.filter((i) => i.severity !== "info");
   return [h("section", { class: "card" }, sectionTitle("Configured policy", "CONFIGURED"), policyPicker(policies, id),
-    h("div", { class: "grid" }, stat("platform", v.summary.platform), stat("host name", v.summary.hostname || "-"), stat("rules", v.summary.rules), stat("stateful", v.summary.stateful ? "yes" : "no (replies need their own rules)")),
-    h("p", { class: "small muted", text: `Default when nothing matches: ${v.summary.default}. Rule addresses are written as: ${v.summary.address_context}.` }),
-    v.issues.map((i) => notice(`${i.message}`, i.severity === "blocker" ? "bad" : i.severity === "warning" ? "" : "info"))),
-  h("section", { class: "card" }, h("h2", { text: "Rules in evaluation order" }), v.truncated ? notice("Only the first 3000 rules are shown.", "info") : null,
-    table(["Pos", "Rule", "Action", "From zone", "To zone", "Source", "Destination", "Service", "Conditions not evaluated"], v.rules.map((r) => ({ r, cells: [r.position, r.id, h("span", {}, chip(r.action), r.enabled ? "" : " disabled"), r.src_zones.join(", ") || "any", r.dst_zones.join(", ") || "any", r.src, r.dst, r.service, r.unsupported.concat(r.applications.length ? ["application: " + r.applications.join(", ")] : [], r.users.length ? ["identity: " + r.users.join(", ")] : [], r.schedule ? ["schedule " + r.schedule] : []).join("; ") || "-"] })),
-      { detail: (row) => h("div", {}, h("p", { text: row.r.explanation }), row.r.notes.map((n) => h("p", { class: "small", text: n })), h("h3", { text: "Evidence" }), evidenceList(row.r.evidence)) })),
-  h("section", { class: "card" }, h("h2", { text: "Rule analysis" }), v.findings.length ? h("ul", { class: "plain" }, v.findings.map((f) => h("li", {}, chip(f.kind, f.severity === "warning" ? "medium" : "high"), " ", f.message))) : h("p", { text: "No shadowed, conflicting or overly broad rules were found by this tool's checks." })),
-  v.nat.length ? h("section", { class: "card" }, h("h2", { text: "NAT (recorded, not applied to decisions)" }), table(["Id", "Kind", "Original source", "Original destination", "Translated source", "Translated destination", "Zones", "Notes"], v.nat.map((n) => ({ cells: [n.id, n.kind, n.original_src, n.original_dst, n.translated_src, n.translated_dst, n.zones, n.notes.join(" ")] })))) : null];
+    h("div", { class: "grid" }, stat("platform", v.summary.platform), stat("host", v.summary.hostname || "-"), stat("rules", v.summary.rules), stat("stateful", v.summary.stateful ? "yes" : "no")),
+    h("p", { class: "small muted", text: `Default: ${v.summary.default}. Rule addresses: ${v.summary.address_context}.` }),
+    v.issues.length ? more(`Notes (${v.issues.length}${bad.length ? `, ${bad.length} to read` : ""})`, warnList(v.issues)) : null),
+  h("section", { class: "card" }, h("h2", { text: "Rules, in evaluation order" }), v.truncated ? notice("Only the first 3000 rules are shown.", "info") : null,
+    table(["Pos", "Rule", "Action", "From", "To", "Source", "Destination", "Service", "Not evaluated"], v.rules.map((r) => ({ r, cells: [r.position, r.id, h("span", {}, chip(r.action), r.enabled ? "" : " disabled"), r.src_zones.join(", ") || "any", r.dst_zones.join(", ") || "any", r.src, r.dst, r.service, r.unsupported.concat(r.applications.length ? ["application: " + r.applications.join(", ")] : [], r.users.length ? ["identity: " + r.users.join(", ")] : [], r.schedule ? ["schedule " + r.schedule] : []).join("; ") || "-"] })),
+      { detail: (row) => h("div", {}, h("p", { text: row.r.explanation }), row.r.notes.map((n) => h("p", { class: "small", text: n })), more("Evidence", evidenceList(row.r.evidence))) })),
+  h("section", { class: "card" }, h("h2", { text: `Rule analysis (${v.findings.length})` }), v.findings.length ? h("ul", { class: "plain" }, v.findings.map((f) => h("li", {}, chip(f.kind, f.severity === "warning" ? "medium" : "high"), " ", brief(f.message)))) : h("p", { class: "small", text: "No shadowed, conflicting or overly broad rules found." })),
+  v.nat.length ? h("section", { class: "card" }, h("h2", { text: `NAT (${v.nat.length}; recorded, not applied)` }), table(["Id", "Kind", "Original source", "Original destination", "Translated source", "Translated destination", "Zones"], v.nat.map((n) => ({ cells: [n.id, n.kind, n.original_src, n.original_dst, n.translated_src, n.translated_dst, n.zones] })))) : null];
 };
 function policyPicker(policies, id) {
   const sel = h("select", {}, policies.map((p) => h("option", { value: p.id, selected: p.id === id }, `${p.filename} (${p.vendor})`)));
@@ -314,14 +333,15 @@ VIEWS.compare = async () => {
   const showAll = !!state.showAllCompare;
   const shown = c.rows.filter((r) => showAll || r.crosses_device);
   const toggle = h("input", { type: "checkbox", id: "showAll", checked: showAll }); toggle.addEventListener("change", () => { state.showAllCompare = toggle.checked; render(); });
-  return [h("section", { class: "card" }, h("h2", {}, "Observed traffic against configured permissions ", kindChip("OBSERVED"), " ", kindChip("CONFIGURED")), policyPicker(policies, id),
-    h("p", { class: "small", text: `${c.crossing} of ${c.rows.length} observed communications cross this device (both ends are in zones or interfaces this configuration knows, and they differ). The rest cannot be judged by it.` }),
+  return [h("section", { class: "card" }, h("h2", {}, "Observed against configured ", kindChip("OBSERVED"), " ", kindChip("CONFIGURED")), policyPicker(policies, id),
     h("div", { class: "row" }, Object.entries(showAll ? c.counts : c.crossing_counts).map(([k, v]) => h("span", {}, chip(k), ` ${v}  `)),
-      h("label", { class: "small" }, toggle, " also show traffic that does not cross this device")), notice(c.note, "info"),
-    table(["Initiator", "Responder", "Service", "Outcome", "Matched rule", "Reading"], shown.map((r) => ({ r, cells: [r.observed.initiator, r.observed.responder, r.observed.port !== null ? `${r.observed.proto}/${r.observed.port}` : r.observed.proto, chip(r.outcome), r.rule || "-", r.reading] })),
-      { detail: (row) => h("div", {}, h("p", { text: row.r.basis }), row.r.uncertain.length ? h("p", { class: "small", text: "Uncertain because: " + row.r.uncertain.join("; ") }) : null, row.r.return_path ? h("p", { class: "small", text: `Reply direction (stateless): ${row.r.return_path.outcome}: ${row.r.return_path.basis}` }) : null, h("p", { class: "small muted", text: `Zones used: ${row.r.zones.map((z) => z || "unknown").join(" to ")}. Set zones on the Groups & labels tab.` }), h("h3", { text: "Rule evidence" }), evidenceList(row.r.decision_evidence), h("h3", { text: "Observed" }), h("p", { text: row.r.observed.explanation }), evidenceList(row.r.observed.evidence)) })),
-  h("section", { class: "card" }, h("h2", { text: "Allow rules no observed traffic matched" }), h("p", { class: "small muted", text: "This is not a list of unused rules: a capture only covers its own time window and location." }),
-    c.unobserved_rules.length ? table(["Rule", "Source", "Destination", "Service"], c.unobserved_rules.map((r) => ({ cells: [r.rule, r.src, r.dst, r.svc] }))) : h("p", { text: "Every enabled allow rule matched some observed traffic first." }))];
+      h("span", { class: "small muted", text: `${c.crossing} of ${c.rows.length} cross this device` }),
+      h("label", { class: "small" }, toggle, " show the rest")),
+    more("How to read this", h("p", { class: "small", text: c.note + " Traffic that does not cross the device (an end is in no zone this configuration knows) cannot be judged by it, so it is hidden by default." })),
+    table(["Initiator", "Responder", "Service", "Outcome", "Rule", "Reading"], shown.map((r) => ({ r, cells: [r.observed.initiator, r.observed.responder, r.observed.port !== null ? `${r.observed.proto}/${r.observed.port}` : r.observed.proto, chip(r.outcome), r.rule || "-", r.reading_short] })),
+      { detail: (row) => h("div", {}, h("p", { text: row.r.reading }), h("p", { class: "small", text: row.r.basis }), row.r.uncertain.length ? h("p", { class: "small", text: "Uncertain: " + row.r.uncertain.join("; ") }) : null, row.r.return_path ? h("p", { class: "small", text: `Reply direction (stateless): ${row.r.return_path.outcome}. ${row.r.return_path.basis}` }) : null, h("p", { class: "small muted", text: `Zones used: ${row.r.zones.map((z) => z || "unknown").join(" to ")}.` }), more("Evidence", evidenceList(row.r.decision_evidence), h("p", { text: row.r.observed.explanation }), evidenceList(row.r.observed.evidence))) })),
+  h("section", { class: "card" }, h("h2", { text: `Allow rules no observed traffic matched (${c.unobserved_rules.length})` }), h("p", { class: "small muted", text: "Not a list of unused rules: a capture covers only its own window and place." }),
+    c.unobserved_rules.length ? table(["Rule", "Source", "Destination", "Service"], c.unobserved_rules.map((r) => ({ cells: [r.rule, r.src, r.dst, r.svc] }))) : h("p", { class: "small", text: "Every enabled allow rule matched some observed traffic first." }))];
 };
 
 // ------------------------------------------------------------------ groups & labels
@@ -360,13 +380,13 @@ VIEWS.groups = async () => {
   const fileIn = h("input", { type: "file", accept: ".json,application/json", "aria-label": "Load subnets, labels and groups from a JSON file" }); fileIn.addEventListener("change", () => fileIn.files[0] && loadJson(fileIn.files[0]));
   const exportJson = () => { const data = { subnets: [...subBody.children].map((t) => t._get()), groups: [...grpBody.children].map((t) => t._get()), labels: Object.fromEntries([...lblBody.children].map((t) => t._get()).filter((x) => x[0])) };
     const a = h("a", { href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })), download: "ruletruss-context.json" }); document.body.append(a); a.click(); a.remove(); };
-  return [h("section", { class: "card" }, h("h2", { text: "Load or save everything on this page" }), h("p", { class: "small muted", text: "A JSON file of subnets, labels and groups. The Riverbend example ships one (samples/riverbend/context.json)." }),
+  return [h("section", { class: "card" }, h("h2", { text: "Load or save this page" }), h("p", { class: "small muted", text: "A JSON file of subnets, labels and groups (Riverbend ships one)." }),
     h("div", { class: "row" }, h("label", { class: "field" }, "Load from a JSON file", fileIn), h("button", { type: "button", onclick: exportJson }, "Download as JSON"))),
-  h("section", { class: "card" }, h("h2", { text: "Subnets" }), h("p", { class: "small muted", text: "Define the networks you know. The optional zone is the zone or interface name a firewall rule would use for that network. Products name the same segment differently, so list aliases with | (for example outside|wan): each configuration uses the alias it has. Tick 'outside my control' for the Internet, a vendor or a partner; destinations there are what external egress policies are for." }),
+  h("section", { class: "card" }, h("h2", { text: "Subnets" }), h("p", { class: "small muted", text: "Your networks. Zone = the name a firewall rule uses for it." }), more("Zone aliases and outside networks", h("p", { class: "small", text: "Products name one segment differently, so list aliases with | (for example outside|wan); each configuration uses the alias it has. Tick 'outside my control' for the Internet, a vendor or a partner: destinations there are what external egress policies are for." })),
     h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["Network (CIDR)", "Label", "Zone / interface", "Outside my control", ""].map((x) => h("th", { text: x })))), subBody)), h("div", { class: "row" }, h("button", { type: "button", onclick: () => addSub() }, "Add subnet"))),
-  h("section", { class: "card" }, h("h2", { text: "Device labels" }), h("p", { class: "small muted", text: "Labels are yours. They appear in explanations as 'labelled ...'. The tool does not guess what a device is." }),
+  h("section", { class: "card" }, h("h2", { text: "Device labels" }), h("p", { class: "small muted", text: "Your names for devices. The tool never guesses what a device is." }),
     h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["Address", "Label", ""].map((x) => h("th", { text: x })))), lblBody)), h("div", { class: "row" }, h("button", { type: "button", onclick: () => addLbl() }, "Add label"))),
-  h("section", { class: "card" }, h("h2", {}, "Groups for directional policies ", kindChip("PROPOSED")), h("p", { class: "small muted", text: "An endpoint can be in several groups. Members are addresses or CIDR networks. Tick 'isolated behind a gateway' for groups whose members reach the outside only through an external egress policy." }),
+  h("section", { class: "card" }, h("h2", {}, "Groups for directional policies ", kindChip("PROPOSED")), h("p", { class: "small muted", text: "An endpoint can be in several groups. Members: addresses or CIDRs." }), more("Isolated behind a gateway", h("p", { class: "small", text: "Tick this for groups whose members reach the outside only through an external egress policy." })),
     h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["Group", "Members", "Isolated behind a gateway", ""].map((x) => h("th", { text: x })))), grpBody)),
     h("div", { class: "row" }, h("button", { type: "button", onclick: () => addGrp() }, "Add group"), h("button", { type: "button", onclick: suggest }, "Suggest one group per subnet"))),
   h("div", { class: "row" }, h("button", { type: "button", class: "primary", onclick: save }, "Save subnets, labels and groups"))];
@@ -374,19 +394,20 @@ VIEWS.groups = async () => {
 
 // ------------------------------------------------------------------ migrate
 function warnList(items) {
-  return h("ul", { class: "plain small" }, items.map((w) => h("li", {}, chip(w.severity, w.severity === "info" ? "medium" : w.severity), " ", w.message, w.evidence && w.evidence.length ? h("span", { class: "muted" }, " [", w.evidence.map((e) => `${e.kind} ${e.ref}`).join("; "), "]") : null)));
+  return h("ul", { class: "plain small" }, items.map((w) => h("li", {}, chip(w.severity, w.severity === "info" ? "medium" : w.severity), " ", brief(w.message),
+    w.evidence && w.evidence.length ? h("span", { class: "muted" }, " [", w.evidence.map((e) => `${e.kind} ${e.ref}`).join("; "), "]") : null)));
 }
 VIEWS.migrate = async () => {
   const project = await api(`/api/projects/${state.pid}`);
   const policies = project.sources.filter((x) => x.kind === "policy");
   const mig = state.mig || (state.mig = { workflow: "preserve", policy: "", low: false, ack: false, target: "cisco-asa" });
   if (!policies.find((p) => p.id === mig.policy) && policies.length) mig.policy = policies[0].id;
-  const out = [h("section", { class: "card" }, h("h2", {}, "Choose a workflow ", kindChip("PROPOSED")),
-    h("div", { class: "row" }, h("label", {}, h("input", { type: "radio", name: "wf", value: "preserve", checked: mig.workflow === "preserve", onchange: () => { mig.workflow = "preserve"; render(); } }), " Preserve existing configured permissions"),
-      h("label", {}, h("input", { type: "radio", name: "wf", value: "narrow", checked: mig.workflow === "narrow", onchange: () => { mig.workflow = "narrow"; render(); } }), " Propose narrower permissions from observed communications")),
-    mig.workflow === "preserve" ? h("p", { class: "small muted", text: "Translates what the source device is configured to allow, rule by rule. Nothing is narrowed or widened on purpose; every place it does either is reported." })
-      : [h("p", { class: "small muted", text: "Builds proposals only from what the imported capture(s) show. Observed traffic is not proof of business need, and a capture is only a time window. Every proposal needs review." }),
-        h("label", {}, h("input", { type: "checkbox", checked: mig.low, onchange: (e) => { mig.low = e.target.checked; } }), " Include flows whose initiator is low or unknown confidence (not recommended)")],
+  const out = [h("section", { class: "card" }, h("h2", {}, "Workflow ", kindChip("PROPOSED")),
+    h("div", { class: "row" }, h("label", {}, h("input", { type: "radio", name: "wf", value: "preserve", checked: mig.workflow === "preserve", onchange: () => { mig.workflow = "preserve"; render(); } }), " Preserve what is configured"),
+      h("label", {}, h("input", { type: "radio", name: "wf", value: "narrow", checked: mig.workflow === "narrow", onchange: () => { mig.workflow = "narrow"; render(); } }), " Propose narrower from observation")),
+    mig.workflow === "preserve" ? h("p", { class: "small muted", text: "Translates the configured rules one by one. Every place it widens or narrows is reported." })
+      : [h("p", { class: "small muted", text: "Built only from what was seen. Not proof of need; every proposal needs review." }),
+        h("label", { class: "small" }, h("input", { type: "checkbox", checked: mig.low, onchange: (e) => { mig.low = e.target.checked; } }), " Include flows with uncertain direction (not recommended)")],
     mig.workflow === "preserve" ? (policies.length ? h("div", { class: "row" }, h("label", { class: "field" }, "Source configuration", (() => { const sel = h("select", {}, policies.map((p) => h("option", { value: p.id, selected: p.id === mig.policy }, `${p.filename} (${p.vendor})`))); sel.addEventListener("change", () => { mig.policy = sel.value; }); return sel; })())) : notice("Import a configuration first.", "bad")) : null)];
   out.push(directionalCard(mig));
   out.push(firewallCard(mig, project, policies));
@@ -402,7 +423,8 @@ function directionalCard(mig) {
   };
   if (state.plan && state.plan.workflow === mig.workflow) holder.replaceChildren(...showPlan(state.plan, mig));
   return h("section", { class: "card" }, h("h2", {}, "Directional group policies ", kindChip("PROPOSED")),
-    h("p", { class: "small", text: "A policy connects From groups to To groups. From may initiate connections to To; To may not initiate to From. Allowing both directions takes two policies. External egress policies are separate. Replies to a permitted connection are not a separate permission." }),
+    h("p", { class: "small", text: "From groups may start connections to To groups. The reverse needs its own policy; replies need none." }),
+    more("About the model", h("p", { class: "small", text: "A policy connects From groups to To groups and says who may initiate. Allowing both directions takes two policies. External egress policies are a separate type for endpoints isolated behind a gateway. Ports, protocols, deny rules, ordering, applications and schedules are not part of the model: they are kept as information, and any loss is reported." })),
     h("div", { class: "row" }, h("button", { type: "button", class: "primary", onclick: run }, "Build directional policies")), holder);
 }
 function showPlan(plan, mig) {
@@ -410,36 +432,43 @@ function showPlan(plan, mig) {
   const bad = plan.summary.policies_that_broaden_access || plan.summary.policies_that_lose_restrictions || plan.summary.deny_rules_not_translated;
   out.push(notice(plan.summary.verdict, bad ? "bad" : "info"));
   out.push(h("div", { class: "grid" }, Object.entries(plan.summary).filter(([k]) => k !== "verdict").map(([k, v]) => stat(k.replace(/_/g, " "), v))));
+  const reviews = plan.review_items;
   if (plan.workflow === "narrow") {
-    const o = plan.observation;
-    out.push(h("h3", { text: "Observation period (read before using any proposal)" }), h("ul", { class: "plain small" }, (o.captures || []).map((c) => h("li", { text: `${c.filename}: ${fmtTime(c.first_ts)} to ${fmtTime(c.last_ts)}; observation point: ${c.observation_point}` })), (o.caveats || []).map((c) => h("li", { text: c }))));
+    const o = plan.observation, first = reviews.find((i) => i.code === "observation-limits");
+    out.push(h("p", { class: "small" }, h("b", { text: "Observation window: " }), `${fmtTime(o.first_ts)} to ${fmtTime(o.last_ts)} (${((o.duration_seconds || 0) / 3600).toFixed(2)} h). `, (o.captures || []).map((c) => c.observation_point).filter((v, i, a) => a.indexOf(v) === i).join("; ")));
+    out.push(notice("Review required: anything that did not happen in this window is invisible here (scheduled jobs, failover, maintenance, vendor access).", ""));
+    if (first) out.push(more("Observation limits", h("p", { class: "small", text: first.message }), h("ul", { class: "plain small" }, (o.caveats || []).map((c) => h("li", { text: c })))));
   }
-  out.push(h("h3", { text: "Group policies" }));
-  for (const p of plan.policies) {
-    out.push(h("div", { class: "card" }, h("b", { text: p.name }), " ", chip(p.status), " ", chip(p.origin, "proposed"),
-      p.status === "blocked" ? null : h("p", { class: "small" }, h("b", { text: "From " }), p.from_groups.join(", "), " ", h("b", { text: "may initiate to " }), p.to_groups.join(", "), ". ", p.direction_note.split(". ")[1] || ""),
-      h("p", { class: "small muted", text: p.basis }), p.services_informational.length ? h("p", { class: "small", text: "Services (information only; the model does not enforce them): " + p.services_informational.join("; ") }) : null,
-      p.granted_pairs ? h("p", { class: "small", text: `Group membership grants ${p.granted_pairs.toLocaleString()} address pair(s); ${p.observed_pairs} ${plan.workflow === "narrow" ? "initiating pair(s) observed" : "pair(s) covered by source rules"}.` }) : null,
-      p.warnings.length ? warnList(p.warnings) : null, evidenceList(p.evidence.slice(0, 4))));
+  const live = plan.policies.filter((p) => p.status !== "blocked"), blocked = plan.policies.filter((p) => p.status === "blocked");
+  out.push(h("h3", { text: `Group policies (${live.length})` }));
+  for (const p of live) {
+    out.push(h("div", { class: "card tight" }, h("div", { class: "row" }, h("b", { text: p.name }), chip(p.status), chip(p.origin, "proposed")),
+      h("p", { class: "small" }, `${p.from_groups.join(", ")} may initiate to ${p.to_groups.join(", ")}`, p.granted_pairs ? h("span", { class: "muted", text: ` \u00b7 ${p.granted_pairs.toLocaleString()} address pairs granted${p.observed_pairs ? `, ${p.observed_pairs} ${plan.workflow === "narrow" ? "observed" : "source-permitted"}` : ""}` }) : null),
+      p.services_informational.length ? h("p", { class: "small muted", text: `Services (information only): ${p.services_informational.slice(0, 3).join("; ")}${p.services_informational.length > 3 ? `; +${p.services_informational.length - 3} more` : ""}` }) : null,
+      p.warnings.length ? more(`${p.warnings.length} warning${p.warnings.length === 1 ? "" : "s"}`, warnList(p.warnings)) : null,
+      more("Basis and evidence", h("p", { class: "small", text: p.basis }), evidenceList(p.evidence.slice(0, 4)))));
   }
+  if (blocked.length) out.push(more(`Not translated (${blocked.length})`, table(["Source rule", "Why"], blocked.map((p) => ({ cells: [p.source_rules.join(", "), brief(p.warnings.map((w) => w.message).join(" "))] })))));
   if (plan.egress_policies.length) {
-    out.push(h("h3", { text: "External egress policies" }));
-    for (const e of plan.egress_policies) out.push(h("div", { class: "card" }, h("b", { text: e.name }), " ", chip(e.status), h("p", { class: "small", text: `Endpoint groups: ${e.endpoint_groups.join(", ")}. Enabled: ${e.enabled ? "yes" : "no"}. Allow all DNS queries: ${e.allow_all_dns ? "yes" : "no"}.` }),
-      h("p", { class: "small", text: `Allowed prefixes: ${e.allowed_prefixes.join(" ") || "-"}` }), h("p", { class: "small", text: `Allowed DNS names: ${e.allowed_dns_names.join(" ") || "-"}` }), e.services.length ? h("p", { class: "small", text: "Services (information only): " + e.services.join("; ") }) : null, warnList(e.warnings)));
+    out.push(h("h3", { text: `External egress policies (${plan.egress_policies.length})` }));
+    for (const e of plan.egress_policies) out.push(h("div", { class: "card tight" }, h("div", { class: "row" }, h("b", { text: e.name }), chip(e.status)),
+      h("p", { class: "small", text: `${e.endpoint_groups.join(", ")} may reach: prefixes ${e.allowed_prefixes.join(" ") || "-"}; DNS names ${e.allowed_dns_names.join(" ") || "-"}; all DNS queries ${e.allow_all_dns ? "allowed" : "not allowed"}` }),
+      e.services.length ? h("p", { class: "small muted", text: `Services (information only): ${e.services.join("; ")}` }) : null,
+      e.warnings.length ? more(`${e.warnings.length} warning${e.warnings.length === 1 ? "" : "s"}`, warnList(e.warnings)) : null));
   }
-  out.push(h("h3", { text: "Gaps: what did not translate, or translated with a loss" }), plan.gaps.length ? warnList(plan.gaps) : h("p", { class: "small", text: "None recorded." }));
-  out.push(h("h3", { text: "Review items" }), plan.review_items.length ? warnList(plan.review_items) : h("p", { class: "small", text: "None." }));
-  if (plan.workflow === "narrow") out.push(h("label", {}, h("input", { type: "checkbox", checked: mig.ack, onchange: (e) => { mig.ack = e.target.checked; } }), " I have read the observation limits and will confirm each proposal with the people who run these systems before enforcing it."));
-  out.push(h("p", { class: "small muted", text: "Directional rules alone are not a complete zero trust architecture: identity, device posture, encryption and monitoring are outside this worksheet. Export it on the Export tab." }));
+  if (plan.gaps.length) out.push(more(`Gaps: not translated or translated with a loss (${plan.gaps.length})`, warnList(plan.gaps)));
+  const rest = reviews.filter((i) => i.code !== "observation-limits");
+  if (rest.length) out.push(more(`Review items (${rest.length})`, warnList(rest)));
+  if (plan.workflow === "narrow") out.push(h("label", { class: "small" }, h("input", { type: "checkbox", checked: mig.ack, onchange: (e) => { mig.ack = e.target.checked; } }), " I have read the observation limits and will confirm each proposal with the people who run these systems."));
+  out.push(h("p", { class: "small muted", text: "Directional rules alone are not a complete zero trust architecture. Export on the Export tab." }));
   return out;
 }
 function firewallCard(mig, project, policies) {
   const holder = h("div");
   const targets = state.status ? Object.entries(state.status.targets) : [];
-  const zoneRow = h("div", { class: "row" });
   const targetSel = h("select", {}, targets.map(([k, l]) => h("option", { value: k, selected: k === mig.target }, l)));
   targetSel.addEventListener("change", () => { mig.target = targetSel.value; });
-  const zoneInput = h("textarea", { class: "wide", rows: 3, placeholder: "One per line: source zone = destination interface, for example\not = Vlan30\ncorp = Vlan10" }, Object.entries(state.zoneMap).map(([k, v]) => `${k} = ${v}`).join("\n"));
+  const zoneInput = h("textarea", { class: "wide", rows: 3, placeholder: "source zone = destination interface, one per line\not = Vlan30\ncorp = Vlan10" }, Object.entries(state.zoneMap).map(([k, v]) => `${k} = ${v}`).join("\n"));
   const run = async () => {
     state.zoneMap = Object.fromEntries(zoneInput.value.split("\n").map((l) => l.split("=").map((x) => x.trim())).filter((p) => p.length === 2 && p[0] && p[1]));
     const t = await guarded(() => api(`/api/projects/${state.pid}/translate`, { method: "POST", json: body(mig, { target: mig.target, zone_map: state.zoneMap }) }));
@@ -448,9 +477,9 @@ function firewallCard(mig, project, policies) {
   };
   if (state.translation && state.translation.workflow === mig.workflow) holder.replaceChildren(...showTranslation(state.translation));
   return h("section", { class: "card" }, h("h2", {}, "Translate to another firewall ", kindChip("PROPOSED")),
-    h("p", { class: "small", text: "Rule order and stateful or stateless behaviour are preserved or called out. A rule the destination cannot express is blocked and left as a comment; it is never replaced by 'any'. Output is for review and is not deployed anywhere." }),
+    h("p", { class: "small", text: "Order and statefulness are kept or called out. A rule the destination cannot express is blocked, never turned into 'any'." }),
     h("div", { class: "row" }, h("label", { class: "field" }, "Destination", targetSel)),
-    h("label", { class: "field" }, "Interface mapping (destination interface names are never guessed; unmapped zones show as <TARGET-IF:...> placeholders)", zoneInput), zoneRow,
+    h("label", { class: "field" }, "Interface mapping (never guessed; unmapped zones show as <TARGET-IF:...>)", zoneInput),
     h("div", { class: "row" }, h("button", { type: "button", class: "primary", onclick: run }, "Translate and validate")), holder);
 }
 function showTranslation(t) {
@@ -458,20 +487,19 @@ function showTranslation(t) {
   const s_ = t.summary;
   out.push(notice(s_.verdict, s_.blocked || s_.blocked_deny_rules || s_.rules_known_broader ? "bad" : "info"));
   out.push(h("div", { class: "grid" }, Object.entries(s_).filter(([k]) => k !== "verdict").map(([k, v]) => stat(k.replace(/_/g, " "), v))));
-  out.push(h("h3", { text: "Per-rule report" }), table(["Source", "Status", "Reason"], t.report.map((e) => ({ cells: [e.source_rule, chip(e.status, e.status === "translated" ? "allow" : e.status === "blocked" ? "blocked" : "medium"), e.reason || "-"] }))));
-  out.push(h("h3", { text: "Issues" }), warnList(t.issues));
-  const v = t.validation;
-  out.push(h("h3", { text: "Validation: source and destination decisions on sampled connections" }), notice(v.summary.result, (v.summary.target_broader || v.summary.problems) ? "bad" : "info"),
+  const interesting = t.report.filter((e) => e.status !== "translated");
+  out.push(more(`Per-rule report (${t.report.length} rules, ${interesting.length} not translated or skipped)`, { __open: interesting.length > 0 }, table(["Source", "Status", "Reason"], t.report.map((e) => ({ cells: [e.source_rule, chip(e.status, e.status === "translated" ? "allow" : e.status === "blocked" ? "blocked" : "medium"), e.reason ? brief(e.reason) : "-"] })))));
+  if (t.issues.length) out.push(more(`Issues (${t.issues.length})`, warnList(t.issues)));
+  const v = t.validation, rows = (v.mismatches || v.problems || []);
+  out.push(h("h3", { text: "Validation on sampled connections" }), h("div", { class: "row" }, chip(rows.length ? "differences found" : "no difference", rows.length ? "medium" : "allow"), h("span", { class: "small", text: v.summary.result })),
     h("div", { class: "grid" }, Object.entries(v.summary).filter(([k]) => k !== "result").map(([k, x]) => stat(k.replace(/_/g, " "), x))));
-  const rows = (v.mismatches || v.problems || []);
-  if (rows.length) out.push(table(["Kind", "Connection", "Detail"], rows.map((m) => ({ cells: [m.kind + (m.explained_by_known_broader_rule ? " (known broader return rule)" : "") + (m.explained_by_blocked_rule ? ` (rule ${m.explained_by_blocked_rule} was not translated)` : "") + (m.explained_by_source_default ? " (source default not translated)" : "") + (m.explained_by_reply_entry ? " (reply-only source entry not translated)" : "") + (m.explained_by_source_return_path ? " (the stateless source drops the replies)" : ""), m.connection, m.detail || `source: ${m.source} / destination: ${m.destination}`] }))));
-  out.push(h("p", { class: "small muted" }, h("b", { text: "Limits of this comparison: " }), v.limits.join(" ")));
-  if (t.placeholders.length) out.push(notice(`Replace these placeholders before use: ${t.placeholders.join(" ")}`, "bad"));
-  out.push(h("h3", { text: "Generated configuration (review only)" }), h("pre", { class: "code", text: t.text }));
+  if (rows.length) out.push(more(`Differences (${rows.length})`, table(["Kind", "Connection", "Detail"], rows.map((m) => ({ cells: [m.kind + (m.explained_by_known_broader_rule ? " (known broader return rule)" : "") + (m.explained_by_blocked_rule ? ` (rule ${m.explained_by_blocked_rule} not translated)` : "") + (m.explained_by_source_default ? " (source default not translated)" : "") + (m.explained_by_reply_entry ? " (reply-only source entry not translated)" : "") + (m.explained_by_source_return_path ? " (stateless source drops the replies)" : ""), m.connection, brief(m.detail || `source: ${m.source} / destination: ${m.destination}`)] })))));
+  out.push(more("Limits of this comparison", h("p", { class: "small", text: v.limits.join(" ") })));
+  if (t.placeholders.length) out.push(notice(`Replace before use: ${t.placeholders.join(" ")}`, "bad"));
+  out.push(more("Generated configuration (review only)", { __open: true }, h("pre", { class: "code", text: t.text })));
   return out;
 }
 
-// ------------------------------------------------------------------ export & AI
 async function download(kind, extra) {
   const res = await guarded(() => api(`/api/projects/${state.pid}/export`, { method: "POST", json: { kind, ...extra }, raw: true }));
   if (!res) return;
@@ -487,13 +515,13 @@ VIEWS.export = async () => {
   if (!policies.find((p) => p.id === mig.policy) && policies.length) mig.policy = policies[0].id;
   const b = (extra) => body(mig, { ...extra, acknowledge_observation_limits: mig.ack, target: mig.target, zone_map: state.zoneMap });
   const btn = (label, kind, extra) => h("button", { type: "button", onclick: () => download(kind, b(extra)) }, label);
-  const out = [h("section", { class: "card" }, h("h2", { text: "Exports" }), h("p", { class: "small", text: `Current workflow: ${mig.workflow === "preserve" ? "preserve configured permissions" : "narrower permissions from observation"}. Change it on the Migrate tab.` }),
-    mig.workflow === "narrow" ? h("label", {}, h("input", { type: "checkbox", checked: mig.ack, onchange: (e) => { mig.ack = e.target.checked; } }), " I have read the observation limits (required to export proposals built from a capture)") : null,
-    h("h3", { text: "Directional group policy worksheet" }), h("div", { class: "row" }, btn("Worksheet (Markdown)", "plan-markdown"), btn("Worksheet (JSON)", "plan-json"), btn("Group policies (CSV)", "plan-csv-group-policies"), btn("Groups (CSV)", "plan-csv-groups"), btn("Egress policies (CSV)", "plan-csv-egress-policies"), btn("Gaps (CSV)", "plan-csv-gaps"), btn("Review items (CSV)", "plan-csv-review")),
-    h("p", { class: "small muted", text: "This is a worksheet to apply by hand. It is not an import file for any product." }),
-    h("h3", { text: "Firewall translation" }), h("div", { class: "row" }, btn("Configuration text", "firewall-text"), btn("Report with validation (Markdown)", "firewall-markdown")),
+  const out = [h("section", { class: "card" }, h("h2", { text: "Export" }),
+    h("p", { class: "small muted", text: `Workflow: ${mig.workflow === "preserve" ? "preserve what is configured" : "narrower from observation"} (change it on Migrate).` }),
+    mig.workflow === "narrow" ? h("label", { class: "small" }, h("input", { type: "checkbox", checked: mig.ack, onchange: (e) => { mig.ack = e.target.checked; } }), " I have read the observation limits (required to export observation-based proposals)") : null,
+    h("h3", { text: "Directional group policy worksheet" }), h("div", { class: "row" }, btn("Markdown", "plan-markdown"), btn("JSON", "plan-json"), btn("Policies CSV", "plan-csv-group-policies"), btn("Groups CSV", "plan-csv-groups"), btn("Egress CSV", "plan-csv-egress-policies"), btn("Gaps CSV", "plan-csv-gaps"), btn("Review CSV", "plan-csv-review")),
+    h("h3", { text: "Firewall translation" }), h("div", { class: "row" }, btn("Configuration text", "firewall-text"), btn("Report with validation", "firewall-markdown")),
     h("h3", { text: "Observed communications" }), h("div", { class: "row" }, btn("Explanations (Markdown)", "communications-markdown"), btn("Table (CSV)", "communications-csv")),
-    h("p", { class: "small muted", text: "CSV cells that a spreadsheet could run as formulas are neutralised. Text from captures and exports is escaped in Markdown." }))];
+    more("About the exports", h("p", { class: "small", text: "The worksheet is applied by hand and is not an import file for any product. CSV cells that a spreadsheet could run as formulas are neutralised, and text from captures and exports is escaped in Markdown." })))];
   out.push(await aiCard());
   return out;
 };
@@ -501,9 +529,11 @@ async function aiCard() {
   const holder = h("div");
   const pkg = async () => { const r = await guarded(() => api(`/api/projects/${state.pid}/ai`, { method: "POST", json: {} })); if (r) holder.replaceChildren(h("p", { class: "small muted", text: `Sends to: ${r.sends_to}` }), h("textarea", { class: "wide", readonly: true, rows: 10 }, r.prompt)); };
   const ask = async () => { const r = await guarded(() => api(`/api/projects/${state.pid}/ai`, { method: "POST", json: { send: true } })); if (r) holder.replaceChildren(notice(r.label, "info"), h("pre", { class: "code", text: r.text })); };
-  return h("section", { class: "card" }, h("h2", { text: "Optional AI assistance (off unless you set it up)" }),
-    h("p", { class: "small", text: "Nothing is sent to any AI service by default. You can copy a prompt made only from the parsed statements above (uploaded text is marked as untrusted data inside it) and use it anywhere you choose." + (state.status && state.status.ai_enabled ? " An endpoint was configured when this server started." : " Sending from this page is disabled; start the server with --ai-endpoint to enable it.") }),
-    h("div", { class: "row" }, h("button", { type: "button", onclick: pkg }, "Show grounded prompt"), state.status && state.status.ai_enabled ? h("button", { type: "button", onclick: ask }, "Send to the configured endpoint") : null), holder);
+  const on = state.status && state.status.ai_enabled;
+  return h("section", { class: "card" }, h("h2", { text: "Optional AI assistance" }),
+    h("p", { class: "small", text: `Nothing is sent to any AI service by default. ${on ? "An endpoint was configured at start-up." : "Sending is off (start with --ai-endpoint to enable it)."}` }),
+    more("What the prompt contains", h("p", { class: "small", text: "Only this tool's parsed statements, with uploaded text marked as untrusted data inside it. Copy it into any assistant you choose." })),
+    h("div", { class: "row" }, h("button", { type: "button", onclick: pkg }, "Show grounded prompt"), on ? h("button", { type: "button", onclick: ask }, "Send to the configured endpoint") : null), holder);
 }
 
 // ------------------------------------------------------------------ privacy
@@ -511,20 +541,19 @@ VIEWS.privacy = async () => {
   const st = await api("/api/status"); state.status = st;
   return [h("section", { class: "card" }, h("h2", { text: "About RuleTruss" }),
     h("div", { class: "about" }, h("img", { class: "only-light", src: "/brand/okieotsec-lockup.svg", alt: "OkieOTSec" }), h("img", { class: "only-dark", src: "/brand/okieotsec-lockup-dark.svg", alt: "OkieOTSec" }),
-      h("p", { class: "small", text: `RuleTruss ${st.version} by OkieOTSec. The code is MIT licensed. The OkieOTSec name and logo are not part of that licence: a fork must use its own name and logo.` }))),
-  h("section", { class: "card" }, h("h2", { text: "Where your data is" }),
-    h("p", { text: `Everything is stored in ${st.usage.data_dir} (${st.usage.files} files, ${fmtBytes(st.usage.bytes)}), readable only by your user account.` }),
-    h("p", { text: st.network }),
-    h("ul", { class: "plain" }, h("li", { text: "Uploaded files are parsed in a separate process with memory, CPU and time limits, and are never executed." }), h("li", { text: "Passwords, keys and community strings found in configuration exports are redacted from anything stored as evidence or shown." }),
+      h("p", { class: "small", text: `RuleTruss ${st.version} by OkieOTSec. MIT licensed code; the OkieOTSec name and logo are not part of that licence.` }))),
+  h("section", { class: "card" }, h("h2", { text: "Your data" }),
+    h("p", { text: `Stored in ${st.usage.data_dir} (${st.usage.files} files, ${fmtBytes(st.usage.bytes)}), readable only by your user account. ${st.network}` }),
+    more("How uploads are handled", h("ul", { class: "plain small" }, h("li", { text: "Parsed in a separate process with memory, CPU and time limits; never executed." }), h("li", { text: "Passwords, keys and community strings are redacted from evidence, exports and anything shown." }),
       h("li", { text: "Nothing is deleted automatically unless the server was started with --retention-days." }),
-      h("li", { text: "Deleting overwrites file contents before removing them, as a best effort. It cannot be guaranteed on SSDs, copy-on-write file systems, or in backups you made.", })),
+      h("li", { text: "Deletion overwrites file contents first, as a best effort; that cannot be guaranteed on SSDs, copy-on-write file systems or backups." }))),
     h("div", { class: "row" }, state.pid ? h("button", { type: "button", class: "danger", onclick: async () => { if (confirm("Delete this project and every file in it?")) { await guarded(() => api(`/api/projects/${state.pid}`, { method: "DELETE" })); await loadProjects(); state.overview = null; render(); } } }, "Delete this project") : null,
       h("button", { type: "button", class: "danger", onclick: async () => { if (confirm("Delete ALL projects and files from this computer?")) { await guarded(() => api("/api/data", { method: "DELETE" })); await loadProjects(); render(); } } }, "Delete all data"))),
-  h("section", { class: "card" }, h("h2", { text: "What this tool does not claim" }), h("ul", { class: "plain" },
+  h("section", { class: "card" }, h("h2", { text: "What this tool does not claim" }), more("Four things to keep in mind", h("ul", { class: "plain" },
     h("li", { text: "Observed traffic is not proof of business need, and traffic missing from a capture is not proof that it never happens." }),
     h("li", { text: "A device's role is never inferred from its traffic." }),
-    h("li", { text: "A translation is not proven equivalent to its source. The validation compares sampled connections using this tool's own evaluator." }),
-    h("li", { text: "Directional policies are one control, not a complete zero trust architecture." })))];
+    h("li", { text: "A translation is not proven equivalent to its source; the validation uses this tool's own evaluator on both sides." }),
+    h("li", { text: "Directional policies are one control, not a complete zero trust architecture." }))))];
 };
 
 // ------------------------------------------------------------------ start
@@ -535,6 +564,9 @@ async function main() {
   if (m) { try { sessionStorage.setItem("rt-token", m[1]); } catch (e) { /* storage may be unavailable */ } history.replaceState(null, "", location.pathname); }
   try { state.token = sessionStorage.getItem("rt-token") || ""; } catch (e) { state.token = ""; }
   if (!state.token) { document.getElementById("view").replaceChildren(notice("Open the address printed in the terminal when the server started; it includes the access token.", "bad")); return; }
+  try { state.verbose = localStorage.getItem("rt-verbose") === "1"; } catch (e) { state.verbose = false; }
+  const verbose = document.getElementById("verbose"); verbose.checked = state.verbose;
+  verbose.addEventListener("change", () => { state.verbose = verbose.checked; try { localStorage.setItem("rt-verbose", state.verbose ? "1" : "0"); } catch (e) { /* optional preference */ } render(); });
   document.getElementById("projectSelect").addEventListener("change", (e) => { state.pid = e.target.value; state.overview = null; state.plan = null; state.translation = null; render(); });
   document.getElementById("newProject").addEventListener("click", async () => {
     const name = prompt("Name for the new project:"); if (!name) return;

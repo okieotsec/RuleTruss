@@ -37,6 +37,11 @@ class Context:
                 return subnet
         return None
 
+    def short_name(self, ip):
+        """'SCADA-1 10.20.0.10' (label first) or just the address: for one-line statements."""
+        label = self.labels.get(ip, "")
+        return f"{label} {ip}" if label else ip
+
     def label(self, ip):
         return self.labels.get(ip, "")
 
@@ -133,6 +138,34 @@ def _port_text(c):
     return f"destination port {c.responder_port}" if c.responder_port is not None else "an unknown port"
 
 
+def explain_short(c, ctx):
+    """The same statement in one line: who started what with whom, on what, and how sure we are. Details live in the full text."""
+    proto = PROTO_LABEL.get(c.proto, c.proto.upper())
+    src, dst = ctx.short_name(c.initiator), ctx.short_name(c.responder)
+    count = f"{c.flows} {proto} {'connection' if c.proto in ('tcp', 'sctp') else 'flow'}{'s' if c.flows != 1 else ''}"
+    where = _port_text(c).replace("destination port", "port")
+    if c.direction_confidence == "high":
+        lead = f"{src} initiated {count} to {dst} on {where}"
+    elif c.direction_confidence == "medium":
+        lead = f"{src} most likely initiated {count} to {dst} on {where}"
+    elif c.direction_confidence == "low":
+        lead = f"{src} and {dst} exchanged {proto} on {where}; initiator unclear"
+    else:
+        lead = f"{src} and {dst} exchanged {proto} on {where}; initiator unknown"
+    parts = [lead]
+    best = c.apps[0] if c.apps else None
+    if best is not None:
+        parts.append({"confirmed": f"{best.name} identified by decoding", "probable": f"{best.name} probable",
+                      "possible": f"{best.name} possible (port number only)"}[best.confidence])
+    else:
+        parts.append("application not identified")
+    if c.direction_confidence in ("medium", "low", "unknown"):
+        parts.append(f"direction {c.direction_confidence} confidence")
+    if not c.replied and c.proto == "tcp":
+        parts.append("no reply seen")
+    return " \u00b7 ".join(parts) + "."
+
+
 def explain_communication(c, ctx):
     """One plain-language paragraph for a communication, matching how confident the evidence is."""
     proto = PROTO_LABEL.get(c.proto, c.proto.upper())
@@ -221,6 +254,18 @@ def matrix(comms, ctx):
 
 # ------------------------------------------------------------------ observed versus configured
 
+WHY_KEYS = (("application", "application condition"), ("identity", "identity condition"), ("schedule", "schedule"),
+            ("unresolved", "unresolved object"), ("unavailable information", "unknown zone or unresolved object"),
+            ("unreadable", "unreadable entry"), ("reflexive", "reflexive ACL"), ("interface", "unknown interface"))
+
+
+def _why_short(decision):
+    """A few words for why a decision is undecidable."""
+    text = " ".join(decision.uncertain or [decision.basis]).lower()
+    reasons = [label for key, label in WHY_KEYS if key in text]
+    return ", ".join(dict.fromkeys(reasons)) or "an unsupported condition"
+
+
 def zone_for(ip, ctx, policy):
     """The zone/interface of an address in this policy's own vocabulary.
 
@@ -284,6 +329,11 @@ def compare_observed(policy, comms, ctx):
             row["reading"] = "Cannot be decided from the export: " + ("; ".join(forward.uncertain[:3]) or forward.basis)
         if row["return_path"] and row["return_path"]["outcome"] != ALLOW:
             row["reading"] += " The policy is stateless and the reply direction is not permitted, so the connection would not work."
+        row["reading_short"] = {ALLOW: "Permitted", DENY: "Would be denied"}.get(forward.outcome, "Cannot decide: " + _why_short(forward))
+        if row["return_path"] and row["return_path"]["outcome"] != ALLOW:
+            row["reading_short"] += "; reply path blocked"
+        if forward.outcome == ALLOW and c.direction_confidence in ("low", "unknown"):
+            row["reading_short"] += "; initiator uncertain"
         rows.append(row)
     return rows, hits
 

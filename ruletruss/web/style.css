@@ -68,3 +68,12 @@ ul.plain { margin: 4px 0; padding-left: 20px; }
 
 .about { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; } .about img { height: 56px; width: auto; }
 .foot img { height: 22px; vertical-align: middle; margin-right: 6px; }
+
+/* Short by default: long explanations sit behind a click; "Show explanations" opens them all. */
+details.more { margin: 6px 0; } details.more > summary, details.inline > summary { cursor: pointer; color: var(--link); font-size: 13px; list-style: none; }
+details.more > summary::before, details.inline > summary::before { content: "\25B8"; display: inline-block; width: 1.1em; }
+details.more[open] > summary::before, details.inline[open] > summary::before { content: "\25BE"; }
+details.inline > summary { color: var(--text); font-size: inherit; } details.inline > summary:hover { text-decoration: underline; }
+.morebody { margin: 4px 0 4px 1.1em; } details.inline > .morebody { display: block; color: var(--muted); }
+.card.tight { padding: 8px 12px; margin: 0 0 8px; } .card.tight .row { margin: 0; }
+label.verbose { font-size: 13px; color: var(--muted); display: inline-flex; gap: 4px; align-items: center; }

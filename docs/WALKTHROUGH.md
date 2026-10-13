@@ -136,8 +136,8 @@ config firewall service custom
     next
 end
 # NOT TRANSLATED CORP-IN:2: schedule MAINTENANCE-WINDOW
-# NOT TRANSLATED ENG-IN:1: NAT (f1c30bee73356046#nat1) changes which address this rule should name in the destination
-# NOT TRANSLATED ENG-IN:2: NAT (f1c30bee73356046#nat1) changes which address this rule should name in the destination
+# NOT TRANSLATED ENG-IN:1: NAT (db4d0eb94c0a524f#nat1) changes which address this rule should name in the destination
+# NOT TRANSLATED ENG-IN:2: NAT (db4d0eb94c0a524f#nat1) changes which address this rule should name in the destination
 ...
 ```
 
