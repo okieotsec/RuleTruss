@@ -9,6 +9,7 @@ Protections, in order of what they stop:
   * Responses carry a strict Content-Security-Policy (no inline script, no remote resources) and no-store caching.
 """
 import argparse
+import errno
 import hmac
 import json
 import os
@@ -388,7 +389,14 @@ def main(argv=None):
     parser.add_argument("--ai-allow-remote", action="store_true", help="allow the AI endpoint to be on another machine")
     parser.add_argument("--allow-non-loopback", action="store_true")
     args = parser.parse_args(argv)
-    server = build_server(args.host, args.port, args.data_dir, args.ai_endpoint, args.ai_allow_remote, None, args.allow_non_loopback)
+    try:
+        server = build_server(args.host, args.port, args.data_dir, args.ai_endpoint, args.ai_allow_remote, None, args.allow_non_loopback)
+    except OSError as error:
+        if error.errno in (errno.EADDRINUSE, getattr(errno, "WSAEADDRINUSE", -1)):
+            raise SystemExit(f"Port {args.port} is already in use, probably by another copy of RuleTruss that is still running.\n"
+                             f"  See what is using it:  ss -ltnp | grep :{args.port}\n"
+                             f"  Or start on another port:  python -m ruletruss --port {args.port + 1}") from None
+        raise SystemExit(f"Could not start the server: {error.strerror or error}") from None
     if args.retention_days > 0:
         removed = server.app.store.purge_older_than(args.retention_days)
         if removed:

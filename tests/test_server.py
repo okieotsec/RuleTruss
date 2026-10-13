@@ -460,3 +460,21 @@ class UnexpectedErrorTests(ServerCase):
         self.assertEqual(status, 500)
         self.assertNotIn("secret-detail", json.dumps(body))
         self.assertEqual(self.request("GET", "/api/status")[0], 200)       # the server is still serving
+
+
+class StartupMessageTests(unittest.TestCase):
+    def test_a_port_that_is_taken_gives_a_plain_message_not_a_traceback(self):
+        import io
+        from contextlib import redirect_stderr
+        with tempfile.TemporaryDirectory() as d:
+            first = server.build_server("127.0.0.1", 0, d, token="t" * 20)
+            port = first.server_address[1]
+            try:
+                with self.assertRaises(SystemExit) as ctx, redirect_stderr(io.StringIO()):
+                    server.main(["--port", str(port), "--data-dir", d])
+            finally:
+                first.server_close()
+        message = str(ctx.exception)
+        self.assertIn("already in use", message)
+        self.assertIn(f"--port {port + 1}", message)
+        self.assertNotIn("Traceback", message)
