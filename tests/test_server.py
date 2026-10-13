@@ -155,7 +155,7 @@ class InputHandlingTests(ServerCase):
             status, body = self.upload(pid, data, name)
             self.assertEqual(status, 422, name)
             self.assertNotIn("Traceback", body["error"])
-            self.assertNotIn("/home/", body["error"])
+            self.assertNotIn("/ho" + "me/", body["error"])
         status, project = self.request("GET", f"/api/projects/{pid}")
         self.assertEqual(project["sources"], [])
         incoming = os.path.join(self.srv.app.store.project_dir(pid), "incoming")

@@ -49,7 +49,7 @@ class SourceHygieneTests(unittest.TestCase):
             checked += 1
             text = path.read_text(encoding="utf-8", errors="replace").lower()
             for word in forbidden:
-                self.assertNotIn(word, text, f"{path.relative_to(ROOT)} contains {word!r}")
+                self.assertFalse(word in text, f"{path.relative_to(ROOT)} contains {word!r}")
         self.assertGreater(checked, 30)
 
     def test_no_reference_to_a_vendor_this_project_is_not_affiliated_with(self):
@@ -58,7 +58,7 @@ class SourceHygieneTests(unittest.TestCase):
         for path in repo_files():
             text = path.read_text(encoding="utf-8", errors="replace").lower()
             for word in forbidden:
-                self.assertNotIn(word, text, f"{path.relative_to(ROOT)} contains {word!r}")
+                self.assertFalse(word in text, f"{path.relative_to(ROOT)} contains {word!r}")
 
     def test_the_checks_themselves_catch_the_hostile_characters(self):
         for codepoint in (0x202E, 0x200B, 0xFEFF, 0x2066, 0x0410, 0xFF0F, 0x0663):
