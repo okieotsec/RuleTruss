@@ -1,5 +1,5 @@
 Reviewer: Claude Code (developer and reviewer)
-Checkpoint / commit: CP1, after the CP0 annotations; tree of the commit before 7607df4
+Checkpoint / commit: CP1, after the CP0 annotations; the working tree that became commit 937f3fb
 Tools run (with versions): ruff 0.16.10, bandit 1.9.4, semgrep 1.180.0, gitleaks, pip-audit 2.10.1, osv-scanner 2.5.1 (raw output in this folder)
 Tools not run (and why): as CP0.
 

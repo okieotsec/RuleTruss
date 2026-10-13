@@ -1,5 +1,5 @@
 Reviewer: Claude Code (developer and reviewer)
-Checkpoint / commit: CP0 baseline, run on the tree at commit 99dce62 plus the hostile-input and fuzz tests that were added in the same session
+Checkpoint / commit: CP0 baseline, run on the tree at commit 10005d2 (hostile-input and fuzz tests included)
 Tools run (with versions): ruff 0.16.10, bandit 1.9.4, semgrep 1.180.0 (p/python, p/security-audit, metrics off), gitleaks (full history), pip-audit 2.10.1, osv-scanner 2.5.1. Raw output is in this folder.
 Tools not run (and why): mitmproxy and a hostile TLS server (the application makes no outbound connection except the optional, default-off AI call, which is tested with a local fake endpoint); atheris coverage-guided fuzzing (Hypothesis property tests were used instead; see CP2).
 
