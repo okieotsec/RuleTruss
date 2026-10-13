@@ -63,7 +63,7 @@ class CaptureTests(unittest.TestCase):
         self.assertEqual(f.direction_confidence, "high")
         self.assertIn("SYN", f.direction_basis[0])
         self.assertIn("handshake answered", " ".join(f.direction_basis))
-        self.assertTrue(f.evidence[0].ref.startswith("packets "))
+        self.assertEqual((f.evidence[0].kind, f.evidence[0].ref.split(",")[0].isdigit()), ("packet", True))
         self.assertGreater(f.pkts_fwd, 0)
         self.assertGreater(f.pkts_rev, 0)
 
@@ -312,3 +312,22 @@ class ZeekTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LinkTypeTests(unittest.TestCase):
+    def test_every_supported_link_type_decodes_to_the_same_connection(self):
+        import dpkt
+
+        from pbridge.capture.reader import decode_frame
+        tcp = dpkt.tcp.TCP(sport=40000, dport=502, flags=dpkt.tcp.TH_SYN, seq=1)
+        ip = dpkt.ip.IP(src=bytes([10, 0, 0, 1]), dst=bytes([10, 0, 0, 2]), p=6, data=tcp)
+        ip.len = len(bytes(ip))
+        raw = bytes(ip)
+        frames = {101: raw, 113: struct.pack("!HHH8sH", 0, 1, 6, b"\x02" * 6 + b"\0\0", 0x0800) + raw,
+                  276: struct.pack("!HHIHBB8s", 0x0800, 0, 1, 1, 0, 6, b"\x02" * 6 + b"\0\0") + raw,
+                  0: struct.pack("<I", 2) + raw, 108: struct.pack(">I", 2) + raw}
+        for linktype, frame in frames.items():
+            packet = decode_frame(1, 0.0, frame, linktype)
+            self.assertEqual((packet.proto, packet.src, packet.dst, packet.dport), ("tcp", "10.0.0.1", "10.0.0.2", 502), linktype)
+        with self.assertRaises(UnsupportedCapture):
+            decode_frame(1, 0.0, raw, 105)       # 802.11 is not supported and says so

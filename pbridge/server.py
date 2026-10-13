@@ -361,6 +361,7 @@ def build_server(host, port, data_dir, ai_endpoint=None, ai_allow_remote=False, 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="policy-bridge", description="Local-first network communication and policy migration workbench")
+    parser.add_argument("--version", action="version", version=f"Policy Bridge {__version__}")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--data-dir", default=None, help="where projects are stored (default: your user data folder)")

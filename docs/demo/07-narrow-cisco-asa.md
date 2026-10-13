@@ -26,22 +26,22 @@ interface placeholders must be replaced before the output is usable.
 
 | Source rule | Status | Reason | Evidence |
 | --- | --- | --- | --- |
-| k10 | translated |  | packet packets 58,59,60 |
-| k5 | translated |  | packet packets 45,46,47,48,49,50 |
-| k6 | translated |  | packet packets 51,52 |
-| k13 | translated |  | packet packets 75,76 |
-| k1 | translated |  | packet packets 91,92,93,94,95,96,97; packet packets 1,3,4,5,6,7,8 |
-| k2 | translated |  | packet packets 25,26,27,28,29,30,31 |
-| k12 | translated |  | packet packets 68,69,70,71,72,73,74 |
-| k15 | translated |  | packet packets 84,85,86,87,88,89,90 |
-| k8 | translated |  | packet packets 55,56 |
-| k11 | translated |  | packet packets 61,62,63,64,65,66,67 |
-| k9 | skipped | direction is low confidence; decide it before allowing | packet packets 57 |
-| k7 | translated |  | packet packets 53,54 |
-| k4 | translated |  | packet packets 39,40,41,42,43,44 |
-| k16 | translated |  | packet packets 98,99,100,101,102,103 |
-| k3 | translated |  | packet packets 32,33,34,35,36,37,38 |
-| k14 | translated |  | packet packets 77,78,79,80,81,82,83 |
+| k10 | translated |  | packet 58,59,60 |
+| k5 | translated |  | packet 45,46,47,48,49,50 |
+| k6 | translated |  | packet 51,52 |
+| k13 | translated |  | packet 75,76 |
+| k1 | translated |  | packet 91,92,93,94,95,96,97; packet 1,3,4,5,6,7,8 |
+| k2 | translated |  | packet 25,26,27,28,29,30,31 |
+| k12 | translated |  | packet 68,69,70,71,72,73,74 |
+| k15 | translated |  | packet 84,85,86,87,88,89,90 |
+| k8 | translated |  | packet 55,56 |
+| k11 | translated |  | packet 61,62,63,64,65,66,67 |
+| k9 | skipped | direction is low confidence; decide it before allowing | packet 57 |
+| k7 | translated |  | packet 53,54 |
+| k4 | translated |  | packet 39,40,41,42,43,44 |
+| k16 | translated |  | packet 98,99,100,101,102,103 |
+| k3 | translated |  | packet 32,33,34,35,36,37,38 |
+| k14 | translated |  | packet 77,78,79,80,81,82,83 |
 
 ## Issues
 

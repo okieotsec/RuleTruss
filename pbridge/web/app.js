@@ -185,6 +185,7 @@ VIEWS.inventory = async () => {
     conf.length ? h("div", { class: "row" }, conf.map(([k, v]) => h("span", {}, chip(k), ` ${v}  `))) : h("p", { class: "muted", text: "-" }),
     h("p", { class: "small muted", text: "high: a handshake (SYN) or echo request was seen. medium: indirect evidence such as a payload that is clearly a request. low or unknown: a capture that starts mid-conversation, one-way UDP, or no evidence. Low and unknown are never turned into policy proposals unless you choose to." }),
     h("h3", { text: "Applications" }), h("ul", { class: "plain" }, Object.entries(o.applications).map(([k, v]) => h("li", { text: `${k}: ${v} ${v === 1 ? "flow" : "flows"}` })))));
+  out.push(matrixCard(o.matrix));
   out.push(h("section", { class: "card" }, h("h2", { text: "Devices" }),
     h("p", { class: "small muted", text: "Counts of what this capture saw. A device's function is never inferred from its traffic; labels are yours." }),
     table(["Address", "Your label", "Subnet", "Initiated", "Received", "Peers (out/in)", "Uncertain direction"],
@@ -192,6 +193,19 @@ VIEWS.inventory = async () => {
     h("h3", { text: "Subnets" }), table(["Subnet", "Label", "Devices seen"], o.inventory.subnets.map((x) => ({ cells: [x.subnet, x.label || "-", x.devices] })))));
   return out;
 };
+
+function matrixCard(cells) {
+  const names = [...new Set(cells.flatMap((c) => [c.from, c.to]))].sort();
+  const cell = (a, b) => cells.find((c) => c.from === a && c.to === b);
+  const body = names.map((a) => h("tr", {}, h("th", { scope: "row", text: a }), names.map((b) => {
+    const c = cell(a, b);
+    return h("td", { title: c ? `${c.communications} communications, ${c.flows} flows, ${c.low_confidence} with uncertain direction` : "nothing observed" },
+      c ? `${c.communications} / ${c.flows}${c.low_confidence ? " \u26A0" : ""}` : "");
+  })));
+  return h("section", { class: "card" }, sectionTitle("Who initiated to whom, by subnet", "OBSERVED"),
+    h("p", { class: "small muted", text: "Rows are the initiating subnet, columns the responding subnet. Each cell is communications / flows; a warning mark means some of them have an uncertain initiator. An empty cell means nothing was seen, not that nothing happens." }),
+    cells.length ? h("div", { class: "tablewrap" }, h("table", { id: "matrix" }, h("thead", {}, h("tr", {}, h("th", { text: "initiator \u2192 responder" }), names.map((n) => h("th", { scope: "col", text: n })))), h("tbody", {}, body))) : h("p", { class: "muted", text: "No flows yet." }));
+}
 
 const confOptions = ["", "high", "medium", "low", "unknown"];
 VIEWS.comms = async () => {

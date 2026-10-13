@@ -276,7 +276,7 @@ class FlowTracker:
             names = [n for bit, n in ((TH_SYN, "SYN"), (TH_ACK, "ACK"), (TH_FIN, "FIN"), (TH_RST, "RST")) if state.flags[d] & bit]
             if names:
                 flags_seen.append(f"{label}: {'+'.join(names)}")
-        evidence = [Evidence(self.source_id, "packet", "packets " + ",".join(str(n) for n in state.nums)
+        evidence = [Evidence(self.source_id, "packet", ",".join(str(n) for n in state.nums)
                              + (", ..." if sum(state.pkts) > len(state.nums) else ""),
                              f"{state.proto} {src_ip}:{src_port} -> {dst_ip}:{dst_port}, {sum(state.pkts)} packets")]
         return Flow(flow_id=flow_id, source_id=self.source_id, ip_version=state.version, proto=state.proto,
