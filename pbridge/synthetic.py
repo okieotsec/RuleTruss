@@ -178,5 +178,7 @@ def plant_capture():
     # Port reuse: the same 5-tuple twice
     c.session(110, ews, 58000, plc, 502, modbus_request(7), modbus_response(7))
     c.session(130, ews, 58000, plc, 502, modbus_request(8), modbus_response(8))
+    # A controller reaching a vendor update host outside every internal network
+    c.session(115, plc, 53500, "198.51.100.7", 443, tls_client_hello("updates.vendor.example"), b"")
     c.arp(1)
     return c

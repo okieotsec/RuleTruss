@@ -348,7 +348,7 @@ class _Parser:
                                "rule using it is reported as undecidable", cnum)
                 elif word == "nat":
                     self.read_object_nat(cnum, name, ctokens)
-            self.net_defs[name] = members
+            self.net_defs.setdefault(name, []).extend(members)
         elif kind == "service":
             entries = []
             for cnum, ctokens in children:
@@ -390,7 +390,7 @@ class _Parser:
                         members.extend(self.network_object_member(ctokens))
                 except (netutil.ParseProblem, IndexError):
                     self.issue("warning", "group-member-parse", f"could not read a member of network group {name}", cnum)
-            self.net_defs[name] = members
+            self.net_defs.setdefault(name, []).extend(members)
         elif kind == "service":
             group_proto = tokens[3].lower() if len(tokens) > 3 else None
             members = []

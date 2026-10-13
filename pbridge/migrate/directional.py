@@ -271,9 +271,11 @@ def plan_preserve(policy, groups):
                 counts["blocked"] += 1
                 missing = []
                 if not from_names:
-                    missing.append(f"no group is wholly inside the source ({rule.src.text()})")
+                    missing.append(f"no group is wholly inside the source ({rule.src.text()}); define a group holding exactly "
+                                   "these addresses, or accept a wider group knowingly")
                 if not to_names:
-                    missing.append(f"no group is wholly inside the destination ({rule.dst.text()})")
+                    missing.append(f"no group is wholly inside the destination ({rule.dst.text()}); define a group holding exactly "
+                                   "these addresses, or accept a wider group knowingly")
                 plan.gaps.append(_issue("blocker", "no-matching-group", f"Rule {rule.original_id} was not translated: "
                                         + "; ".join(missing) + ". Define groups for these addresses.", ev))
                 plan.policies.append(DPolicy(name=limits.clip(f"BLOCKED rule {rule.original_id}", 100), from_groups=[], to_groups=[],

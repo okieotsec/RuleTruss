@@ -186,7 +186,8 @@ class NarrowRuleTests(unittest.TestCase):
         cls.comms = analysis.aggregate(cls.flows)
 
     def build(self, target):
-        t = fw.rules_from_observation(self.comms, self.ctx, lambda ip: self.ctx.zone_of(ip))
+        t = fw.rules_from_observation(self.comms, self.ctx, lambda ip: self.ctx.zone_of(ip),
+                                      stateless=not fw.TARGETS[target]["stateful"])
         t.zone_map = {"eng": "eng", "ot": "ot", "corp": "corp"}
         t.target = target
         fw.render(t, target)
@@ -205,7 +206,7 @@ class NarrowRuleTests(unittest.TestCase):
         self.assertNotIn("10.20.1.60", t.text)
 
     def test_observed_policy_allows_what_was_seen_and_nothing_else(self):
-        for target in ("cisco-asa", "fortios"):
+        for target in ("cisco-asa", "fortios", "cisco-ios"):
             with self.subTest(target=target):
                 t = self.build(target)
                 report = val.validate_observed(t, self.comms, self.ctx)

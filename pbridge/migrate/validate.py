@@ -218,6 +218,7 @@ def validate_observed(translation, comms, ctx, source_policy_for_zones=None):
     target_policy = parse_config(text, "validation-target", translation.target)
     included = {e["source_rule"] for e in translation.report if e.get("status") == "translated"}
     counts = {"not_compared": 0, "observed_allowed": 0, "observed_blocked": 0, "reverse_denied": 0, "reverse_allowed": 0,
+              "reverse_allowed_known_return_rule": 0,
               "other_port_denied": 0, "other_port_allowed": 0}
     problems = []
     for c in comms:
@@ -239,8 +240,10 @@ def validate_observed(translation, comms, ctx, source_policy_for_zones=None):
         rev = Probe(c.responder, c.initiator, c.proto, c.responder_port, 40001, src_zone=probe.dst_zone, dst_zone=probe.src_zone)
         out, fwd, _ = _effective(target_policy, rev)
         if out == ALLOW:
-            counts["reverse_allowed"] += 1
-            problems.append({"kind": "reverse_initiation_allowed", "connection": probe_text(rev), "detail": fwd.basis})
+            known = c.proto == "udp" and any(r.kind == "return-path" for r in translation.rules)
+            counts["reverse_allowed_known_return_rule" if known else "reverse_allowed"] += 1
+            problems.append({"kind": "reverse_initiation_allowed" + (" (known: stateless UDP return rule)" if known else ""),
+                             "connection": probe_text(rev), "detail": fwd.basis, "expected": known})
         else:
             counts["reverse_denied"] += 1
         other = Probe(c.initiator, c.responder, c.proto, 40000, 65000 if c.responder_port != 65000 else 64999,
@@ -249,6 +252,8 @@ def validate_observed(translation, comms, ctx, source_policy_for_zones=None):
         counts["other_port_allowed" if out == ALLOW else "other_port_denied"] += 1
         if out == ALLOW:
             problems.append({"kind": "other_port_allowed", "connection": probe_text(other), "detail": fwd.basis})
-    return {"summary": {**counts, "result": "problems found" if problems else "observed traffic is allowed, reverse initiation and "
-                        "unobserved ports are denied, on the sampled connections"},
+    unexpected = [x for x in problems if not x.get("expected")]
+    return {"summary": {**counts, "result": "problems found" if unexpected else "observed traffic is allowed, reverse initiation and "
+                        "unobserved ports are denied, on the sampled connections" + (
+                            " (apart from the known stateless UDP return rules)" if problems else "")},
             "problems": problems[:60], "limits": LIMITS}

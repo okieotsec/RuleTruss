@@ -164,3 +164,13 @@ access-group A in interface inside
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MixedFamilyTests(unittest.TestCase):
+    def test_inventory_and_group_suggestions_handle_ipv4_and_ipv6_together(self):
+        from pbridge.migrate import groups as grp
+        flows = [flow(1, "10.0.0.1", "10.0.0.2", 80), flow(2, "2001:db8::1", "2001:db8::2", 80)]
+        ctx = analysis.build_context(subnets=[Subnet("10.0.0.0/24", "v4")])
+        inv = analysis.inventory(flows, ctx)
+        self.assertEqual([d["ip"] for d in inv["devices"]], ["10.0.0.1", "10.0.0.2", "2001:db8::1", "2001:db8::2"])
+        self.assertEqual(grp.suggest_groups(ctx, flows)["unassigned"], ["2001:db8::1", "2001:db8::2"])

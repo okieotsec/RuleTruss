@@ -111,7 +111,7 @@ def suggest_groups(ctx, flows):
     suggestions = [{"name": s.label or s.cidr, "members": [s.cidr], "gateway_isolated": False,
                     "note": "suggested from your subnet definition; edit before use"} for s in ctx.subnets]
     unassigned = sorted({ip for f in flows for ip in (f.initiator, f.responder) if ctx.subnet_of(ip) is None},
-                        key=lambda x: ipaddress.ip_address(x))
+                        key=netutil.ip_sort_key)
     return {"groups": suggestions, "unassigned": unassigned}
 
 

@@ -183,7 +183,7 @@ def inventory(flows, ctx):
             if f.direction_confidence in ("low", "unknown"):
                 d["uncertain_direction"] += 1
     out = []
-    for ip, d in sorted(devices.items(), key=lambda item: ipaddress.ip_address(item[0])):
+    for ip, d in sorted(devices.items(), key=lambda item: netutil.ip_sort_key(item[0])):
         subnet = ctx.subnet_of(ip)
         out.append({"ip": ip, "label": d["label"], "subnet": subnet.cidr if subnet else "",
                     "subnet_label": subnet.label if subnet else "",

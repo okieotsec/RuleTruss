@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Policy Bridge</title>
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<a class="skip" href="#view">Skip to content</a>
+<header class="top">
+  <div class="brand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 22h26M6 22V12l10-6 10 6v10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M11 22v-6h10v6" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>
+    <div><h1>Policy Bridge</h1><p class="tag">Explain communications. Migrate policy. Keep it local.</p></div></div>
+  <div class="projectbar">
+    <label for="projectSelect">Project</label>
+    <select id="projectSelect"></select>
+    <button id="newProject" type="button">New project</button>
+  </div>
+</header>
+<nav class="tabs" role="tablist" aria-label="Workflow" id="tabs"></nav>
+<div class="legend" aria-label="What the labels mean">
+  <span class="chip observed">OBSERVED</span> seen in a capture or flow log
+  <span class="chip configured">CONFIGURED</span> read from a device export
+  <span class="chip proposed">PROPOSED</span> suggested by this tool, never applied
+</div>
+<main id="view" tabindex="-1"></main>
+<div id="toast" role="status" aria-live="polite"></div>
+<footer class="foot">Runs only on this computer. Nothing you import is sent anywhere. Output is for review; this tool never changes a live device.</footer>
+<script src="/app.js"></script>
+</body>
+</html>

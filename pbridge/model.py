@@ -328,3 +328,40 @@ class Group:
     members: list = field(default_factory=list)       # IP addresses or CIDRs
     gateway_isolated: bool = False      # members are endpoints isolated behind a gateway (they reach outside only through an egress policy)
     note: str = ""
+
+
+# ---------------------------------------------------------------- reading stored JSON back into model objects
+
+_NESTED = {
+    (AddrSet, "unresolved"): None,
+    (SvcEntry, "sports"): None,
+    (ServiceSet, "entries"): ("list", SvcEntry),
+    (Rule, "src"): ("one", AddrSet), (Rule, "dst"): ("one", AddrSet), (Rule, "svc"): ("one", ServiceSet),
+    (Rule, "evidence"): ("list", Evidence),
+    (NatRule, "original_src"): ("one", AddrSet), (NatRule, "original_dst"): ("one", AddrSet),
+    (NatRule, "translated_src"): ("one", AddrSet), (NatRule, "translated_dst"): ("one", AddrSet),
+    (NatRule, "evidence"): ("list", Evidence),
+    (Issue, "evidence"): ("list", Evidence),
+    (PolicySet, "rules"): ("list", Rule), (PolicySet, "nat_rules"): ("list", NatRule), (PolicySet, "issues"): ("list", Issue),
+    (Flow, "apps"): ("list", AppGuess), (Flow, "evidence"): ("list", Evidence),
+}
+
+
+def from_plain(cls, data):
+    """Rebuild a model object from the dict produced by to_plain. Unknown keys are ignored; nothing is executed."""
+    if not isinstance(data, dict):
+        raise ValueError(f"expected an object for {cls.__name__}")
+    kwargs = {}
+    names = {f.name for f in fields(cls)}
+    for key, value in data.items():
+        if key not in names:
+            continue
+        spec = _NESTED.get((cls, key))
+        if spec and spec[0] == "list":
+            value = [from_plain(spec[1], v) for v in value]
+        elif spec and spec[0] == "one":
+            value = from_plain(spec[1], value)
+        elif cls is SvcEntry and key in ("sports", "dports") and value is not None:
+            value = [tuple(r) for r in value]
+        kwargs[key] = value
+    return cls(**kwargs)

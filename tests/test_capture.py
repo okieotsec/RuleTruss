@@ -44,7 +44,7 @@ class CaptureTests(unittest.TestCase):
 
     def test_capture_metadata_and_coverage(self):
         info = self.results["pcap"][0]
-        self.assertEqual((info.packets_read, info.packets_decoded, info.packets_skipped), (104, 103, 1))
+        self.assertEqual((info.packets_read, info.packets_decoded, info.packets_skipped), (110, 109, 1))
         self.assertEqual(info.observation_point, OBS)
         self.assertGreater(info.last_ts, info.first_ts)
         text = " ".join(info.coverage_notes)
@@ -122,7 +122,7 @@ class CaptureTests(unittest.TestCase):
         self.assertIn("ntp.plant.example", dns.apps[0].basis)
 
     def test_tls_server_name_is_extracted_and_sanitised(self):
-        f = self.flow(responder_port=443)
+        f = self.flow(responder_port=443, responder="10.30.5.10")
         self.assertIn("historian.plant.example", f.apps[0].basis)
 
     def test_icmp_echo(self):

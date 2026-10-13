@@ -247,7 +247,7 @@ def translate_policy(policy, target, zone_map=None, identity=False, ctx=None):
             if return_zone and not dst_zone:
                 out.warnings.append(_issue("info", "return-zone-inferred", f"The return ACL for rule {rule.original_id} is placed on "
                                            f"{return_zone}, the zone whose network holds the destination addresses.", ev))
-            for ret in _return_rules(rule, out, return_zone):
+            for ret in _return_rules(f"Rule {rule.original_id}", rule.src, rule.dst, rule.svc, out, return_zone):
                 t.rules.append(ret)
                 if ret.kind == "blocked":
                     entry["warnings"].append(ret.warnings[0])
@@ -255,40 +255,40 @@ def translate_policy(policy, target, zone_map=None, identity=False, ctx=None):
     return t
 
 
-def _blocked_return(out, rule, why):
-    r = OutRule(name=out.name + "-return", action="allow", src=rule.dst, dst=rule.src, svc=ServiceSet(any=True), src_zone=None,
+def _blocked_return(out, label, src, dst, why):
+    r = OutRule(name=out.name + "-return", action="allow", src=dst, dst=src, svc=ServiceSet(any=True), src_zone=None,
                 comment="NOT TRANSLATED: " + why, kind="blocked", source_rule_ids=out.source_rule_ids,
                 source_ids_text=out.source_ids_text, evidence=out.evidence[:1])
-    r.warnings.append(_issue("blocker", "return-not-generated", f"Rule {rule.original_id} needs a return path on a stateless "
-                             f"destination and none could be generated safely ({why}). Replies would be dropped; add it by hand."))
+    r.warnings.append(_issue("blocker", "return-not-generated", f"{label} needs a return path on a stateless destination and none "
+                             f"could be generated safely ({why}). Replies would be dropped; add it by hand."))
     return r
 
 
-def _return_rules(rule, out, dst_zone):
+def _return_rules(label, src, dst, svc, out, dst_zone):
     """Explicit return-path rules for a stateless destination. Each is broader than a stateful reply."""
     if dst_zone is None:
-        return [_blocked_return(out, rule, "the source rule has no destination zone to put the return ACL on")]
+        return [_blocked_return(out, label, src, dst, "there is no destination zone to put the return ACL on")]
     ret = []
-    entries = [SvcEntry("ip")] if rule.svc.any else rule.svc.entries
+    entries = [SvcEntry("ip")] if svc.any else svc.entries
     for entry in entries:
         if entry.proto == "tcp":
-            svc = ServiceSet(entries=[SvcEntry("tcp", entry.dports, None, established=True)])
+            rsvc = ServiceSet(entries=[SvcEntry("tcp", entry.dports, None, established=True)])
             note = ("TCP return rule using 'established': it matches any segment with ACK or RST set, so the server side can send "
                     "such packets to the client side at will. This is not a stateful check.")
         elif entry.proto == "udp":
-            svc = ServiceSet(entries=[SvcEntry("udp", entry.dports, None)])
+            rsvc = ServiceSet(entries=[SvcEntry("udp", entry.dports, None)])
             note = ("UDP return rule: it permits ANY datagram from the server port to the client side, including unsolicited ones, "
                     "because ACLs keep no state.")
         elif entry.proto in ("icmp", "icmp6") and entry.icmp_type in (8, 128):
-            svc = ServiceSet(entries=[SvcEntry(entry.proto, icmp_type=0 if entry.proto == "icmp" else 129)])
+            rsvc = ServiceSet(entries=[SvcEntry(entry.proto, icmp_type=0 if entry.proto == "icmp" else 129)])
             note = "ICMP echo-reply return rule."
         elif entry.proto == "ip":
-            svc = ServiceSet(any=True)
+            rsvc = ServiceSet(any=True)
             note = "The source allowed any protocol, so the return rule allows any protocol back."
         else:
-            ret.append(_blocked_return(out, rule, f"no return rule is defined for {entry.proto}"))
+            ret.append(_blocked_return(out, label, src, dst, f"no return rule is defined for {entry.proto}"))
             continue
-        r = OutRule(name=out.name + "-return", action="allow", src=rule.dst, dst=rule.src, svc=svc, src_zone=dst_zone,
+        r = OutRule(name=out.name + "-return", action="allow", src=dst, dst=src, svc=rsvc, src_zone=dst_zone,
                     comment="return path for " + out.source_ids_text, kind="return-path", broader=True,
                     source_rule_ids=out.source_rule_ids, source_ids_text=out.source_ids_text, evidence=out.evidence[:1])
         r.warnings.append(_issue("warning", "return-rule-broader", note, out.evidence[:1]))
@@ -336,7 +336,7 @@ def _verdict(s):
 
 # ------------------------------------------------------------------------------------------------ narrow workflow
 
-def rules_from_observation(comms, ctx, policy_zone_lookup, include_low_confidence=False):
+def rules_from_observation(comms, ctx, policy_zone_lookup, include_low_confidence=False, stateless=False):
     """Observed communications to allow rules (exact host addresses). Low-confidence direction is held back for review."""
     t = Translation(target="", workflow="narrow")
     t.issues.append(_issue("warning", "observation-limits",
@@ -371,7 +371,15 @@ def rules_from_observation(comms, ctx, policy_zone_lookup, include_low_confidenc
             r.warnings.append(_issue("info", "direction-medium", f"Direction of {c.initiator} to {c.responder} was inferred "
                                      f"with medium confidence: {'; '.join(c.direction_basis[:1])}.", c.evidence[:1]))
         t.rules.append(r)
-        entry.update(status="translated", reason="", warnings=r.warnings)
+        if stateless:
+            for ret in _return_rules(f"Observed communication {c.initiator} to {c.responder}", r.src, r.dst, r.svc, r, r.dst_zone):
+                t.rules.append(ret)
+                entry["warnings"].extend(ret.warnings)
+        entry.update(status="translated", reason="", warnings=entry["warnings"] + r.warnings)
+    if stateless:
+        t.issues.append(_issue("warning", "stateful-to-stateless", "The destination ACLs are stateless, so each observed rule gets "
+                               "explicit return rules (marked broader than a stateful reply)."))
+    _finish(t, None, t.zone_map, False)
     return t
 
 
@@ -484,9 +492,12 @@ def render_cisco(t, flavour, identity=False):
         if flavour == "asa":
             lines.append(f"access-group {name} in interface {iface}")
         else:
-            lines.extend([f"interface {iface}", f" ip access-group {name} in"])
-            if name in v6_present:
-                lines.append(f" ipv6 traffic-filter {name}-V6 in")
+            if name not in v6_present:
+                # An IPv4 ACL does not touch IPv6. Without this, IPv6 would pass through the interface unfiltered.
+                lines += [f"ipv6 access-list {name}-V6", " remark default deny for IPv6 (an IPv4 ACL does not filter IPv6)",
+                          " deny ipv6 any any"]
+                v6_present.add(name)
+            lines.extend([f"interface {iface}", f" ip access-group {name} in", f" ipv6 traffic-filter {name}-V6 in"])
     if flavour == "asa" and any(r.kind != "blocked" for r in acls.get("global", [])):
         lines.append("access-group PB-GLOBAL global")
     if flavour == "ios" and any(r.src.any and r.dst.any for r in t.rules if r.kind != "blocked"):

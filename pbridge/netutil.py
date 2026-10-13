@@ -125,3 +125,9 @@ def is_private_or_local(ip_text):
     except ValueError:
         return False
     return ip.is_private or ip.is_link_local or ip.is_loopback or ip.is_multicast
+
+
+def ip_sort_key(text):
+    """Sort addresses with IPv4 before IPv6 instead of raising when the two are mixed."""
+    addr = ipaddress.ip_address(text)
+    return addr.version, int(addr)
