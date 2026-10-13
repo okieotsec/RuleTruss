@@ -151,8 +151,10 @@ class _Parser:
         if i >= len(tokens):
             raise netutil.ParseProblem("address expected")
         word = tokens[i]
-        if word in ("any", "any4"):
+        if word == "any":
             return AddrSet(any=True), i + 1
+        if word == "any4":
+            return AddrSet(nets=["0.0.0.0/0"], refs=["any4"]), i + 1
         if word == "any6":
             return AddrSet(nets=["::/0"], refs=["any6"]), i + 1
         if word == "host":

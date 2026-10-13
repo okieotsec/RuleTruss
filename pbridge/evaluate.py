@@ -23,8 +23,9 @@ class Probe:
     dst_zone: str = None
 
     def reply(self):
-        """The server-to-client direction of the same connection."""
-        return Probe(self.dst, self.src, self.proto, self.dport, self.sport, self.icmp_type, self.icmp_code,
+        """The server-to-client direction of the same connection (an echo request is answered by an echo reply)."""
+        icmp_type = {("icmp", 8): 0, ("icmp6", 128): 129}.get((self.proto, self.icmp_type), self.icmp_type)
+        return Probe(self.dst, self.src, self.proto, self.dport, self.sport, icmp_type, self.icmp_code,
                      self.dst_zone, self.src_zone)
 
 
