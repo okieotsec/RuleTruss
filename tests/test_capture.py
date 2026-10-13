@@ -4,11 +4,11 @@ import tempfile
 import unittest
 import warnings
 
-from pbridge import limits
-from pbridge.capture import appid, zeek
-from pbridge.capture.flows import analyze_capture
-from pbridge.capture.reader import UnsupportedCapture, sniff
-from pbridge.synthetic import CaptureBuilder, dns_message, modbus_request, modbus_response, plant_capture
+from ruletruss import limits
+from ruletruss.capture import appid, zeek
+from ruletruss.capture.flows import analyze_capture
+from ruletruss.capture.reader import UnsupportedCapture, sniff
+from ruletruss.synthetic import CaptureBuilder, dns_message, modbus_request, modbus_response, plant_capture
 
 OBS = "SPAN port on the distribution switch (test)"
 
@@ -199,7 +199,7 @@ class HostileCaptureTests(unittest.TestCase):
         self.assertEqual(flows, [])
 
     def test_packet_limit_is_reported(self):
-        from pbridge.capture import reader
+        from ruletruss.capture import reader
         builder = CaptureBuilder()
         for i in range(50):
             builder.udp(i * 0.01, "10.0.0.1", 1000 + i, "10.0.0.2", 53, dns_message("a.example"))
@@ -211,8 +211,8 @@ class HostileCaptureTests(unittest.TestCase):
         self.assertIn("stopped after 10", " ".join(stats.limits_hit))
 
     def test_flow_limit_is_reported(self):
-        from pbridge.capture.flows import FlowTracker
-        from pbridge.capture.reader import CaptureStats, iter_packets
+        from ruletruss.capture.flows import FlowTracker
+        from ruletruss.capture.reader import CaptureStats, iter_packets
         builder = CaptureBuilder()
         for i in range(20):
             builder.udp(i * 0.01, "10.0.0.1", 1000 + i, "10.0.0.2", 9000, b"x")
@@ -318,7 +318,7 @@ class LinkTypeTests(unittest.TestCase):
     def test_every_supported_link_type_decodes_to_the_same_connection(self):
         import dpkt
 
-        from pbridge.capture.reader import decode_frame
+        from ruletruss.capture.reader import decode_frame
         tcp = dpkt.tcp.TCP(sport=40000, dport=502, flags=dpkt.tcp.TH_SYN, seq=1)
         ip = dpkt.ip.IP(src=bytes([10, 0, 0, 1]), dst=bytes([10, 0, 0, 2]), p=6, data=tcp)
         ip.len = len(bytes(ip))

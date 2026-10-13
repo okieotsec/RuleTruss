@@ -1,10 +1,10 @@
 # Proposed narrower permissions from observation
 
-> **PROPOSED. This is an implementation worksheet, not a configuration file and not an import file.** It was produced by Policy Bridge from the inputs named below. It has not been applied to any system and its equivalence to the source has not been proven.
+> **PROPOSED. This is an implementation worksheet, not a configuration file and not an import file.** It was produced by RuleTruss from the inputs named below. It has not been applied to any system and its equivalence to the source has not been proven.
 
 Project: Sample plant (synthetic)
 
-Generated: 2026-10-13 14:04:57 UTC
+Generated: 2026-10-13 17:50:18 UTC
 
 ## Result
 
@@ -15,6 +15,7 @@ All proposals require review before use. Observed traffic is not proof of busine
 | communications observed | 16 |
 | communications used | 14 |
 | held back low confidence | 1 |
+| broadcast or multicast | 0 |
 | not in a group | 1 |
 | policies | 7 |
 | egress policies | 1 |

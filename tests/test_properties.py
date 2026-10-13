@@ -7,14 +7,14 @@ import json
 import os
 import unittest
 
-from pbridge import exports, netutil
-from pbridge.adapters import cisco, fortios, panos, pfsense
-from pbridge.adapters.xmlsafe import parse_xml
-from pbridge.capture import appid
-from pbridge.evaluate import ALLOW, DENY, INDETERMINATE, Probe, evaluate
-from pbridge.migrate import groups as grp
-from pbridge.model import AddrSet, ServiceSet, SvcEntry, to_plain
-from pbridge.redact import REDACTED, redact
+from ruletruss import exports, netutil
+from ruletruss.adapters import cisco, fortios, panos, pfsense
+from ruletruss.adapters.xmlsafe import parse_xml
+from ruletruss.capture import appid
+from ruletruss.evaluate import ALLOW, DENY, INDETERMINATE, Probe, evaluate
+from ruletruss.migrate import groups as grp
+from ruletruss.model import AddrSet, ServiceSet, SvcEntry, to_plain
+from ruletruss.redact import REDACTED, redact
 
 try:
     from hypothesis import HealthCheck, given
@@ -24,8 +24,8 @@ except ImportError:  # hypothesis is an optional test dependency
     st = None
 
 OK_ERRORS = (ValueError, OSError)
-# PB_FUZZ_SCALE=20 runs twenty times as many examples (used for the checkpoint fuzz run).
-SCALE = max(1, int(os.environ.get("PB_FUZZ_SCALE", "1")))
+# RT_FUZZ_SCALE=20 runs twenty times as many examples (used for the checkpoint fuzz run).
+SCALE = max(1, int(os.environ.get("RT_FUZZ_SCALE", "1")))
 
 
 def n(base):

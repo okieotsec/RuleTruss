@@ -8,8 +8,8 @@ import threading
 import unittest
 from pathlib import Path
 
-from pbridge import server
-from pbridge.samples import create_demo
+from ruletruss import server
+from ruletruss.samples import create_demo
 
 ROOT = Path(__file__).resolve().parent.parent
 BROWSER = shutil.which("chromium") or shutil.which("chromium-browser")

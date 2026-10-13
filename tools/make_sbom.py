@@ -1,6 +1,6 @@
 """Regenerate sbom/sbom.cdx.json, the CycloneDX software bill of materials.
 
-Policy Bridge has one runtime dependency (dpkt, for reading packet captures). To prove that, this tool builds a brand-new virtual
+RuleTruss has one runtime dependency (dpkt, for reading packet captures). To prove that, this tool builds a brand-new virtual
 environment, installs ONLY requirements.txt into it with hash checking (`pip install --require-hashes`), and has cyclonedx-py
 inspect that environment. Packages that are only used for development (linters, test and scanning tools) are therefore absent.
 
@@ -21,10 +21,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from pbridge.version import __version__  # noqa: E402
+from ruletruss.version import __version__  # noqa: E402
 
 OUTPUT = ROOT / "sbom" / "sbom.cdx.json"
-BOM_REF = f"pkg:generic/policy-bridge@{__version__}"
+BOM_REF = f"pkg:generic/ruletruss@{__version__}"
 
 
 def find_cyclonedx():
@@ -46,7 +46,7 @@ def pinned_requirements():
 
 def application_component():
     return {
-        "type": "application", "bom-ref": BOM_REF, "name": "policy-bridge", "version": __version__,
+        "type": "application", "bom-ref": BOM_REF, "name": "ruletruss", "version": __version__,
         "description": "Local-first workbench that explains network communications and migrates security policies",
         "licenses": [{"license": {"id": "MIT"}}],
     }
@@ -78,7 +78,7 @@ def build():
 def main():
     OUTPUT.parent.mkdir(exist_ok=True)
     OUTPUT.write_text(json.dumps(build(), indent=2) + "\n", encoding="utf-8")
-    print(f"wrote {OUTPUT.relative_to(ROOT)} for policy-bridge {__version__}")
+    print(f"wrote {OUTPUT.relative_to(ROOT)} for ruletruss {__version__}")
 
 
 if __name__ == "__main__":

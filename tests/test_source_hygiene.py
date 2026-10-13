@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 # The only non-ASCII characters source code may contain: visible interface symbols.
 ALLOWED = {0x00B7, 0x2022, 0x2026, 0x25AC, 0x25B2, 0x25B8, 0x25BC, 0x25BE, 0x26A0, 0x2713, 0x2716, 0x2192}
-SOURCES = sorted([*ROOT.glob("pbridge/**/*.py"), *ROOT.glob("pbridge/web/*.js"), *ROOT.glob("tools/*.py"), *ROOT.glob("tests/*.py")])
+SOURCES = sorted([*ROOT.glob("ruletruss/**/*.py"), *ROOT.glob("ruletruss/web/*.js"), *ROOT.glob("tools/*.py"), *ROOT.glob("tests/*.py")])
 TEXT_SUFFIXES = {".py", ".md", ".json", ".html", ".yml", ".yaml", ".toml", ".txt", ".js", ".css", ".csv", ".cfg", ".conf", ".xml", ".in"}
 SKIP_PARTS = {".git", "__pycache__", ".venv", ".ruff_cache", ".hypothesis", "data"}
 

@@ -1,4 +1,4 @@
-# Security Test Plan: Policy Bridge
+# Security Test Plan: RuleTruss
 
 **Owner:** okieotsec (project lead, final approver)
 **Reviewers:** Claude Code (developer and reviewer). Independent review by another reviewer is recommended before any public release and has **not** been done.
@@ -13,11 +13,11 @@ packet captures and configuration exports and serves a local web page.
 2. **Evidence over opinion.** Every finding needs a file and line, a reproduction or tool output, and a severity from section 7.
 3. **Run the tools; don't simulate them.** Output comes from a real run (`tools/security_checks.py`). A tool that cannot run is reported as NOT RUN with the reason.
 4. **Don't fix while reviewing.** Findings are reported, then fixed in a separate change and re-tested (section 8).
-5. **No sensitive data.** Only synthetic inputs (`pbridge/synthetic.py`, `tests/fixtures/`, `samples/`) are used. Never real captures, customer or employer configurations.
+5. **No sensitive data.** Only synthetic inputs (`ruletruss/synthetic.py`, `tests/fixtures/`, `samples/`) are used. Never real captures, customer or employer configurations.
 
 ## 2. Scope
 
-**In scope:** all of `pbridge/` (parsers, evaluator, storage, isolation, server, web page), `tools/`, third-party packages, packaging.
+**In scope:** all of `ruletruss/` (parsers, evaluator, storage, isolation, server, web page), `tools/`, third-party packages, packaging.
 **Out of scope:** the host operating system, the Python interpreter and the browser, except where this application uses them unsafely.
 
 ## 3. Threat model (summary)
@@ -50,7 +50,7 @@ Later changes (a new adapter or parser) get their own checkpoint report before m
 Run `python tools/security_checks.py reports/<checkpoint>`; it writes each tool's raw output and prints one line per tool.
 
 * `ruff check .` (includes the `S` rules that mirror bandit)
-* `bandit` on `pbridge/` and `tools/` (tests excluded)
+* `bandit` on `ruletruss/` and `tools/` (tests excluded)
 * `semgrep scan --config p/python --config p/security-audit --metrics off`
 * `gitleaks detect` over the full git history
 * `pip-audit -r requirements.txt --require-hashes` and `osv-scanner --lockfile=requirements.txt`
@@ -70,7 +70,7 @@ Run `python tools/security_checks.py reports/<checkpoint>`; it writes each tool'
 **Honesty of results:** unknown is never treated as false; blocked rules are never widened; every broadening or lost restriction is reported; validation limits are printed with every report.
 
 **Dynamic testing** is automated: `tests/test_malicious.py` (hostile files through the real isolation path, resource-limit mechanisms, no-network and no-dynamic-code scans),
-`tests/test_properties.py` (Hypothesis; `PB_FUZZ_SCALE=30` for the checkpoint run), `tests/test_server.py` (access control, limits, workflows, exports, deletion, AI path).
+`tests/test_properties.py` (Hypothesis; `RT_FUZZ_SCALE=30` for the checkpoint run), `tests/test_server.py` (access control, limits, workflows, exports, deletion, AI path).
 
 ## 7. Severity rubric
 

@@ -30,3 +30,5 @@ ignore = ["SIM105", "SIM108", "RUF005", "ISC004"]
 "tests/*.py" = ["RUF012", "RUF059", "S101", "S105", "S106", "E501"]
 # Generators of documentation and the security runner hold long literal text.
 "tools/*.py" = ["E501"]
+# The example generators are long tables of invented data.
+"ruletruss/riverbend*.py" = ["E501", "S104"]

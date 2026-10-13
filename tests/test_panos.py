@@ -2,11 +2,11 @@ import json
 import unittest
 from pathlib import Path
 
-from pbridge import limits
-from pbridge.adapters import panos
-from pbridge.adapters.xmlsafe import parse_xml
-from pbridge.evaluate import ALLOW, DENY, INDETERMINATE, Probe, evaluate, evaluate_connection
-from pbridge.model import to_plain
+from ruletruss import limits
+from ruletruss.adapters import panos
+from ruletruss.adapters.xmlsafe import parse_xml
+from ruletruss.evaluate import ALLOW, DENY, INDETERMINATE, Probe, evaluate, evaluate_connection
+from ruletruss.model import to_plain
 
 FIX = Path(__file__).parent / "fixtures"
 

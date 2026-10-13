@@ -73,7 +73,7 @@
       ],
       "evidence": [
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "58,59,60",
           "text": "tcp 10.10.4.4:54000 -> 10.30.2.40:502, 3 packets"
@@ -114,7 +114,7 @@
       ],
       "evidence": [
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "45,46,47,48,49,50",
           "text": "tcp 10.10.4.4:53000 -> 10.30.5.10:443, 6 packets"
@@ -152,7 +152,7 @@
           "message": "Direction of 10.20.1.15 to 10.20.1.2 (udp/53) was inferred with medium confidence: payload semantics: 10.20.1.15:40001 sent a DNS request-type message.",
           "evidence": [
             {
-              "source_id": "c2883dfbe1bd550d",
+              "source_id": "b0f0ee93e0f6a0ee",
               "kind": "packet",
               "ref": "51,52",
               "text": "udp 10.20.1.15:40001 -> 10.20.1.2:53, 2 packets"
@@ -168,7 +168,7 @@
       ],
       "evidence": [
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "51,52",
           "text": "udp 10.20.1.15:40001 -> 10.20.1.2:53, 2 packets"
@@ -218,13 +218,13 @@
           "message": "Direction of 10.20.1.15 to 10.30.2.40 (tcp/502) was inferred with medium confidence: payload semantics: 10.20.1.15:51500 sent a Modbus/TCP request-type message.",
           "evidence": [
             {
-              "source_id": "c2883dfbe1bd550d",
+              "source_id": "b0f0ee93e0f6a0ee",
               "kind": "packet",
               "ref": "91,92,93,94,95,96,97",
               "text": "tcp 10.20.1.15:58000 -> 10.30.2.40:502, 7 packets"
             },
             {
-              "source_id": "c2883dfbe1bd550d",
+              "source_id": "b0f0ee93e0f6a0ee",
               "kind": "packet",
               "ref": "1,3,4,5,6,7,8",
               "text": "tcp 10.20.1.15:50000 -> 10.30.2.40:502, 7 packets"
@@ -237,7 +237,7 @@
           "message": "Direction of 10.20.1.50 to 10.30.2.40 (udp/161) was inferred with medium confidence: payload semantics: 10.20.1.50:41000 sent a SNMP request-type message.",
           "evidence": [
             {
-              "source_id": "c2883dfbe1bd550d",
+              "source_id": "b0f0ee93e0f6a0ee",
               "kind": "packet",
               "ref": "55,56",
               "text": "udp 10.20.1.50:41000 -> 10.30.2.40:161, 2 packets"
@@ -253,49 +253,49 @@
       ],
       "evidence": [
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "75,76",
           "text": "icmp 10.20.1.15:None -> 10.30.2.40:None, 2 packets"
         },
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "91,92,93,94,95,96,97",
           "text": "tcp 10.20.1.15:58000 -> 10.30.2.40:502, 7 packets"
         },
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "1,3,4,5,6,7,8",
           "text": "tcp 10.20.1.15:50000 -> 10.30.2.40:502, 7 packets"
         },
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "25,26,27,28,29,30,31",
           "text": "tcp 10.20.1.15:51000 -> 10.30.2.40:44818, 7 packets"
         },
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "68,69,70,71,72,73,74",
           "text": "tcp 10.20.1.15:55100 -> 10.30.2.99:8888, 7 packets"
         },
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "84,85,86,87,88,89,90",
           "text": "tcp 10.20.1.16:57000 -> 10.30.2.40:502, 7 packets"
         },
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "55,56",
           "text": "udp 10.20.1.50:41000 -> 10.30.2.40:161, 2 packets"
         },
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "61,62,63,64,65,66,67",
           "text": "tcp 10.20.1.99:55000 -> 10.30.2.41:502, 7 packets"
@@ -333,7 +333,7 @@
           "message": "Direction of 10.30.2.40 to 10.30.5.1 (udp/123) was inferred with medium confidence: payload semantics: 10.30.2.40:123 sent a NTP request-type message.",
           "evidence": [
             {
-              "source_id": "c2883dfbe1bd550d",
+              "source_id": "b0f0ee93e0f6a0ee",
               "kind": "packet",
               "ref": "53,54",
               "text": "udp 10.30.2.40:123 -> 10.30.5.1:123, 2 packets"
@@ -349,7 +349,7 @@
       ],
       "evidence": [
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "53,54",
           "text": "udp 10.30.2.40:123 -> 10.30.5.1:123, 2 packets"
@@ -396,7 +396,7 @@
       ],
       "evidence": [
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "39,40,41,42,43,44",
           "text": "tcp 10.30.2.40:49500 -> 10.30.5.10:4840, 6 packets"
@@ -443,7 +443,7 @@
       ],
       "evidence": [
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "32,33,34,35,36,37,38",
           "text": "tcp 10.30.5.10:52000 -> 10.30.2.40:502, 7 packets"
@@ -488,7 +488,7 @@
           "message": "Prefixes are the exact addresses observed. Cloud and CDN services change addresses; prefer DNS names where the destination is a named service, and review whether DNS resolution should be allowed (the Allow all DNS queries setting is left off).",
           "evidence": [
             {
-              "source_id": "c2883dfbe1bd550d",
+              "source_id": "b0f0ee93e0f6a0ee",
               "kind": "packet",
               "ref": "98,99,100,101,102,103",
               "text": "tcp 10.30.2.40:53500 -> 198.51.100.7:443, 6 packets"
@@ -501,7 +501,7 @@
           "message": "Observed services are for reference. Egress policies can name services, whose definition depends on the platform.",
           "evidence": [
             {
-              "source_id": "c2883dfbe1bd550d",
+              "source_id": "b0f0ee93e0f6a0ee",
               "kind": "packet",
               "ref": "98,99,100,101,102,103",
               "text": "tcp 10.30.2.40:53500 -> 198.51.100.7:443, 6 packets"
@@ -511,7 +511,7 @@
       ],
       "evidence": [
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "98,99,100,101,102,103",
           "text": "tcp 10.30.2.40:53500 -> 198.51.100.7:443, 6 packets"
@@ -533,7 +533,7 @@
       "message": "10.30.2.40 and 10.20.1.60 (udp 514): which side initiates is uncertain (low confidence: only datagrams from 10.30.2.40:514 were seen). No policy was proposed. Decide the direction before creating one; a wrong direction would permit the opposite initiation.",
       "evidence": [
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "57",
           "text": "udp 10.30.2.40:514 -> 10.20.1.60:514, 1 packets"
@@ -546,7 +546,7 @@
       "message": "initiator 2001:db8:20::15 and responder 2001:db8:30::40 are not in any group, so the communication was not turned into a policy. Add the address to a group.",
       "evidence": [
         {
-          "source_id": "c2883dfbe1bd550d",
+          "source_id": "b0f0ee93e0f6a0ee",
           "kind": "packet",
           "ref": "77,78,79,80,81,82,83",
           "text": "tcp 2001:db8:20::15:56000 -> 2001:db8:30::40:502, 7 packets"
@@ -558,6 +558,7 @@
     "communications_observed": 16,
     "communications_used": 14,
     "held_back_low_confidence": 1,
+    "broadcast_or_multicast": 0,
     "not_in_a_group": 1,
     "policies": 7,
     "egress_policies": 1,

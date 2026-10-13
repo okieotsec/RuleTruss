@@ -49,7 +49,7 @@ Not chosen for the MVP: FastAPI/React (more dependencies for no gain here), a SQ
 | `migrate/{groups,directional,firewall,validate}.py` | Group arithmetic, group-policy plans, destination translation, validation |
 | `store.py`, `isolate.py`, `worker.py`, `server.py`, `service.py`, `exports.py`, `redact.py`, `limits.py`, `netutil.py` | Storage, isolation, HTTP, logic behind the pages, exports, credential redaction, limits, helpers |
 | `web/` | The single-page interface |
-| `synthetic.py`, `samples/` | Synthetic captures and the demonstration project |
+| `synthetic.py`, `samples/`, `riverbend.py`, `riverbend_configs.py` | Synthetic packet builders, the small demonstration project, and the larger Riverbend example (captures, flow log, five device exports, context) |
 
 ## Threat model, in brief
 

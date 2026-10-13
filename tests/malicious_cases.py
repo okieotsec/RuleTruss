@@ -2,7 +2,7 @@
 import os
 import struct
 
-from pbridge.synthetic import CaptureBuilder, dns_message, modbus_request, modbus_response
+from ruletruss.synthetic import CaptureBuilder, dns_message, modbus_request, modbus_response
 
 ASA_HEAD = "interface Gi0/0\n nameif a\n security-level 1\n"
 

@@ -9,31 +9,34 @@
     "explained_by_blocked_rule": 0,
     "explained_by_source_default": 0,
     "unexplained_broader": 0,
+    "explained_by_reply_entry": 0,
     "result": "no difference found on the sampled connections"
   },
   "preserve/cisco-ios": {
     "cases": 67,
-    "same_allow": 18,
-    "same_deny": 41,
-    "target_broader": 2,
-    "target_narrower": 0,
+    "same_allow": 2,
+    "same_deny": 43,
+    "target_broader": 0,
+    "target_narrower": 16,
     "not_compared": 6,
-    "explained_by_blocked_rule": 0,
+    "explained_by_blocked_rule": 13,
     "explained_by_source_default": 0,
     "unexplained_broader": 0,
-    "result": "destination allows connections the source denied"
+    "explained_by_reply_entry": 0,
+    "result": "destination blocks connections the source allowed"
   },
   "preserve/fortios": {
     "cases": 67,
-    "same_allow": 18,
+    "same_allow": 2,
     "same_deny": 43,
     "target_broader": 0,
-    "target_narrower": 0,
+    "target_narrower": 16,
     "not_compared": 6,
-    "explained_by_blocked_rule": 0,
+    "explained_by_blocked_rule": 13,
     "explained_by_source_default": 0,
     "unexplained_broader": 0,
-    "result": "no difference found on the sampled connections"
+    "explained_by_reply_entry": 0,
+    "result": "destination blocks connections the source allowed"
   },
   "narrow/cisco-asa": {
     "not_compared": 1,

@@ -1,10 +1,10 @@
 # Preserved configured permissions
 
-> **PROPOSED. This is an implementation worksheet, not a configuration file and not an import file.** It was produced by Policy Bridge from the inputs named below. It has not been applied to any system and its equivalence to the source has not been proven.
+> **PROPOSED. This is an implementation worksheet, not a configuration file and not an import file.** It was produced by RuleTruss from the inputs named below. It has not been applied to any system and its equivalence to the source has not been proven.
 
 Project: Sample plant (synthetic)
 
-Generated: 2026-10-13 14:04:57 UTC
+Generated: 2026-10-13 17:50:18 UTC
 
 ## Result
 

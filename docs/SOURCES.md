@@ -1,6 +1,6 @@
 # Sources and what was verified
 
-Product-specific statements in Policy Bridge's behaviour, documentation and warnings are tied to the public documents below. They
+Product-specific statements in RuleTruss's behaviour, documentation and warnings are tied to the public documents below. They
 were retrieved on 2026-10-13. Vendors change behaviour between versions, so each row says what the tool relies on, and the last
 section lists what could **not** be verified.
 

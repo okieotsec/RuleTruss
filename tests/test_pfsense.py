@@ -2,9 +2,9 @@ import json
 import unittest
 from pathlib import Path
 
-from pbridge.adapters import pfsense
-from pbridge.evaluate import ALLOW, DENY, Probe, evaluate
-from pbridge.model import to_plain
+from ruletruss.adapters import pfsense
+from ruletruss.evaluate import ALLOW, DENY, Probe, evaluate
+from ruletruss.model import to_plain
 
 FIX = Path(__file__).parent / "fixtures"
 

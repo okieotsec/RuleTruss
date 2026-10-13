@@ -2,9 +2,9 @@ import json
 import unittest
 from pathlib import Path
 
-from pbridge.adapters import cisco
-from pbridge.evaluate import ALLOW, DENY, INDETERMINATE, Probe, evaluate, evaluate_connection
-from pbridge.model import to_plain
+from ruletruss.adapters import cisco
+from ruletruss.evaluate import ALLOW, DENY, INDETERMINATE, Probe, evaluate, evaluate_connection
+from ruletruss.model import to_plain
 
 FIX = Path(__file__).parent / "fixtures"
 
@@ -213,3 +213,17 @@ class RejectionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Ipv6AclTests(unittest.TestCase):
+    TEXT = ("ip access-list extended V4\n permit tcp any any eq 80\n permit tcp any any eq 22\n deny ip any any\n"
+            "ipv6 access-list V6\n permit tcp any any eq 443\n deny ipv6 any any\n"
+            "interface Vlan1\n ip address 10.0.0.1 255.255.255.0\n ip access-group V4 in\n ipv6 traffic-filter V6 in\n")
+
+    def test_any_in_an_ipv6_acl_means_any_ipv6_address_only(self):
+        policy = cisco.parse(self.TEXT, "x", "ios")
+        v6 = [r for r in policy.rules if r.extra["acl"] == "V6"]
+        self.assertTrue(all(r.src.nets == ["::/0"] and not r.src.any for r in v6))
+        v4 = [r for r in policy.rules if r.extra["acl"] == "V4"]
+        self.assertTrue(v4[0].src.any)
+

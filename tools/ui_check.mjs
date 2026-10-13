@@ -9,7 +9,7 @@ import { join } from "node:path";
 const url = process.argv[2];
 const shots = process.argv[3];
 const chromium = process.env.CHROMIUM || "chromium";
-const profile = mkdtempSync(join(tmpdir(), "pb-ui-"));
+const profile = mkdtempSync(join(tmpdir(), "rt-ui-"));
 const env = { ...process.env }; delete env.DISPLAY; delete env.WAYLAND_DISPLAY;   // nothing may appear on a real desktop
 const proc = spawn(chromium, ["--headless=new", "--disable-gpu", "--no-sandbox", `--user-data-dir=${profile}`, "--remote-debugging-port=0",
   "--window-size=1300,1000", "about:blank"], { env, stdio: ["ignore", "ignore", "pipe"] });
@@ -39,7 +39,7 @@ const evaluate = async (expression) => {
 await send("Runtime.enable"); await send("Page.enable"); await send("Log.enable");
 const checks = []; const failures = [];
 const check = (name, ok, detail = "") => { checks.push({ name, ok: !!ok, detail }); if (!ok) failures.push(`${name} ${detail}`); };
-const waitFor = (cond, ms = 15000) => evaluate(`(async()=>{const end=Date.now()+${ms};while(Date.now()<end){try{if(${cond})return true}catch(e){}await new Promise(r=>setTimeout(r,100))}return false})()`);
+const waitFor = (cond, ms = 30000) => evaluate(`(async()=>{const end=Date.now()+${ms};while(Date.now()<end){try{if(${cond})return true}catch(e){}await new Promise(r=>setTimeout(r,100))}return false})()`);
 const tab = async (label) => { await evaluate(`[...document.querySelectorAll('#tabs button')].find(b=>b.textContent==='${label}').click()`); await new Promise((r) => setTimeout(r, 300)); };
 const shot = async (name) => { if (!shots) return; mkdirSync(shots, { recursive: true }); const r = await send("Page.captureScreenshot", { format: "png" }); writeFileSync(join(shots, `${name}.png`), Buffer.from(r.result.data, "base64")); };
 const click = (text) => evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes(${JSON.stringify(text)})).click()`);
@@ -62,6 +62,7 @@ try {
   await tab("Configuration");
   check("rules are listed with analysis findings", await waitFor("document.querySelectorAll('#view tbody tr').length >= 10 && document.body.textContent.includes('Rule analysis')"));
   await tab("Compare");
+  check("compare says how many communications cross the device", await waitFor("document.body.textContent.includes('cross this device')"));
   check("compare shows outcomes and the not-a-finding note", await waitFor("document.body.textContent.includes('not a finding about the device') && document.querySelectorAll('.chip.deny').length >= 1"));
   await tab("Migrate");
   await click("Build directional policies");
@@ -82,9 +83,10 @@ try {
   check("the generated text is for review, with blocked rules left as comments", await evaluate("document.querySelector('pre.code').textContent.includes('REVIEW BEFORE USE')"));
   await shot("translation");
   await tab("Groups & labels");
+  check("the context can be loaded from and saved to a JSON file", await evaluate("document.body.textContent.includes('Load from a JSON file') && document.body.textContent.includes('Download as JSON')"));
   check("groups editor shows the sample groups", await waitFor("document.body.textContent.includes('Isolated behind a gateway') && document.querySelectorAll('#view tbody tr').length >= 8"));
   // hostile text must never become markup
-  await evaluate(`(async()=>{const p=document.getElementById('projectSelect').value; await fetch('/api/projects/'+p+'/context',{method:'PUT',headers:{'Authorization':'Bearer '+sessionStorage.getItem('pb-token'),'Content-Type':'application/json'},body:JSON.stringify({labels:{'10.20.1.15':'<img src=x onerror=window.__xss=1>'}})})})()`);
+  await evaluate(`(async()=>{const p=document.getElementById('projectSelect').value; await fetch('/api/projects/'+p+'/context',{method:'PUT',headers:{'Authorization':'Bearer '+sessionStorage.getItem('rt-token'),'Content-Type':'application/json'},body:JSON.stringify({labels:{'10.20.1.15':'<img src=x onerror=window.__xss=1>'}})})})()`);
   await tab("Communications");
   await waitFor("document.body.textContent.includes('<img src=x')");
   check("a hostile device label is shown as text, not run", await evaluate("window.__xss === undefined && !document.querySelector('#view img') && document.body.textContent.includes('<img src=x')"));

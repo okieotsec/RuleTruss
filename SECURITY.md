@@ -9,7 +9,7 @@
 ## Reporting a vulnerability
 
 Please report suspected vulnerabilities **privately**, not in a public issue. Use the repository's private vulnerability reporting once it is published. Include the version
-(`python -m pbridge --version`), what you did, what you expected and what happened. A synthetic sample file that triggers the problem is the most useful thing to
+(`python -m ruletruss --version`), what you did, what you expected and what happened. A synthetic sample file that triggers the problem is the most useful thing to
 send. **Never send real captures or real configuration exports.**
 
 ## What the application connects to
@@ -26,7 +26,7 @@ is not recommended: there are no user accounts.
 
 ## What it reads and writes
 
-* **Files you give it:** captures, flow logs and configuration exports. They are copied into a private data folder (default `~/.local/share/policy-bridge`, or `--data-dir`), mode 0700,
+* **Files you give it:** captures, flow logs and configuration exports. They are copied into a private data folder (default `~/.local/share/ruletruss`, or `--data-dir`), mode 0700,
   with files 0600. Each file is parsed in a separate, resource-limited process and never executed.
 * **Credentials:** passwords, keys, pre-shared keys and SNMP community strings in exports are redacted from everything stored as evidence, shown, exported or sent to an AI endpoint. The
   original upload is kept as received until you delete it, so protect the data folder like the export itself.

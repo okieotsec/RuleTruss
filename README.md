@@ -1,4 +1,6 @@
-# Policy Bridge
+# RuleTruss
+
+*by OkieOTSec*
 
 A local-first, self-hostable workbench that helps network and security people **understand existing communications** and **migrate security policy** between products, without buying any particular vendor's hardware.
 
@@ -40,10 +42,10 @@ Needs Python 3.12 or newer, on Linux or macOS. One runtime dependency (dpkt), in
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install --require-hashes -r requirements.txt
-.venv/bin/python -m pbridge          # prints an address with a one-time access token
+.venv/bin/python -m ruletruss          # prints an address with a one-time access token
 ```
 
-Open the printed address (`http://127.0.0.1:8765/#token=...`) in your browser. Everything is stored in `~/.local/share/policy-bridge` (change with `--data-dir`). Nothing leaves the machine. To try it with no files of your own, press **Create a sample project (synthetic data)** on the Import tab.
+Open the printed address (`http://127.0.0.1:8765/#token=...`) in your browser. Everything is stored in `~/.local/share/ruletruss` (change with `--data-dir`). Nothing leaves the machine. To try it with no files of your own, press **Create the Riverbend example** on the Import tab (see *Example data* below).
 
 Options: `--port`, `--data-dir`, `--retention-days N` (delete old projects at start), `--ai-endpoint URL` (optional, off by default; see [SECURITY.md](SECURITY.md)). A container or reverse proxy is not needed, and the server refuses non-loopback addresses unless you pass `--allow-non-loopback`.
 
@@ -56,9 +58,18 @@ Options: `--port`, `--data-dir`, `--retention-days N` (delete old projects at st
 5. **Migrate:** build directional group policies (preserve or narrower), or translate to another firewall and read the validation.
 6. **Export:** worksheets and configuration text for review. Delete anything on **Data & privacy**.
 
+## Example data
+
+You do not need your own captures or exports to understand the design. Two synthetic data sets are included, all fictional:
+
+* **[samples/riverbend/](samples/riverbend/)**: a fictional water-treatment plant with **three captures taken at different points** (a clean span, a sparse DMZ tap, a capture that started mid-conversation), a **Zeek flow log**, and **five device exports in five formats** (Cisco ASA, PAN-OS, FortiOS, Cisco IOS ACLs, pfSense), plus `context.json` (subnets, labels and groups). It is built to show every idea in the tool, including where the tool says *I cannot tell*. Start with **[samples/riverbend/GUIDE.md](samples/riverbend/GUIDE.md)**, which lists what to look for, where, and why it matters; each point in it is checked by an automated test. Load it with one button, or import the files by hand.
+* **[samples/small/](samples/small/)**: one capture, one flow log and one configuration per format; quicker to read.
+
+Regenerate both with `python tools/make_samples.py`.
+
 ## Walkthrough, with real outputs
 
-[docs/WALKTHROUGH.md](docs/WALKTHROUGH.md) takes the synthetic sample from input files to explanations to exports, regenerated from the application code by `tools/make_demo.py`. The full output files are in [docs/demo/](docs/demo/); sample inputs are in [samples/](samples/).
+[docs/WALKTHROUGH.md](docs/WALKTHROUGH.md) takes the synthetic sample from input files to explanations to exports, regenerated from the application code by `tools/make_demo.py`. The full output files are in [docs/demo/](docs/demo/); sample inputs are in [samples/small/](samples/small/).
 
 | | |
 | --- | --- |
@@ -80,6 +91,6 @@ A small Python server (standard library plus dpkt) serves a vanilla-JavaScript p
 
 Read [docs/LIMITATIONS_AND_ROADMAP.md](docs/LIMITATIONS_AND_ROADMAP.md). The short version: application, identity and schedule conditions are reported but not evaluated; FQDN objects are not resolved; translations are proposals that have not been loaded onto a device; the validation uses this tool's own evaluator on both sides; observed traffic is not business need; and directional rules are not a complete zero trust architecture.
 
-## Licence
+## Licence and brand
 
-MIT. See [LICENSE](LICENSE).
+The code is MIT licensed ([LICENSE](LICENSE)). The OkieOTSec name and logo in `assets/brand/` and `ruletruss/web/brand/` are not part of that licence; see [assets/brand/README.md](assets/brand/README.md). A fork must use its own name and logo.

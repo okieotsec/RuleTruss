@@ -2,7 +2,7 @@
 
     .venv/bin/python tools/make_screenshots.py
 
-Starts a throw-away server on a free local port with the synthetic sample project, then photographs a few tabs. The DISPLAY and
+Starts a throw-away server on a free local port with the synthetic Riverbend example, then photographs a few tabs. The DISPLAY and
 WAYLAND_DISPLAY variables are removed so that nothing can appear on a real desktop. Needs `chromium` (or chromium-browser) on the PATH.
 """
 import os
@@ -16,8 +16,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from pbridge import server  # noqa: E402
-from pbridge.samples import create_demo  # noqa: E402
+from ruletruss import server  # noqa: E402
+from ruletruss.samples import create_riverbend  # noqa: E402
 
 TABS = [("inventory", 1100), ("comms", 900), ("graph", 800), ("compare", 1000), ("migrate", 1400)]
 
@@ -33,7 +33,7 @@ def main():
         token = secrets.token_urlsafe(24)
         srv = server.build_server("127.0.0.1", 0, data, token=token)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
-        create_demo(srv.app.service)
+        create_riverbend(srv.app.service)
         port = srv.server_address[1]
         for tab, height in TABS:
             command = [browser, "--headless=new", "--disable-gpu", "--no-sandbox", f"--user-data-dir={profile}", "--hide-scrollbars",

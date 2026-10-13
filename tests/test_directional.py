@@ -3,13 +3,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pbridge import analysis
-from pbridge.adapters import cisco, fortios
-from pbridge.capture.flows import analyze_capture
-from pbridge.migrate import directional as bs
-from pbridge.migrate import groups as grp
-from pbridge.model import Subnet
-from pbridge.synthetic import plant_capture
+from ruletruss import analysis
+from ruletruss.adapters import cisco, fortios
+from ruletruss.capture.flows import analyze_capture
+from ruletruss.migrate import directional as bs
+from ruletruss.migrate import groups as grp
+from ruletruss.model import Subnet
+from ruletruss.synthetic import plant_capture
 
 FIX = Path(__file__).parent / "fixtures"
 
@@ -188,7 +188,7 @@ class NarrowTests(unittest.TestCase):
 
 class EgressTests(unittest.TestCase):
     def test_gateway_isolated_endpoints_reaching_outside_every_group_get_an_egress_policy(self):
-        from pbridge.model import Flow
+        from ruletruss.model import Flow
         flows = [Flow(flow_id="f1", source_id="s", ip_version=4, proto="tcp", initiator="10.30.2.40", responder="198.51.100.7",
                       initiator_port=40000, responder_port=443, direction_confidence="high", direction_basis=["SYN"], pkts_fwd=3,
                       pkts_rev=2, hostnames=["updates.vendor.example"]),
@@ -240,7 +240,7 @@ class GroupTests(unittest.TestCase):
 
     def test_cover_prefers_groups_wholly_inside_and_reports_the_rest(self):
         groups = make_groups(("INSIDE", ["10.0.0.0/25"], False), ("TOO_BIG", ["10.0.0.0/16"], False))
-        from pbridge.model import AddrSet
+        from ruletruss.model import AddrSet
         result = grp.cover_addrset(AddrSet(nets=["10.0.0.0/24"]), groups)
         self.assertEqual([g.name for g in result["exact"]], ["INSIDE"])
         self.assertEqual(result["uncovered"], ["10.0.0.128/25"])

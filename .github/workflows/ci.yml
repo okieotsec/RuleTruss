@@ -50,9 +50,9 @@ jobs:
       - name: ruff
         run: ruff check .
       - name: bandit (application code, not the tests)
-        run: bandit -q -r pbridge tools
+        run: bandit -q -r ruletruss tools
       - name: semgrep
-        run: semgrep scan --config p/python --config p/security-audit --metrics off --error --quiet pbridge tools
+        run: semgrep scan --config p/python --config p/security-audit --metrics off --error --quiet ruletruss tools
       - name: pip-audit
         run: pip-audit -r requirements.txt --require-hashes
 

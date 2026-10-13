@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RuleTruss</title>
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/brand/okieotsec-app-tile.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<a class="skip" href="#view">Skip to content</a>
+<header class="top">
+  <div class="brand"><img class="logo only-light" src="/brand/okieotsec-shield.svg" alt="" width="40" height="44"><img class="logo only-dark" src="/brand/okieotsec-shield-dark.svg" alt="" width="40" height="44">
+    <div><h1>Rule<span class="truss">Truss</span></h1><p class="tag">Explain communications. Migrate policy. Keep it local.</p></div></div>
+  <div class="projectbar">
+    <label for="projectSelect">Project</label>
+    <select id="projectSelect"></select>
+    <button id="newProject" type="button">New project</button>
+  </div>
+</header>
+<nav class="tabs" role="tablist" aria-label="Workflow" id="tabs"></nav>
+<div class="legend" aria-label="What the labels mean">
+  <span class="chip observed">OBSERVED</span> seen in a capture or flow log
+  <span class="chip configured">CONFIGURED</span> read from a device export
+  <span class="chip proposed">PROPOSED</span> suggested by this tool, never applied
+</div>
+<main id="view" tabindex="-1"></main>
+<div id="toast" role="status" aria-live="polite"></div>
+<footer class="foot"><img class="only-light" src="/brand/okieotsec-lockup.svg" alt="OkieOTSec"><img class="only-dark" src="/brand/okieotsec-lockup-dark.svg" alt="OkieOTSec"><br>Runs only on this computer. Nothing you import is sent anywhere. Output is for review; this tool never changes a live device.</footer>
+<script src="/app.js"></script>
+</body>
+</html>

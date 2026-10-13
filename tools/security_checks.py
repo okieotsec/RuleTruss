@@ -46,7 +46,7 @@ def main():
     out = ROOT / sys.argv[1]
     out.mkdir(parents=True, exist_ok=True)
     results, versions = [], []
-    app_files = [str(p.relative_to(ROOT)) for p in sorted((ROOT / "pbridge").rglob("*.py"))] + \
+    app_files = [str(p.relative_to(ROOT)) for p in sorted((ROOT / "ruletruss").rglob("*.py"))] + \
                 [str(p.relative_to(ROOT)) for p in sorted((ROOT / "tools").glob("*.py"))]
 
     def record(name, findings, note=""):
@@ -77,7 +77,7 @@ def main():
     exe = tool("semgrep")
     if exe:
         proc = run([exe, "scan", "--config", "p/python", "--config", "p/security-audit", "--metrics", "off", "--json", "-o",
-                    str(out / "semgrep.json"), "--quiet", "pbridge", "tools"], timeout=1800)
+                    str(out / "semgrep.json"), "--quiet", "ruletruss", "tools"], timeout=1800)
         n = count_json(out / "semgrep.json", "results") if (out / "semgrep.json").exists() else None
         record("semgrep", n, "" if n is not None else (proc.stderr.strip().splitlines() or ["did not run"])[-1][:200])
         version("semgrep")

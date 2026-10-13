@@ -3,11 +3,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pbridge import analysis
-from pbridge.adapters import cisco, fortios
-from pbridge.capture.flows import analyze_capture
-from pbridge.model import AppGuess, Flow, Subnet
-from pbridge.synthetic import plant_capture
+from ruletruss import analysis
+from ruletruss.adapters import cisco, fortios
+from ruletruss.capture.flows import analyze_capture
+from ruletruss.model import AppGuess, Flow, Subnet
+from ruletruss.synthetic import plant_capture
 
 FIX = Path(__file__).parent / "fixtures"
 
@@ -168,7 +168,7 @@ if __name__ == "__main__":
 
 class MixedFamilyTests(unittest.TestCase):
     def test_inventory_and_group_suggestions_handle_ipv4_and_ipv6_together(self):
-        from pbridge.migrate import groups as grp
+        from ruletruss.migrate import groups as grp
         flows = [flow(1, "10.0.0.1", "10.0.0.2", 80), flow(2, "2001:db8::1", "2001:db8::2", 80)]
         ctx = analysis.build_context(subnets=[Subnet("10.0.0.0/24", "v4")])
         inv = analysis.inventory(flows, ctx)

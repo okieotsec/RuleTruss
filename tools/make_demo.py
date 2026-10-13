@@ -14,13 +14,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from pbridge import analysis, exports  # noqa: E402
-from pbridge.adapters.registry import parse_config  # noqa: E402
-from pbridge.migrate import firewall, validate  # noqa: E402
-from pbridge.model import Subnet  # noqa: E402
-from pbridge.samples import create_demo  # noqa: E402
-from pbridge.service import Service  # noqa: E402
-from pbridge.store import Store  # noqa: E402
+from ruletruss import analysis, exports  # noqa: E402
+from ruletruss.adapters.registry import parse_config  # noqa: E402
+from ruletruss.migrate import firewall, validate  # noqa: E402
+from ruletruss.model import Subnet  # noqa: E402
+from ruletruss.samples import create_demo  # noqa: E402
+from ruletruss.service import Service  # noqa: E402
+from ruletruss.store import Store  # noqa: E402
 
 OUT = ROOT / "docs" / "demo"
 
@@ -124,10 +124,10 @@ def main():
              f"Generated {time.strftime('%Y-%m-%d', time.gmtime())}. The full outputs are in [docs/demo/](demo/).", "",
              "## 1. Inputs", "",
              "| File | What it is |", "| --- | --- |",
-             "| [samples/plant-span.pcapng](../samples/plant-span.pcapng) | A synthetic capture (21 flows, IPv4 and IPv6, a VLAN tag, a mid-connection start, one-way UDP, a SYN with no reply). Also as [pcap](../samples/plant-span.pcap). |",
-             "| [samples/configs/demo-plant-asa.cfg](../samples/configs/demo-plant-asa.cfg) | A synthetic Cisco ASA export for the same plant. |",
-             "| [samples/plant-conn.log](../samples/plant-conn.log) | A small Zeek conn.log (flow records) in the same fictional network. |", "",
-             "Import them on the **Import** tab, or use **Create a sample project**, which runs exactly this path.", "",
+             "| [samples/small/plant-span.pcapng](../samples/small/plant-span.pcapng) | A synthetic capture (21 flows, IPv4 and IPv6, a VLAN tag, a mid-connection start, one-way UDP, a SYN with no reply). Also as [pcap](../samples/small/plant-span.pcap). |",
+             "| [samples/small/configs/demo-plant-asa.cfg](../samples/small/configs/demo-plant-asa.cfg) | A synthetic Cisco ASA export for the same plant. |",
+             "| [samples/small/plant-conn.log](../samples/small/plant-conn.log) | A small Zeek conn.log (flow records) in the same fictional network. |", "",
+             "Import them on the **Import** tab, or use **Create the small example**, which runs exactly this path. (The larger Riverbend example has its own guide: [samples/riverbend/GUIDE.md](../samples/riverbend/GUIDE.md).)", "",
              "## 2. What was seen (OBSERVED)", "",
              f"The capture holds {overview['flows']} flows, grouped into {overview['communications']} communications "
              f"(initiator, responder, service). Direction confidence: " + ", ".join(f"{k} {v}" for k, v in overview["direction_confidence"].items()) + ".", "",

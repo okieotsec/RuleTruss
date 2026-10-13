@@ -6,7 +6,7 @@ import textwrap
 import time
 import unittest
 
-from pbridge import isolate, limits
+from ruletruss import isolate, limits
 from tests import malicious_cases
 
 FORBIDDEN_IN_MESSAGES = ("Traceback", 'File "', "/ho" + "me/", "secretstring", "MYPSK", "0822455D0A16")
@@ -126,7 +126,7 @@ class IsolationTests(unittest.TestCase):
     @unittest.skipUnless(sys.platform != "win32", "resource limits are not available on Windows")
     def test_memory_limit_stops_a_runaway_parser(self):
         proc = self.run_worker_snippet("""
-            from pbridge import limits, worker
+            from ruletruss import limits, worker
             limits.PARSE_MEMORY_BYTES = 300 * 1024 * 1024
             worker.apply_limits()
             try:
@@ -141,7 +141,7 @@ class IsolationTests(unittest.TestCase):
     def test_file_size_and_core_limits_are_applied(self):
         proc = self.run_worker_snippet("""
             import resource
-            from pbridge import worker
+            from ruletruss import worker
             worker.apply_limits()
             print(resource.getrlimit(resource.RLIMIT_CORE)[0], resource.getrlimit(resource.RLIMIT_NOFILE)[0],
                   resource.getrlimit(resource.RLIMIT_FSIZE)[0] > 0)
@@ -150,7 +150,7 @@ class IsolationTests(unittest.TestCase):
 
     def test_wall_clock_timeout_stops_a_slow_parse(self):
         with tempfile.TemporaryDirectory() as d:
-            from pbridge.synthetic import CaptureBuilder
+            from ruletruss.synthetic import CaptureBuilder
             builder = CaptureBuilder()
             for i in range(40000):
                 builder.udp(i * 0.0001, f"10.{(i >> 8) & 255}.{i & 255}.1", 2000 + i % 5000, "10.9.9.9", 9000, b"x" * 20)
@@ -163,7 +163,7 @@ class IsolationTests(unittest.TestCase):
             self.assertLess(time.monotonic() - started, 10)
 
     def test_worker_does_not_inherit_the_environment(self):
-        os.environ["PB_TEST_SECRET"] = "leak-me"
+        os.environ["RT_TEST_SECRET"] = "leak-me"
         try:
             with tempfile.TemporaryDirectory() as d:
                 path = os.path.join(d, "x.cfg")
@@ -172,11 +172,11 @@ class IsolationTests(unittest.TestCase):
                 result = isolate.parse_file(path, "0123456789abcdef", "x.cfg")
                 self.assertEqual(result["kind"], "policy")
         finally:
-            del os.environ["PB_TEST_SECRET"]
+            del os.environ["RT_TEST_SECRET"]
 
     def test_parsers_do_not_import_networking_modules(self):
         import re
-        root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pbridge")
+        root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ruletruss")
         pattern = re.compile(r"^\s*(?:import|from)\s+(socket|urllib|http|ssl|requests|ftplib|smtplib|telnetlib|asyncio)\b", re.M)
         for folder in ("adapters", "capture", "migrate"):
             for name in os.listdir(os.path.join(root, folder)):
@@ -189,7 +189,7 @@ class IsolationTests(unittest.TestCase):
 
     def test_no_dynamic_code_execution_anywhere(self):
         import re
-        root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pbridge")
+        root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ruletruss")
         pattern = re.compile(r"\b(eval|exec|(?<!re\.)compile|__import__|pickle|marshal|shelve|yaml\.load|os\.system|shell=True)\b")
         for dirpath, _, files in os.walk(root):
             for name in files:

@@ -2,9 +2,9 @@ import json
 import unittest
 from pathlib import Path
 
-from pbridge.adapters import fortios
-from pbridge.evaluate import ALLOW, DENY, INDETERMINATE, Probe, evaluate, evaluate_connection
-from pbridge.model import to_plain
+from ruletruss.adapters import fortios
+from ruletruss.evaluate import ALLOW, DENY, INDETERMINATE, Probe, evaluate, evaluate_connection
+from ruletruss.model import to_plain
 
 FIX = Path(__file__).parent / "fixtures"
 

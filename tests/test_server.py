@@ -5,8 +5,8 @@ import tempfile
 import threading
 import unittest
 
-from pbridge import limits, server
-from pbridge.synthetic import CaptureBuilder, modbus_request, modbus_response, plant_capture
+from ruletruss import limits, server
+from ruletruss.synthetic import CaptureBuilder, modbus_request, modbus_response, plant_capture
 
 
 class ServerCase(unittest.TestCase):
@@ -109,7 +109,7 @@ class AccessControlTests(ServerCase):
             server.build_server("0.0.0.0", 0, d)  # noqa: S104 - proving that this is refused
 
     def test_unknown_paths_and_traversal_are_not_served(self):
-        for path in ("/../../etc/passwd", "/pbridge/server.py", "/%2e%2e/%2e%2e/etc/passwd", "/static/../x"):
+        for path in ("/../../etc/passwd", "/ruletruss/server.py", "/%2e%2e/%2e%2e/etc/passwd", "/static/../x"):
             status, _, _ = self.request("GET", path, raw=True, token=False)
             self.assertEqual(status, 404, path)
 
@@ -376,7 +376,7 @@ class UploadAndDeletionTests(ServerCase):
 
 class RetentionTests(unittest.TestCase):
     def test_purge_older_than_removes_old_projects_only(self):
-        from pbridge.store import Store
+        from ruletruss.store import Store
         with tempfile.TemporaryDirectory() as d:
             store = Store(d)
             old, new = store.create_project("old"), store.create_project("new")
@@ -395,16 +395,16 @@ class AiAssistanceTests(unittest.TestCase):
     """The optional AI path: off by default, endpoint restrictions, grounded prompt, untrusted data labelled."""
 
     def make(self, endpoint, allow_remote=False):
-        from pbridge.service import Service
-        from pbridge.store import Store
+        from ruletruss.service import Service
+        from ruletruss.store import Store
         d = tempfile.TemporaryDirectory()
         self.addCleanup(d.cleanup)
         service = Service(Store(d.name), endpoint, allow_remote)
-        from pbridge.samples import create_demo
+        from ruletruss.samples import create_demo
         return service, create_demo(service)["id"]
 
     def test_non_http_schemes_and_remote_hosts_are_refused(self):
-        from pbridge.service import ApiError
+        from ruletruss.service import ApiError
         for endpoint in ("file:///etc/passwd", "ftp://example.invalid/x", "gopher://x"):
             service, pid = self.make(endpoint)
             with self.assertRaises(ApiError) as ctx:
@@ -455,7 +455,7 @@ class AiAssistanceTests(unittest.TestCase):
 class UnexpectedErrorTests(ServerCase):
     def test_a_failure_outside_any_route_returns_a_clean_500_not_a_dropped_connection(self):
         from unittest import mock
-        with mock.patch("pbridge.server.parse_qs", side_effect=RuntimeError("boom with secret-detail")):
+        with mock.patch("ruletruss.server.parse_qs", side_effect=RuntimeError("boom with secret-detail")):
             status, body = self.request("GET", "/api/status")
         self.assertEqual(status, 500)
         self.assertNotIn("secret-detail", json.dumps(body))

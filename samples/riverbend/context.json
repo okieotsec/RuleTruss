@@ -1,0 +1,200 @@
+{
+  "subnets": [
+    {
+      "cidr": "10.10.0.0/16",
+      "label": "Corporate IT",
+      "zone": "corp"
+    },
+    {
+      "cidr": "10.40.0.0/24",
+      "label": "DMZ",
+      "zone": "dmz|lan"
+    },
+    {
+      "cidr": "10.20.0.0/24",
+      "label": "Operations",
+      "zone": "ops"
+    },
+    {
+      "cidr": "10.30.1.0/24",
+      "label": "Cell 1: intake",
+      "zone": "cell1"
+    },
+    {
+      "cidr": "10.30.2.0/24",
+      "label": "Cell 2: treatment",
+      "zone": "cell2"
+    },
+    {
+      "cidr": "10.30.3.0/24",
+      "label": "Cell 3: distribution",
+      "zone": "cell3"
+    },
+    {
+      "cidr": "198.51.100.0/24",
+      "label": "Vendor network",
+      "zone": "outside|wan",
+      "external": true
+    },
+    {
+      "cidr": "192.0.2.0/24",
+      "label": "Internet (documentation range)",
+      "zone": "outside|wan",
+      "external": true
+    },
+    {
+      "cidr": "203.0.113.0/24",
+      "label": "Internet (documentation range)",
+      "zone": "outside|wan",
+      "external": true
+    }
+  ],
+  "labels": {
+    "10.10.1.10": "Corporate DNS/AD",
+    "10.10.1.11": "Corporate NTP",
+    "10.10.4.4": "Plant manager workstation",
+    "10.10.4.20": "BI server",
+    "10.10.9.5": "IT admin workstation",
+    "10.10.7.7": "Contractor laptop",
+    "10.40.0.10": "Jump host",
+    "10.40.0.20": "Historian replica",
+    "10.40.0.30": "Patch server",
+    "10.40.0.40": "File transfer server",
+    "10.20.0.2": "Ops DNS/NTP/syslog",
+    "10.20.0.10": "SCADA-1",
+    "10.20.0.11": "SCADA-2",
+    "10.20.0.20": "Historian",
+    "10.20.0.50": "Engineering WS-1",
+    "10.20.0.51": "Engineering WS-2",
+    "10.20.0.60": "HMI-1",
+    "10.20.0.61": "HMI-2",
+    "10.20.0.70": "Network monitor",
+    "10.20.0.80": "Backup server",
+    "10.30.1.11": "Intake pump PLC 1",
+    "10.30.1.12": "Intake pump PLC 2",
+    "10.30.1.13": "Intake pump PLC 3",
+    "10.30.2.21": "Treatment PLC 1",
+    "10.30.2.22": "Treatment PLC 2",
+    "10.30.2.23": "Treatment PLC 3",
+    "10.30.2.24": "Treatment PLC 4",
+    "10.30.2.30": "Dosing PLC (EtherNet/IP)",
+    "10.30.3.31": "RTU 31",
+    "10.30.3.32": "RTU 32",
+    "10.30.3.33": "RTU 33",
+    "10.30.3.34": "RTU 34",
+    "10.30.3.40": "IEC 104 gateway",
+    "198.51.100.50": "Vendor support engineer",
+    "203.0.113.10": "Vendor cloud telemetry"
+  },
+  "groups": [
+    {
+      "name": "Corporate IT",
+      "members": [
+        "10.10.0.0/16"
+      ],
+      "note": "all of corporate; too broad for most policies"
+    },
+    {
+      "name": "IT admins",
+      "members": [
+        "10.10.9.5",
+        "10.10.9.6"
+      ]
+    },
+    {
+      "name": "Corporate viewers",
+      "members": [
+        "10.10.4.4",
+        "10.10.4.20"
+      ]
+    },
+    {
+      "name": "Vendor support",
+      "members": [
+        "198.51.100.0/24"
+      ]
+    },
+    {
+      "name": "Jump host",
+      "members": [
+        "10.40.0.10"
+      ]
+    },
+    {
+      "name": "DMZ servers",
+      "members": [
+        "10.40.0.20",
+        "10.40.0.30",
+        "10.40.0.40"
+      ]
+    },
+    {
+      "name": "SCADA servers",
+      "members": [
+        "10.20.0.10",
+        "10.20.0.11"
+      ]
+    },
+    {
+      "name": "Ops servers",
+      "members": [
+        "10.20.0.10",
+        "10.20.0.11",
+        "10.20.0.20",
+        "10.20.0.80",
+        "10.20.0.2"
+      ],
+      "note": "overlaps SCADA servers on purpose: an endpoint can be in several groups"
+    },
+    {
+      "name": "Engineering",
+      "members": [
+        "10.20.0.50",
+        "10.20.0.51"
+      ]
+    },
+    {
+      "name": "HMIs",
+      "members": [
+        "10.20.0.60",
+        "10.20.0.61"
+      ]
+    },
+    {
+      "name": "Network monitor",
+      "members": [
+        "10.20.0.70"
+      ]
+    },
+    {
+      "name": "Intake PLCs",
+      "members": [
+        "10.30.1.11",
+        "10.30.1.12",
+        "10.30.1.13"
+      ]
+    },
+    {
+      "name": "Treatment PLCs",
+      "members": [
+        "10.30.2.21",
+        "10.30.2.22",
+        "10.30.2.23",
+        "10.30.2.24",
+        "10.30.2.30"
+      ],
+      "gateway_isolated": true,
+      "note": "marked as isolated behind a gateway: outside access only through an external egress policy"
+    },
+    {
+      "name": "Distribution RTUs",
+      "members": [
+        "10.30.3.31",
+        "10.30.3.32",
+        "10.30.3.33",
+        "10.30.3.34",
+        "10.30.3.40"
+      ]
+    }
+  ]
+}

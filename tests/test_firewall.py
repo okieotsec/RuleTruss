@@ -3,14 +3,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pbridge import analysis
-from pbridge.adapters import panos
-from pbridge.adapters.registry import parse_config
-from pbridge.capture.flows import analyze_capture
-from pbridge.migrate import firewall as fw
-from pbridge.migrate import validate as val
-from pbridge.model import Subnet
-from pbridge.synthetic import plant_capture
+from ruletruss import analysis
+from ruletruss.adapters import panos
+from ruletruss.adapters.registry import parse_config
+from ruletruss.capture.flows import analyze_capture
+from ruletruss.migrate import firewall as fw
+from ruletruss.migrate import validate as val
+from ruletruss.model import Subnet
+from ruletruss.synthetic import plant_capture
 
 FIX = Path(__file__).parent / "fixtures"
 SIMPLE = """interface Gi0/0
@@ -195,7 +195,7 @@ class NarrowRuleTests(unittest.TestCase):
 
     def test_observed_rules_are_exact_and_marked_observed(self):
         t = self.build("cisco-asa")
-        self.assertIn("access-list PB-eng-IN extended permit tcp host 10.20.1.15 host 10.30.2.40 eq 502", t.text)
+        self.assertIn("access-list RT-eng-IN extended permit tcp host 10.20.1.15 host 10.30.2.40 eq 502", t.text)
         self.assertTrue(all(r.kind == "observed" for r in t.rules))
         self.assertIn("not proof of business need", " ".join(i.message for i in t.issues))
 
@@ -231,12 +231,13 @@ class SecurityLevelDefaultTests(unittest.TestCase):
 
 class ReturnPathPlacementTests(unittest.TestCase):
     def test_return_rules_come_before_a_catch_all_deny_in_their_acl(self):
-        from pbridge.samples import SUBNETS
+        from ruletruss.samples import SUBNETS
         ctx = analysis.build_context(subnets=[Subnet(**s) for s in SUBNETS])
-        src = parse_config((Path(__file__).parent.parent / "pbridge" / "samples" / "demo_asa.cfg").read_text(), "demo")
+        config = (Path(__file__).parent.parent / "ruletruss" / "samples" / "demo_asa.cfg").read_text()
+        src = parse_config(config.replace(" nat (plc,hist) static 10.30.5.201\n", ""), "demo")      # a static NAT would (rightly) block the rules
         t = fw.translate_policy(src, "cisco-ios", {z["zone"]: z["zone"] for z in SUBNETS}, ctx=ctx)
         text = fw.render(t, "cisco-ios", identity=True)
-        hist = text.split("ip access-list extended PB-hist-IN")[1].split("ip access-list extended")[0]
+        hist = text.split("ip access-list extended RT-hist-IN")[1].split("ip access-list extended")[0]
         lines = [x.strip() for x in hist.splitlines() if x.strip() and not x.strip().startswith(("remark", "!"))]
         first_deny = next(i for i, x in enumerate(lines) if x.startswith("deny"))
         returns = [i for i, x in enumerate(lines) if "eq 4840" in x or "eq 123" in x]
@@ -244,3 +245,16 @@ class ReturnPathPlacementTests(unittest.TestCase):
         self.assertTrue(all(i < first_deny for i in returns), lines)
         report = val.validate_preserve(src, t, ctx)
         self.assertEqual(report["summary"]["target_narrower"], 0, report["mismatches"])
+
+
+class SeparateAclsOnOneInterfaceTests(unittest.TestCase):
+    def test_an_ipv6_deny_all_does_not_cut_the_ipv4_acl_short_in_the_destination(self):
+        text = ("ip access-list extended V4\n permit tcp any any eq 80\n permit tcp any any eq 22\n deny ip any any\n"
+                "ipv6 access-list V6\n deny ipv6 any any\n"
+                "interface Vlan1\n ip address 10.0.0.1 255.255.255.0\n ip access-group V4 in\n ipv6 traffic-filter V6 in\n")
+        src = parse_config(text, "ios")
+        t = fw.translate_policy(src, "cisco-asa", {"Vlan1": "inside"})
+        fw.render(t, "cisco-asa")
+        lines = [line for line in t.text.splitlines() if line.startswith("access-list") and " extended " in line]
+        self.assertEqual([line.split(" extended ")[1] for line in lines],
+                         ["permit tcp any any eq 80", "permit tcp any any eq 22", "deny ip any any", "deny ip any6 any6"])
