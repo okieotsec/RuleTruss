@@ -450,3 +450,13 @@ class AiAssistanceTests(unittest.TestCase):
         for forbidden in ("notarealhash", "notarealcommunity", "enable secret"):
             self.assertNotIn(forbidden, sent)
         self.assertNotIn("access-list", sent)          # no raw configuration lines, only parsed statements
+
+
+class UnexpectedErrorTests(ServerCase):
+    def test_a_failure_outside_any_route_returns_a_clean_500_not_a_dropped_connection(self):
+        from unittest import mock
+        with mock.patch("pbridge.server.parse_qs", side_effect=RuntimeError("boom with secret-detail")):
+            status, body = self.request("GET", "/api/status")
+        self.assertEqual(status, 500)
+        self.assertNotIn("secret-detail", json.dumps(body))
+        self.assertEqual(self.request("GET", "/api/status")[0], 200)       # the server is still serving

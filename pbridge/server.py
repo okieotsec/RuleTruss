@@ -166,6 +166,20 @@ def make_handler(app):
 
         # ---------------------------------------------------------- dispatch
         def handle_any(self):
+            """Any failure outside a route (static files, query parsing) still ends in a clean response or a closed connection."""
+            try:
+                self.dispatch()
+            except (BrokenPipeError, ConnectionResetError, TimeoutError):
+                self.close_connection = True
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
+                self.close_connection = True
+                try:
+                    self.error(500, "internal error; see the server console")
+                except OSError:
+                    pass
+
+        def dispatch(self):
             if not self.check_host_and_origin():
                 return
             parsed = urlparse(self.path)
