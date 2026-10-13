@@ -82,7 +82,7 @@ A small Python server (standard library plus dpkt) serves a vanilla-JavaScript p
 
 ## Tests and validation
 
-* **249 automated tests**, all passing (`python -m unittest discover -s tests -t .`, about 70 seconds): object and nested-group resolution, ordered rules and implicit deny, stateful replies versus reverse initiation, stateless return requirements, NAT address context, IPv6/UDP/ICMP, shadowed/conflicting/disabled rules, group aggregation, unsupported applications/identities/schedules, hostile files and resource limits, fuzzing, the server's access control, and the interface in a real headless browser (20 checks).
+* **287 automated tests**, all passing (`python -m unittest discover -s tests -t .`, about 70 seconds): object and nested-group resolution, ordered rules and implicit deny, stateful replies versus reverse initiation, stateless return requirements, NAT address context, IPv6/UDP/ICMP, shadowed/conflicting/disabled rules, group aggregation, unsupported applications/identities/schedules, hostile files and resource limits, fuzzing, the server's access control, and the interface in a real headless browser (22 checks).
 * **Migration validation evidence:** [docs/VALIDATION.md](docs/VALIDATION.md) lists every fixture translated to every other destination and compared on sampled connections, including the differences found and why.
 * **Security testing** follows [SECURITY_TEST_PLAN.md](SECURITY_TEST_PLAN.md); reports are archived in [reports/](reports/). One runtime dependency, with an [SBOM](sbom/sbom.cdx.json).
 * The browser tests and screenshots run in headless Chromium with no display, so no window ever opens on your desktop.
