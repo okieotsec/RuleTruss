@@ -52,7 +52,7 @@ class _Parser:
         for node in ifaces:
             ip, prefix = text(node, "ipaddr"), text(node, "subnet")
             nets, host_ips = [], []
-            if ip and prefix.isdigit():
+            if ip and netutil.is_uint(prefix):
                 try:
                     interface = ipaddress.ip_interface(f"{ip}/{prefix}")
                     nets.append(str(interface.network))

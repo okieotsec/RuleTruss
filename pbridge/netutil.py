@@ -20,6 +20,11 @@ PORT_NAMES = {
 }
 
 
+def is_uint(text):
+    """True only for ASCII digits. str.isdigit() also accepts characters such as a superscript two that int() rejects."""
+    return text.isascii() and text.isdigit()
+
+
 class ParseProblem(ValueError):
     """Raised for input that cannot be understood. The message is safe to show to the user."""
 
@@ -59,7 +64,7 @@ def proto_name(token):
     token = token.strip().lower()
     if token in PROTO_NAMES:
         return PROTO_NAMES[token]
-    if token.isdigit() and int(token) < 256:
+    if is_uint(token) and int(token) < 256:
         return PROTO_NUMBERS.get(int(token), f"proto:{int(token)}")
     return None
 
@@ -67,7 +72,7 @@ def proto_name(token):
 def port_number(token):
     """Port from a number or a well-known name; raises ParseProblem."""
     token = token.strip().lower()
-    if token.isdigit() and int(token) <= MAX_PORT:
+    if is_uint(token) and int(token) <= MAX_PORT:
         return int(token)
     if token in PORT_NAMES:
         return PORT_NAMES[token]

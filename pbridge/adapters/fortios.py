@@ -259,8 +259,8 @@ class _Parser:
             icmp_type = entry.sets.get("icmptype", [None])[0]
             icmp_code = entry.sets.get("icmpcode", [None])[0]
             entries.append(SvcEntry("icmp" if proto == "ICMP" else "icmp6",
-                                    icmp_type=int(icmp_type) if icmp_type and icmp_type.isdigit() else None,
-                                    icmp_code=int(icmp_code) if icmp_code and icmp_code.isdigit() else None))
+                                    icmp_type=int(icmp_type) if icmp_type and netutil.is_uint(icmp_type) else None,
+                                    icmp_code=int(icmp_code) if icmp_code and netutil.is_uint(icmp_code) else None))
         elif proto == "IP":
             number = entry.sets.get("protocol-number", ["0"])[0]
             entries.append(SvcEntry(netutil.proto_name(number) or f"proto:{number}"))

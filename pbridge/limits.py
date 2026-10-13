@@ -12,7 +12,7 @@ MAX_EXPANSION = 50_000                        # addresses or services one group 
 MAX_PACKETS = 5_000_000
 MAX_FLOWS = 200_000
 MAX_NAME_CHARS = 120
-PARSE_SECONDS = 120                           # wall-clock limit for a parser subprocess
+PARSE_SECONDS = 600                           # wall-clock limit for a parser subprocess (about 18,000 packets per second)
 PARSE_MEMORY_BYTES = 2 * 1024 ** 3
 
 

@@ -18,6 +18,8 @@ _PATTERNS = [
     (re.compile(r"(?is)(<(?:password|passwd|phash|secret|psk|pre-shared-key|key|private-key|community|bcrypt-hash|"
                 r"authkey|privkey|auth-password|priv-password|apikey|api-key|token)[^>]*>)[^<]+(</)"),
      r"\1" + REDACTED + r"\2"),
+    # A bare "community <value>" (SNMP) and "psk <value>"; keywords such as send-community are left alone
+    (re.compile(r"(?i)(?<![\w-])(community|psk)(\s+(?:\d\s+)?)\S+"), r"\1\2" + REDACTED),
     # Generic "something: value" and "something=value" secrets
     (re.compile(r"(?i)\b((?:api[_-]?key|token|passwd|password|secret|psk)\s*[:=]\s*)\S+"), r"\1" + REDACTED),
 ]

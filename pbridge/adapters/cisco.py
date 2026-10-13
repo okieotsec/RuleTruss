@@ -265,9 +265,9 @@ class _Parser:
         """Parse an ICMP type (and optional code) at tokens[i]. Returns (type, code, next index)."""
         table = ICMP6_TYPES if proto == "icmp6" else ICMP_TYPES
         word = tokens[i]
-        if word.isdigit():
+        if netutil.is_uint(word):
             code = None
-            if i + 1 < len(tokens) and tokens[i + 1].isdigit():
+            if i + 1 < len(tokens) and netutil.is_uint(tokens[i + 1]):
                 code = int(tokens[i + 1])
                 return int(word), code, i + 2
             return int(word), None, i + 1
@@ -305,9 +305,9 @@ class _Parser:
         for _, ctokens in children:
             if ctokens[0] == "nameif" and len(ctokens) > 1:
                 nameif = ctokens[1]
-            elif ctokens[0] == "security-level" and len(ctokens) > 1 and ctokens[1].isdigit():
+            elif ctokens[0] == "security-level" and len(ctokens) > 1 and netutil.is_uint(ctokens[1]):
                 info["level"] = int(ctokens[1])
-            elif ctokens[:2] == ["ip", "address"] and len(ctokens) >= 4 and ctokens[2][0].isdigit():
+            elif ctokens[:2] == ["ip", "address"] and len(ctokens) >= 4 and netutil.is_uint(ctokens[2][0]):
                 try:
                     net = netutil.net_from_mask(ctokens[2], ctokens[3])
                     info["nets"].append(str(net))
@@ -472,7 +472,7 @@ class _Parser:
                 if rest[0] in ("extended", "standard", "webtype", "ethertype"):
                     kind = rest[0]
                     rest = rest[1:]
-                elif self.flavour == "ios" and name.isdigit():
+                elif self.flavour == "ios" and netutil.is_uint(name):
                     kind = "standard" if int(name) in STANDARD_NUMBERED else "extended"
                 self.add_ace(name, kind, rest, number, counters, pending_remark)
             elif head == "ip" and tokens[1:3] in (["access-list", "extended"], ["access-list", "standard"]) and len(tokens) > 3:
@@ -489,7 +489,7 @@ class _Parser:
     def read_named_acl(self, name, kind, children, counters, pending_remark):
         for cnum, ctokens in children:
             rest = ctokens
-            if rest and rest[0].isdigit():
+            if rest and netutil.is_uint(rest[0]):
                 rest = rest[1:]                      # sequence number
             if not rest:
                 continue
@@ -584,7 +584,7 @@ class _Parser:
             if word in LOG_WORDS:
                 log = True
                 j += 1
-                while j < len(rest) and (rest[j] in LOG_ARGS or rest[j].isdigit() or rest[j] == "interval"):
+                while j < len(rest) and (rest[j] in LOG_ARGS or netutil.is_uint(rest[j]) or rest[j] == "interval"):
                     j += 1
                 continue
             if word == "inactive":
