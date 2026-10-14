@@ -1,0 +1,15 @@
+import json, collections, sys
+S = sys.argv[1]
+bf = json.load(open(f"{S}/out/bf.json")); cs = json.load(open(f"{S}/in/cases.json"))["cases"]
+for k, v in bf["issues"].items():
+    print(k, len(v) if isinstance(v, list) else v)
+    if isinstance(v, list):
+        for r in v[:5]: print("   ", json.dumps(r)[:220])
+print(collections.Counter(r["action"] for r in bf["results"]))
+agree = collections.Counter(); diff = []
+for c, r in zip(cs, bf["results"]):
+    s = c["source_decision"]; b = r["action"].upper(); agree[(s, b)] += 1
+    if s != "indeterminate" and (s == "allow") != (b == "PERMIT"):
+        diff.append((c["label"], c["src"], c["dst"], s, b, r["line"]))
+print(dict(agree)); print("DIFFERENCES:", len(diff))
+for d in diff[:25]: print(d)

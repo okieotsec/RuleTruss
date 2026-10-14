@@ -10,3 +10,6 @@ The `cp0`, `cp1` and `cp2` folders are kept exactly as they were produced, so fi
 `cp7-large-captures` covers adjustable size limits, background imports and the stored-analysis size fix.
 `cp8-unifi` covers the UniFi zone-based firewall import and its export helper.
 `cp9-security-framework` covers the security process: NIST SSDF and MITRE SAF alignment, the suppression gate, CI hardening.
+`cp10-interface-and-training` covers the interface rework, tab prerequisites and the training guide.
+`cp11-unifi-asa-translation` covers the zone-pair to ASA translation redesign after an external review.
+`cp12-batfish-cross-check` covers an independent check of that translation with Batfish in a locked-down container.

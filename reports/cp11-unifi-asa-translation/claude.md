@@ -24,7 +24,7 @@ External-to-External default at the end of the WAN ACL. The five source decision
 
 ## Tests and tools
 
-Commit under test: a1938bb plus uncommitted work (nothing committed this session).
+Commit under test: the working tree on top of d17004b, committed afterwards as 7249a51 (the history was later rewritten to remove one vendor-name comment, so earlier hashes in older reports no longer exist).
 
 * Full suite: 500 tests, all passing on the final run (see the last line of this section). An earlier run failed once: `tests/test_training.py` spelled out
   words the repository hygiene scan forbids; fixed by building them from pieces.
