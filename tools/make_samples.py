@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from ruletruss import riverbend  # noqa: E402
-from ruletruss.samples import create_riverbend, riverbend_files  # noqa: E402
+from ruletruss.samples import create_riverbend, riverbend_files, vendor_names  # noqa: E402
 from ruletruss.service import Service  # noqa: E402
 from ruletruss.store import Store  # noqa: E402
 from ruletruss.synthetic import plant_capture  # noqa: E402
@@ -58,6 +58,7 @@ def guide(out):
     """GUIDE.md from live results: every number below comes from running the application on these very files."""
     with tempfile.TemporaryDirectory() as d:
         svc = Service(Store(d))
+        vendor_names.install(svc.vendor_path)        # the fictional table: the guide names no real company
         project = create_riverbend(svc)
         pid = project["id"]
         ov = svc.overview(pid)
@@ -69,6 +70,9 @@ def guide(out):
                                          "zone_map": {"ops": "Vlan20", "cell1": "Vlan11", "cell2": "Vlan12", "field": "Vlan11"}})
         asa_to_forti = svc.translation_json(pid, {"workflow": "preserve", "policy": policy_ids["perimeter-asa.cfg"], "target": "fortios", "zone_map": {}})
         conf = ov["direction_confidence"]
+    devs = {d["ip"]: d for d in ov["inventory"]["devices"]}
+    shared = {m["mac"]: m for m in ov["device_extras"]["shared_macs"]}
+    ops_router = shared[riverbend.OPS_MACS["10.20.0.1"]]
     cross = {n: (c["crossing"], len(c["rows"]), c["crossing_counts"]) for n, c in cmp_.items()}
     L = []
     w = L.append
@@ -158,6 +162,23 @@ def guide(out):
     w("| T13 | SCADA-1 to intake PLC 1, port 502 | Two flows, from two captures, merged; the communication takes the **weakest** direction confidence. | Several observation points combine conservatively. |")
     w("| T14 | Corporate DNS to 9.9.9.9 | From the Zeek log: direction **low** and labelled as Zeek's own inference. | A summary is not packet evidence. |")
     w("")
+    w("## What to look for: devices (MAC addresses and what devices say about themselves)")
+    w("")
+    w("Open **Inventory**, then the *Devices* table; click a row for the detail. Nothing here is probed: it is all read from the captures. The card maker comes "
+      "from the IEEE vendor-name table, which RuleTruss does not ship: press *Download from the IEEE* on **Data & privacy** to load it (until then the table shows MACs "
+      "but no maker). The prefixes used here are real IEEE registrations, so after the download they show the real registrants; the names written in this guide come from a small "
+      "*fictional* table (`ruletruss/samples/vendor_names.py`) so that no invented device is attributed to a real company. The devices themselves are invented.")
+    w("")
+    w("| Id | Where to look | What you should see | Why it matters |")
+    w("| --- | --- | --- | --- |")
+    w("| D01 | Operations hosts (10.20.0.10 and others) | SCADA, engineering and HMI hosts show a **confirmed** MAC (they answered ARP). The network monitor (10.20.0.70) and the services host (10.20.0.2) show only **probable**: nothing but their own frames. | Confirmed means the device announced it; probable is an inference. |")
+    w(f"| D02 | *MACs shared by several addresses* | In the span, every field PLC arrives with the firewall's MAC: one MAC ({ops_router['nic_vendor']}) carries {len(ops_router['ips'])} addresses, and only the firewall's own address is confirmed for it. The DMZ tap shows the same for everything outside the DMZ. The PLCs get no MAC from this capture. | A MAC is only a device's while it is on the same segment. Router MACs are listed apart and never attributed. |")
+    w(f"| D03 | Cell 2 PLCs and the dosing PLC, in the late-start capture | On the cell switch the PLCs have their own MACs: **{devs['10.30.2.21']['nic_vendor']}** on PLC 1 (confirmed), **{devs['10.30.2.30']['nic_vendor']}** on the dosing PLC. The three that never answered ARP are **probable**. | The registry names the maker of the network card, not necessarily of the device. A prefix registered to a virtualisation company on the SCADA servers says only that they use a virtual network card. |")
+    w(f"| D04 | *Says it is* column, and the row detail | PLC 1 on port 502 returned a Modbus identity (*{devs['10.30.1.11']['identity_short']}*). The dosing PLC answered an EtherNet/IP discovery with its product name and a vendor ID (RuleTruss names only the few IDs it can vouch for, so this one stays a number). Three PLCs describe themselves over SNMP, intake PLC 2 names its web server, and the cell switches advertise their names with LLDP. | Self-reported text is evidence of what the device said, not of what it is. It can be wrong or forged, and it is labelled that way. |")
+    w(f"| D05 | 10.30.2.77 | A contractor laptop asked for an address with the hostname *{devs['10.30.2.77']['identity_short']}*. Its MAC ({devs['10.30.2.77']['mac']}) is **randomised**, so no card maker is shown, and the DHCP answer is what ties it to the address. | Phones and laptops randomise their MACs; a prefix that means nothing is not shown as if it did. |")
+    w(f"| D06 | *Seen without an IP address* | A second cell switch ({ov['device_extras']['l2_only'][0]['identity_short']}) advertises itself with LLDP but never sends IP traffic in this capture. | Some devices are visible only at layer 2. |")
+    w("| D07 | The *Says it is* column for hosts with no other identity, and the row detail | Windows hosts show a TTL hint of 128, Linux and PLCs 64, the IEC 104 gateway 255. Treatment PLC 3 (10.30.2.23) also says 128, which would suggest Windows. | A TTL is a weak hint that is shown apart from the self-reported text, and it can mislead. |")
+    w("")
     w("## What to look for: configurations")
     w("")
     w("| Id | Where to look | What you should see | Why it matters |")
@@ -201,11 +222,28 @@ def riverbend_point(name):
     return RIVERBEND_POINTS[name]
 
 
+def unifi():
+    """The UniFi example as files: the synthetic export, its capture and the context to load by hand."""
+    import json
+
+    from ruletruss.samples import UNIFI_LABELS, UNIFI_SUBNETS, unifi_capture
+    out = ROOT / "samples" / "unifi"
+    out.mkdir(parents=True, exist_ok=True)
+    shutil.copy(ROOT / "ruletruss" / "samples" / "unifi_export.json", out / "unifi-export.json")
+    unifi_capture().write(str(out / "home-lab-span.pcapng"), "pcapng")
+    (out / "context.json").write_text(json.dumps({"subnets": UNIFI_SUBNETS, "labels": UNIFI_LABELS, "groups": []}, indent=2) + "\n", encoding="utf-8")
+    (out / "README.md").write_text("# UniFi example (fictional)\n\nA synthetic zone-based gateway export written from the published UniFi API schema, and a small invented "
+                                   "capture inside its networks. Press **Load the UniFi example** on the Import tab, or import both files and load `context.json` on "
+                                   "Groups & labels. A real export is made with `tools/unifi_export.py` (see docs/EXPORT_UNIFI.md). Regenerate with "
+                                   "`python tools/make_samples.py`.\n", encoding="utf-8")
+
+
 def main():
     small()
+    unifi()
     out = riverbend_files_on_disk()
     guide(out)
-    print("wrote samples/small and samples/riverbend (with GUIDE.md)")
+    print("wrote samples/small, samples/unifi and samples/riverbend (with GUIDE.md)")
 
 
 if __name__ == "__main__":

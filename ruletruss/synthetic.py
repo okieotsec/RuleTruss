@@ -69,20 +69,53 @@ class CaptureBuilder:
     def __init__(self, start=1_700_000_000.0):
         self.start = start
         self.frames = []
+        self.local = None                    # networks on the capture's own segment; None keeps one fixed MAC pair for every frame
+        self.macs = {}                       # IP -> 6-byte MAC for hosts on that segment
+        self.router_mac = b"\x02\x00\x00\x00\x00\xfe"
+        self.ttls = {}                       # IP -> initial TTL (default 64); off-segment senders are one router hop further away
+
+    def _ttl(self, src):
+        initial = self.ttls.get(src, 64)
+        if self.local is None:
+            return initial
+        address = ipaddress.ip_address(src)
+        return initial if address.is_unspecified or any(address in net for net in self.local) else max(1, initial - 1)
+
+    def segment(self, networks, macs=None, router_mac=None):
+        """Give frames realistic MAC addresses: hosts in `networks` use their own MAC, everything else arrives via the router."""
+        self.local = [ipaddress.ip_network(n) for n in networks]
+        self.macs.update({ip: bytes.fromhex(m.replace(":", "")) for ip, m in (macs or {}).items()})
+        if router_mac:
+            self.router_mac = bytes.fromhex(router_mac.replace(":", ""))
+
+    def _mac(self, packed):
+        address = ipaddress.ip_address(packed)
+        if address.is_unspecified:
+            return self.macs.get(str(address), self.router_mac)
+        if address.is_multicast:
+            if address.version == 4:
+                return b"\x01\x00\x5e" + bytes([packed[1] & 0x7F]) + packed[2:]
+            return b"\x33\x33" + packed[-4:]
+        if address.version == 4 and (str(address).endswith(".255") or str(address) == "255.255.255.255"):
+            return b"\xff" * 6
+        if any(address in net for net in self.local):
+            return self.macs.get(str(address)) or b"\x02\x00" + packed[-4:]
+        return self.router_mac
 
     def _ip(self, src, dst, l4, proto, ts):
         a, b = ipaddress.ip_address(src), ipaddress.ip_address(dst)
         if a.version == 4:
-            ip = dpkt.ip.IP(src=a.packed, dst=b.packed, p=proto, data=l4, ttl=64)
+            ip = dpkt.ip.IP(src=a.packed, dst=b.packed, p=proto, data=l4, ttl=self._ttl(src))
             ip.len = len(bytes(ip))
             ethertype = dpkt.ethernet.ETH_TYPE_IP
         else:
-            ip = dpkt.ip6.IP6(src=a.packed, dst=b.packed, nxt=proto, hlim=64, data=l4)
+            ip = dpkt.ip6.IP6(src=a.packed, dst=b.packed, nxt=proto, hlim=self._ttl(src), data=l4)
             ethertype = dpkt.ethernet.ETH_TYPE_IP6
         return ip, ethertype
 
     def _emit(self, ts, ip, ethertype, vlan=None):
-        eth = dpkt.ethernet.Ethernet(dst=ETH_B, src=ETH_A, type=ethertype, data=ip)
+        dst, src = (ETH_B, ETH_A) if self.local is None else (self._mac(ip.dst), self._mac(ip.src))
+        eth = dpkt.ethernet.Ethernet(dst=dst, src=src, type=ethertype, data=ip)
         raw = bytes(eth)
         if vlan is not None:
             raw = raw[:12] + b"\x81\x00" + struct.pack("!H", vlan) + raw[12:]
@@ -108,6 +141,31 @@ class CaptureBuilder:
     def arp(self, ts):
         arp = dpkt.arp.ARP(sha=ETH_A, spa=bytes([10, 20, 1, 15]), tha=b"\x00" * 6, tpa=bytes([10, 20, 1, 1]))
         eth = dpkt.ethernet.Ethernet(dst=b"\xff" * 6, src=ETH_A, type=dpkt.ethernet.ETH_TYPE_ARP, data=arp)
+        self.frames.append((self.start + ts, bytes(eth)))
+
+    def arp_message(self, ts, op, sender_ip, target_ip, vlan=None):
+        """An ARP request (op 1) or reply (op 2) from `sender_ip` (a host on the segment) about `target_ip`."""
+        sender = self.macs[sender_ip]
+        target = self.macs.get(target_ip, b"\x00" * 6) if op == 2 else b"\x00" * 6
+        arp = dpkt.arp.ARP(op=op, sha=sender, spa=ipaddress.ip_address(sender_ip).packed, tha=target,
+                           tpa=ipaddress.ip_address(target_ip).packed)
+        eth = dpkt.ethernet.Ethernet(dst=target if op == 2 else b"\xff" * 6, src=sender, type=dpkt.ethernet.ETH_TYPE_ARP, data=arp)
+        raw = bytes(eth)
+        if vlan is not None:
+            raw = raw[:12] + b"\x81\x00" + struct.pack("!H", vlan) + raw[12:]
+        self.frames.append((self.start + ts, raw))
+
+    def lldp(self, ts, mac, name, description, capabilities=0x04, management_ip=None, port="Gi1/0/1"):
+        """An LLDP advertisement from a switch or other device at `mac`."""
+        def tlv(kind, value):
+            return struct.pack("!H", kind << 9 | len(value)) + value
+        raw_mac = bytes.fromhex(mac.replace(":", ""))
+        body = tlv(1, b"\x04" + raw_mac) + tlv(2, b"\x05" + port.encode()) + tlv(3, struct.pack("!H", 120))
+        body += tlv(5, name.encode()) + tlv(6, description.encode()) + tlv(7, struct.pack("!HH", capabilities, capabilities))
+        if management_ip:
+            body += tlv(8, b"\x05\x01" + ipaddress.ip_address(management_ip).packed + b"\x02" + struct.pack("!I", 1) + b"\x00")
+        body += tlv(0, b"")
+        eth = dpkt.ethernet.Ethernet(dst=bytes.fromhex("0180c200000e"), src=raw_mac, type=0x88CC, data=body)
         self.frames.append((self.start + ts, bytes(eth)))
 
     def session(self, ts, client, cport, server, sport, request=b"", response=b"", close=True, vlan=None):
@@ -260,9 +318,17 @@ def enip_list_identity():
     return struct.pack("<HHII8sI", 0x0063, 0, 0, 0, b"\x00" * 8, 0)
 
 
-def enip_list_identity_reply():
-    """A device answering a ListIdentity broadcast: same command, now with an item list (so it is not a request)."""
-    body = struct.pack("<HHHH", 1, 0x000C, 32, 1) + b"\x00" * 32
+def enip_list_identity_reply(name=None, vendor=1, device_type=0x0E, product_code=166, revision=(32, 11), serial=0x00C0FFEE):
+    """A device answering a ListIdentity broadcast: same command, now with an item list (so it is not a request).
+
+    With no `name` the identity item is all zeros (it still reads as a reply). With a name it carries a real identity item.
+    """
+    if name is None:
+        body = struct.pack("<HHHH", 1, 0x000C, 32, 1) + b"\x00" * 32
+    else:
+        item = (struct.pack("<H", 1) + b"\x00" * 16 + struct.pack("<HHHBBHI", vendor, device_type, product_code, *revision, 0x0030, serial)
+                + bytes([len(name)]) + name.encode() + b"\x03")
+        body = struct.pack("<HHH", 1, 0x000C, len(item)) + item
     return struct.pack("<HHII8sI", 0x0063, len(body), 0, 0, b"\x00" * 8, 0) + body
 
 
@@ -271,8 +337,52 @@ def enip_send_rr_data(response=False):
     return struct.pack("<HHII8sI", 0x006F, len(body), 0x1234, 0, b"\x00" * 8, 0) + body
 
 
-def dhcp_discover():
-    return bytes([1, 1, 6, 0]) + b"\x00" * 4 + b"\x00" * 228 + b"\x63\x82\x53\x63" + b"\x35\x01\x01\xff"
+def dhcp_discover(mac=None, hostname=None, vendor_class=None):
+    """A DHCP DISCOVER. With no arguments it is the bare message (all-zero client hardware address, no options besides the type)."""
+    options = b"\x35\x01\x01"
+    for code, value in ((12, hostname), (60, vendor_class)):
+        if value:
+            options += bytes([code, len(value)]) + value.encode()
+    chaddr = (bytes.fromhex(mac.replace(":", "")) if mac else b"\x00" * 6) + b"\x00" * 10
+    return bytes([1, 1, 6, 0]) + b"\x00" * 4 + b"\x00" * 20 + chaddr + b"\x00" * 192 + b"\x63\x82\x53\x63" + options + b"\xff"
+
+
+def dhcp_ack(mac, address):
+    """A DHCP ACK handing `address` to the client at `mac`."""
+    chaddr = bytes.fromhex(mac.replace(":", "")) + b"\x00" * 10
+    return (bytes([2, 1, 6, 0]) + b"\x00" * 4 + b"\x00" * 8 + ipaddress.ip_address(address).packed + b"\x00" * 8 + chaddr + b"\x00" * 192
+            + b"\x63\x82\x53\x63" + b"\x35\x01\x05\xff")
+
+
+def _ber(tag, content):
+    size = len(content)
+    head = bytes([size]) if size < 128 else b"\x81" + bytes([size]) if size < 256 else b"\x82" + struct.pack("!H", size)
+    return bytes([tag]) + head + content
+
+
+def snmp_description_response(description, name=None, community="public"):
+    """An SNMP GetResponse carrying sysDescr.0 (and sysName.0 if given)."""
+    def varbind(oid, text):
+        return _ber(0x30, _ber(0x06, bytes.fromhex(oid)) + _ber(0x04, text.encode()))
+    binds = varbind("2b06010201010100", description) + (varbind("2b06010201010500", name) if name else b"")
+    pdu = _ber(0xA2, _ber(2, b"\x01") + _ber(2, b"\x00") + _ber(2, b"\x00") + _ber(0x30, binds))
+    return _ber(0x30, _ber(2, b"\x01") + _ber(4, community.encode()) + pdu)
+
+
+def modbus_device_id_request(tid=1, unit=1):
+    return struct.pack("!HHHBBBBB", tid, 0, 5, unit, 0x2B, 0x0E, 0x01, 0x00)
+
+
+def modbus_device_identification(objects, tid=1, unit=1):
+    """A Modbus 'Read Device Identification' response (function 0x2B, MEI 0x0E). `objects` maps object IDs 0-6 to text."""
+    body = b"".join(bytes([i, len(v)]) + v.encode() for i, v in sorted(objects.items()))
+    pdu = bytes([unit, 0x2B, 0x0E, 0x01, 0x01, 0x00, 0x00, len(objects)]) + body
+    return struct.pack("!HHH", tid, 0, len(pdu)) + pdu
+
+
+def http_ok_server(server, length=40):
+    head = f"HTTP/1.1 200 OK\r\nServer: {server}\r\nContent-Type: text/html\r\nContent-Length: {length}\r\n\r\n".encode()
+    return head + b"x" * length
 
 
 def ssdp_search():

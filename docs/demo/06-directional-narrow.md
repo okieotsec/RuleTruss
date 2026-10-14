@@ -4,7 +4,7 @@
 
 Project: Sample plant (synthetic)
 
-Generated: 2026-10-13 19:13:51 UTC
+Generated: 2026-10-14 14:16:24 UTC
 
 ## Result
 
@@ -30,7 +30,7 @@ All proposals require review before use. Observed traffic is not proof of busine
 - Window length: 0.04 hours.
 - Absence from this capture is not evidence of absence: devices, subnets, ports and protocols that never appear may simply not have been visible to the capture point or active during this period.
 - Observation point (as supplied by the user): SPAN of the controller-facing switch ports (fictional). Traffic that does not pass that point is not seen, for example traffic between two devices on a switch port that is not mirrored.
-- 1 non-IP frame(s) (for example ARP or spanning tree) were counted but not analysed.
+- 1 non-IP frame(s) were not analysed as traffic; ARP and LLDP among them were read for device identification.
 
 ## The directional model
 

@@ -18,6 +18,20 @@ NODE = shutil.which("node")
 
 @unittest.skipUnless(BROWSER and NODE, "needs node and chromium; the check runs headless and never opens a window")
 class HeadlessInterfaceTests(unittest.TestCase):
+    @staticmethod
+    def make_big_capture(folder):
+        """A capture just over the size at which the interface imports in the background (32 MB)."""
+        import dpkt
+        path = os.path.join(folder, "big-test.pcap")
+        frame = bytes(dpkt.ethernet.Ethernet(dst=b"\x02\0\0\0\0\2", src=b"\x02\0\0\0\0\1", type=0x0800, data=dpkt.ip.IP(
+            src=bytes([10, 0, 0, 1]), dst=bytes([10, 1, 0, 1]), p=6, ttl=64, len=240, data=dpkt.tcp.TCP(sport=40000, dport=502, flags=0x18,
+                                                                                                    data=b"x" * 200))))
+        with open(path, "wb") as handle:
+            writer = dpkt.pcap.Writer(handle)
+            for i in range(130_000):
+                writer.writepkt(frame, ts=1.7e9 + i * 0.001)
+        return path
+
     def test_the_interface_works_end_to_end_in_a_real_browser(self):
         token = secrets.token_urlsafe(24)
         with tempfile.TemporaryDirectory() as data:
@@ -28,6 +42,10 @@ class HeadlessInterfaceTests(unittest.TestCase):
                 create_demo(srv.app.service)
                 env = {k: v for k, v in os.environ.items() if k not in ("DISPLAY", "WAYLAND_DISPLAY")}
                 env["CHROMIUM"] = BROWSER
+                env["BIG_CAPTURE"] = self.make_big_capture(data)
+                unifi = os.path.join(data, "unifi-export.json")
+                shutil.copy(ROOT / "tests" / "fixtures" / "unifi-export.json", unifi)
+                env["UNIFI_EXPORT"] = unifi
                 url = f"http://127.0.0.1:{srv.server_address[1]}/#token={token}"
                 proc = subprocess.run([NODE, str(ROOT / "tools" / "ui_check.mjs"), url], env=env, capture_output=True, text=True,  # noqa: S603
                                       timeout=300, check=False)

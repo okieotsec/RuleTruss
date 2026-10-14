@@ -205,9 +205,15 @@ def explain_communication(c, ctx):
 
 # ------------------------------------------------------------------ inventory and matrix
 
-def inventory(flows, ctx):
-    """Devices and subnets seen, with counts only. A device's role is never inferred from its traffic."""
+def inventory(flows, ctx, extra_ips=()):
+    """Devices and subnets seen, with counts only. A device's role is never inferred from its traffic.
+
+    `extra_ips` are addresses seen without any flow (for example only in ARP or LLDP); they get a row with zero counts.
+    """
     devices = {}
+    for ip in extra_ips:
+        devices[ip] = {"ip": ip, "label": ctx.label(ip), "initiated_flows": 0, "received_flows": 0, "peers_initiated_to": set(),
+                       "peers_received_from": set(), "uncertain_direction": 0}
     for f in flows:
         for ip, outgoing in ((f.initiator, True), (f.responder, False)):
             d = devices.setdefault(ip, {"ip": ip, "label": ctx.label(ip), "initiated_flows": 0, "received_flows": 0,
@@ -286,10 +292,46 @@ def zone_for(ip, ctx, policy):
             if n.version == addr.version and addr in n:
                 matches.append((n.prefixlen, name))
     if not matches:
-        return None
+        return _external_zone(policy, addr)
     best = max(p for p, _ in matches)
     top = {n for p, n in matches if p == best}
     return next(iter(top)) if len(top) == 1 else None
+
+
+def _same_segment(policy, a, b):
+    """True when two addresses are in the same one of the policy's networks (so they do not pass the gateway)."""
+    x, y = ipaddress.ip_address(a), ipaddress.ip_address(b)
+    for info in policy.interfaces.values():
+        for net in info.get("nets", []):
+            n = ipaddress.ip_network(net, strict=False)
+            if n.version == x.version == y.version and x in n and y in n:
+                return True
+    return False
+
+
+def _crosses(policy, probe, c):
+    """Does this traffic pass the device the policy came from, as far as zones can tell?"""
+    if probe.src_zone != probe.dst_zone or policy.vendor == "panos":
+        return True
+    return policy.vendor == "unifi" and not _same_segment(policy, c.initiator, c.responder)
+
+
+PRIVATE_NETS = [ipaddress.ip_network(n) for n in (
+    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16", "127.0.0.0/8", "224.0.0.0/4", "0.0.0.0/8",
+    "fc00::/7", "fe80::/10", "::1/128", "ff00::/8")]
+
+
+def _external_zone(policy, addr):
+    """UniFi: an address outside every known network that is not private, local or multicast belongs to External (the Internet side).
+
+    Documentation ranges (198.51.100.0/24 and so on) count as Internet here, because examples use them for it.
+    """
+    if policy.vendor != "unifi" or any(addr in net for net in PRIVATE_NETS if net.version == addr.version):
+        return None
+    for name, info in policy.interfaces.items():
+        if name.lower() == "external" and info.get("origin") == "SYSTEM_DEFINED":
+            return name
+    return None
 
 
 def probe_for(c, ctx, policy):
@@ -313,10 +355,11 @@ def compare_observed(policy, comms, ctx):
         row = {"comm_id": c.comm_id, "outcome": forward.outcome, "rule_id": forward.rule_id, "rule": forward.original_id,
                "basis": forward.basis, "uncertain": forward.uncertain,
                "zones": [probe.src_zone, probe.dst_zone], "evidence": forward.evidence, "return_path": None,
-               "crosses_device": bool(probe.src_zone and probe.dst_zone and (probe.src_zone != probe.dst_zone or policy.vendor == "panos")),
+               "crosses_device": bool(probe.src_zone and probe.dst_zone and _crosses(policy, probe, c)),
                "direction_confidence": c.direction_confidence}
         if reply is not None:
-            row["return_path"] = {"outcome": reply.outcome, "rule": reply.original_id, "basis": reply.basis}
+            row["return_path"] = {"outcome": reply.outcome, "rule": reply.original_id, "basis": reply.basis,
+                                  "kind": "zone pair" if policy.default_mode == "zone_pairs" else "stateless"}
         if forward.outcome == ALLOW:
             row["reading"] = "Observed traffic is permitted by the configured policy."
             if c.direction_confidence in ("low", "unknown"):
@@ -328,10 +371,13 @@ def compare_observed(policy, comms, ctx):
         else:
             row["reading"] = "Cannot be decided from the export: " + ("; ".join(forward.uncertain[:3]) or forward.basis)
         if row["return_path"] and row["return_path"]["outcome"] != ALLOW:
-            row["reading"] += " The policy is stateless and the reply direction is not permitted, so the connection would not work."
+            row["reading"] += (" A policy for the reverse zone pair matches the replies and blocks them (it applies to all connection "
+                               "states), so the connection would not work."
+                               if policy.default_mode == "zone_pairs" else
+                               " The policy is stateless and the reply direction is not permitted, so the connection would not work.")
         row["reading_short"] = {ALLOW: "Permitted", DENY: "Would be denied"}.get(forward.outcome, "Cannot decide: " + _why_short(forward))
         if row["return_path"] and row["return_path"]["outcome"] != ALLOW:
-            row["reading_short"] += "; reply path blocked"
+            row["reading_short"] += "; reply path blocked" if row["return_path"]["outcome"] == DENY else "; reply path uncertain"
         if forward.outcome == ALLOW and c.direction_confidence in ("low", "unknown"):
             row["reading_short"] += "; initiator uncertain"
         rows.append(row)
@@ -344,7 +390,8 @@ def unobserved_rules(policy, hits):
             "may not cover the period, location or protocol that needs it.")
     out = []
     for r in policy.rules:
-        if r.enabled and r.action == "allow" and r.rule_id not in hits and r.extra.get("stage") != "unbound":
+        if (r.enabled and r.action == "allow" and r.rule_id not in hits and r.extra.get("stage") != "unbound"
+                and r.extra.get("new_connections") is not False):
             out.append({"rule_id": r.rule_id, "rule": r.original_id, "src": r.src.text(), "dst": r.dst.text(),
                         "svc": r.svc.text(), "note": note})
     return out
@@ -408,9 +455,29 @@ def _scope(rule):
     return rule.extra.get("stage"), rule.extra.get("bind"), rule.extra.get("acl")
 
 
+def _states(rule):
+    states = rule.extra.get("states")
+    return None if states is None else set(states)
+
+
+def states_cover(a, b):
+    """Connection states (UniFi): does rule `a` match every state rule `b` matches? None means all states."""
+    sa, sb = _states(a), _states(b)
+    if sa is None:
+        return True
+    return sb is not None and sb <= sa
+
+
+def states_overlap(a, b):
+    sa, sb = _states(a), _states(b)
+    return sa is None or sb is None or bool(sa & sb)
+
+
 def rule_covers(a, b):
     """Does rule `a` match everything that rule `b` matches, with no extra conditions of its own?"""
     if a.condition_unknowns():
+        return False
+    if not states_cover(a, b):
         return False
     a_type = a.extra.get("rule_type", "universal")
     if a_type != "universal" and a_type != b.extra.get("rule_type"):
@@ -443,6 +510,8 @@ def _overlap_svc(a, b):
         for y in b.entries:
             if x.proto not in ("ip", y.proto) and y.proto != "ip":
                 continue
+            if x.icmp_type is not None and y.icmp_type is not None and x.icmp_type != y.icmp_type:
+                continue
             if x.dports is not None and y.dports is not None and not netutil.ranges_overlap(x.dports, y.dports):
                 continue
             return True
@@ -452,13 +521,19 @@ def _overlap_svc(a, b):
 def rule_overlap(a, b):
     za = not a.src_zones or not b.src_zones or set(a.src_zones) & set(b.src_zones)
     zb = not a.dst_zones or not b.dst_zones or set(a.dst_zones) & set(b.dst_zones)
-    return bool(za and zb and _overlap_addr(a.src, b.src) and _overlap_addr(a.dst, b.dst) and _overlap_svc(a.svc, b.svc))
+    return bool(za and zb and states_overlap(a, b) and _overlap_addr(a.src, b.src) and _overlap_addr(a.dst, b.dst)
+                and _overlap_svc(a.svc, b.svc))
+
+
+def _predefined(rule):
+    """A policy the platform itself defines (UniFi: SYSTEM_DEFINED, DERIVED, ORCHESTRATED), not one the owner wrote."""
+    return rule.extra.get("origin") not in (None, "", "USER_DEFINED")
 
 
 def analyze_rules(policy, max_pairs=2_000_000):
     """Shadowed, redundant and conflicting rules, plus rules that are very broad or cannot be evaluated."""
     findings = []
-    active = [r for r in policy.rules if r.enabled and r.extra.get("stage") != "unbound"]
+    active = [r for r in policy.rules if r.enabled and r.extra.get("stage") != "unbound" and r.extra.get("new_connections") is not False]
     groups = {}
     for r in active:
         groups.setdefault((r.extra.get("stage"), r.extra.get("bind"), r.extra.get("acl")), []).append(r)
@@ -483,7 +558,9 @@ def analyze_rules(policy, max_pairs=2_000_000):
                                        "rule is ignored.")),
                         "evidence": [*earlier.evidence[:1], *later.evidence[:1]]})
                     break
-                catch_all_deny = later.action == "deny" and covers_everything(later.src) and covers_everything(later.dst) and later.svc.any
+                catch_all_deny = ((later.action == "deny" and covers_everything(later.src) and covers_everything(later.dst)
+                                   and later.svc.any)
+                                  or later.extra.get("default_policy"))      # a built-in final policy is meant to follow specific ones
                 if earlier.action != later.action and not catch_all_deny and rule_overlap(earlier, later):
                     findings.append({
                         "kind": "conflict", "severity": "info", "rule_id": later.rule_id, "rule": later.original_id,
@@ -497,13 +574,90 @@ def analyze_rules(policy, max_pairs=2_000_000):
                              "message": f"Rule {r.original_id} is disabled; it is kept for reference and not translated as "
                                         "active.", "evidence": r.evidence[:1]})
         elif (r.action == "allow" and r.extra.get("stage") != "unbound" and not r.unsupported
-              and covers_everything(r.src) and covers_everything(r.dst)):
+              and covers_everything(r.src) and covers_everything(r.dst) and not _predefined(r)
+              and r.extra.get("new_connections") is not False and (r.svc.any or not (r.src_zones and r.dst_zones))):
+            where = f" from {', '.join(r.src_zones)} to {', '.join(r.dst_zones)}" if r.src_zones and r.dst_zones else ""
             findings.append({"kind": "broad", "severity": "warning", "rule_id": r.rule_id, "rule": r.original_id,
-                             "message": (f"Rule {r.original_id} allows traffic from any source to any destination"
+                             "message": (f"Rule {r.original_id} allows traffic{where} from any source to any destination"
                                          f"{' on any service' if r.svc.any else ' on ' + r.svc.text()}."),
                              "evidence": r.evidence[:1]})
         if r.enabled and r.condition_unknowns():
             findings.append({"kind": "unevaluated", "severity": "info", "rule_id": r.rule_id, "rule": r.original_id,
                              "message": f"Rule {r.original_id} has conditions this tool does not evaluate: "
                                         + "; ".join(r.condition_unknowns()) + ".", "evidence": r.evidence[:1]})
+    findings.extend(_default_findings(policy))
     return findings
+
+
+ZONE_ORDER = ("internal", "external", "gateway", "vpn", "hotspot", "dmz")
+
+
+def _applies_to_new(rule):
+    return rule.extra.get("new_connections") is not False
+
+
+def zone_matrix(policy):
+    """Source zone by destination zone, as UniFi's own matrix shows it: what each pair ends in and how many policies sit before that.
+
+    Only for zone-pair policy sets (UniFi). Returns None otherwise. Every number counts policies in the export; nothing is inferred.
+    """
+    if policy.default_mode != "zone_pairs":
+        return None
+    names = set(policy.interfaces)
+    for r in policy.rules:
+        names.update(r.src_zones)
+        names.update(r.dst_zones)
+    zones = sorted(names, key=lambda n: (ZONE_ORDER.index(n.lower()) if n.lower() in ZONE_ORDER else len(ZONE_ORDER), n.lower()))
+    pairs = {}
+    for r in policy.rules:
+        for src in r.src_zones:
+            for dst in r.dst_zones:
+                pairs.setdefault((src, dst), []).append(r)
+    cells = []
+    for src in zones:
+        for dst in zones:
+            rules = sorted(pairs.get((src, dst), []), key=lambda r: r.extra.get("index", r.position))
+            cells.append(_matrix_cell(src, dst, rules))
+    return {"zones": zones, "cells": cells,
+            "note": "Each cell is the zone pair's own policy list, first match wins. Counts are policies in the export; policies that only "
+                    "apply to existing connections (replies, invalid packets) are counted separately."}
+
+
+def _matrix_cell(src, dst, rules):
+    final = next((r for r in reversed(rules) if r.extra.get("default_policy") and r.enabled), None)
+    body = [r for r in rules if r is not final]
+    live = [r for r in body if r.enabled]
+    custom = [r for r in live if not _predefined(r)]
+    new = [r for r in custom if _applies_to_new(r)]
+    cell = {"src": src, "dst": dst, "policies": len(rules), "enabled": len([r for r in rules if r.enabled]),
+            "default": {"action": final.action, "name": final.original_id} if final else None,
+            "custom_allow": len([r for r in new if r.action == "allow"]), "custom_block": len([r for r in new if r.action == "deny"]),
+            "predefined_allow": len([r for r in live if _predefined(r) and _applies_to_new(r) and r.action == "allow"]),
+            "predefined_block": len([r for r in live if _predefined(r) and _applies_to_new(r) and r.action == "deny"]),
+            "custom_replies_only": len([r for r in custom if not _applies_to_new(r)]),
+            "custom_disabled": len([r for r in body if not r.enabled and not _predefined(r)]),
+            "predefined": len([r for r in live if _predefined(r)]),
+            "replies_allowed": any(r.action == "allow" and not _applies_to_new(r) for r in live),
+            "undecidable": len([r for r in live if r.condition_unknowns() or r.src.unresolved or r.dst.unresolved or r.svc.unresolved])}
+    if not rules:
+        cell.update(label="No policy listed", tone="none")
+    elif final is None:
+        cell.update(label="No default listed", tone="none")
+    elif final.action == "allow":
+        n = cell["custom_block"] + cell["predefined_block"]
+        cell.update(label="Allow all" if not n else f"Allow, {n} blocked", tone="allow" if not n else "mixed")
+    else:
+        n = cell["custom_allow"] + cell["predefined_allow"]
+        base = "Block (replies allowed)" if cell["replies_allowed"] else "Block all"
+        cell.update(label=base if not n else f"Block, {n} allowed", tone="block" if not n else "mixed")
+    return cell
+
+
+def _default_findings(policy):
+    """UniFi: the zone pairs whose final policy is the predefined 'Allow All Traffic' (the platform's built-in posture)."""
+    pairs = sorted(r.scope for r in policy.rules if r.extra.get("default_policy") and r.enabled and r.action == "allow")
+    if not pairs:
+        return []
+    return [{"kind": "default", "severity": "info", "rule_id": "", "rule": "",
+             "message": (f"{len(pairs)} zone pair(s) end in the predefined Allow All Traffic, so anything not blocked earlier is allowed: "
+                         + "; ".join(pairs) + "."), "evidence": []}]

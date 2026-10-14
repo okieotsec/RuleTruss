@@ -1,5 +1,5 @@
 """Pick the adapter for an uploaded file and run it. Detection looks at content, never at the file name alone."""
-from . import cisco, fortios, panos, pfsense
+from . import cisco, fortios, panos, pfsense, unifi
 
 SOURCE_FORMATS = {
     "cisco-asa": "Cisco ASA running-config",
@@ -8,12 +8,15 @@ SOURCE_FORMATS = {
     "fortios": "Fortinet FortiOS CLI configuration",
     "pfsense": "pfSense config.xml",
     "opnsense": "OPNsense config.xml (legacy rules only)",
+    "unifi": "UniFi Network firewall zones and policies (JSON from tools/unifi_export.py)",
 }
 
 
 def detect_format(text):
     """The format key for configuration text, or None when nothing matches."""
     head = text.lstrip()[:200_000]
+    if unifi.detect(head):
+        return "unifi"
     if head.startswith("<"):
         if pfsense.detect(head):
             return "opnsense" if "<opnsense>" in head[:2000] else "pfsense"
@@ -42,4 +45,6 @@ def parse_config(text, source_id, fmt=None):
         return panos.parse(text, source_id)
     if fmt == "fortios":
         return fortios.parse(text, source_id)
+    if fmt == "unifi":
+        return unifi.parse(text, source_id)
     return pfsense.parse(text, source_id)

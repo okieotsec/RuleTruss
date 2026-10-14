@@ -68,7 +68,7 @@ def rule_cases(policy):
     cases = []
     for rule in policy.rules:
         if not rule.enabled or rule.extra.get("stage") == "unbound" or rule.src.unresolved or rule.dst.unresolved or rule.src.negate \
-                or rule.dst.negate:
+                or rule.dst.negate or rule.extra.get("new_connections") is False:
             continue
         srcs = [ipaddress.ip_network(n, strict=False) for n in rule.src.nets] or [ipaddress.ip_network("10.255.0.0/16")]
         dsts = [ipaddress.ip_network(n, strict=False) for n in rule.dst.nets] or [ipaddress.ip_network("10.254.0.0/16")]
@@ -123,9 +123,59 @@ def _map_zone(zone, translation):
     return translation.zone_map.get(zone, zone)
 
 
+def _iface_for(ip, translation):
+    """The target interface key an address arrives on (zone-pair sources): its network's, else the WAN side."""
+    addr = ipaddress.ip_address(ip)
+    for key, nets in translation.iface_nets.items():
+        if any(addr.version == ipaddress.ip_network(n).version and addr in ipaddress.ip_network(n) for n in nets):
+            return key
+    return next((k for k, nets in translation.iface_nets.items() if not nets), None)
+
+
 def _target_probe(probe, translation):
+    if translation.iface_nets:                                   # an interface ACL has no destination zone
+        return Probe(probe.src, probe.dst, probe.proto, probe.sport, probe.dport, probe.icmp_type, probe.icmp_code,
+                     _iface_for(probe.src, translation), None)
     return Probe(probe.src, probe.dst, probe.proto, probe.sport, probe.dport, probe.icmp_type, probe.icmp_code,
                  _map_zone(probe.src_zone, translation), _map_zone(probe.dst_zone, translation))
+
+
+def zone_pair_cases(policy, translation):
+    """Representative connections for a zone-pair source: every source network to every destination zone, and the inside of each policy
+    you wrote."""
+    zone_nets = {z: [ipaddress.ip_network(n) for nets in info.get("network_nets", {}).values() for n in nets]
+                 for z, info in policy.interfaces.items() if info.get("network_nets")}
+    wan = next((z for z in policy.interfaces if z.lower() == "external" and policy.interfaces[z].get("origin") == "SYSTEM_DEFINED"), None)
+    services = [("tcp", 40000, 443, None, None), ("udp", 40000, 53, None, None), ("icmp", None, None, 8, 0)]
+    cases = []
+    sources = [(z, n) for z, nets in zone_nets.items() for n in nets] + ([(wan, ipaddress.ip_network("203.0.113.48/28"))] if wan else [])
+    targets = [(z, nets[0]) for z, nets in zone_nets.items()] + ([(wan, ipaddress.ip_network("198.51.100.64/28"))] if wan else [])
+    for sz, snet in sources:
+        for dz, dnet in targets:
+            if dnet == snet:
+                continue
+            for proto, sport, dport, it, ic in services:
+                probe = Probe(str(_first_host(snet)), str(_first_host(dnet) + 1), proto, sport, dport, it, ic, src_zone=sz, dst_zone=dz)
+                cases.append((f"{sz} to {dz} ({proto})", probe))
+    for rule in policy.rules:
+        state_only = bool(rule.extra.get("states")) and "NEW" not in rule.extra["states"]
+        if (not rule.enabled or rule.extra.get("origin") != "USER_DEFINED" or rule.src.unresolved or rule.dst.unresolved or rule.src.negate
+                or rule.dst.negate or state_only):
+            continue
+        sz, dz = rule.src_zones[0], rule.dst_zones[0]
+        snets = [ipaddress.ip_network(n) for n in rule.src.nets] if not rule.src.any else zone_nets.get(sz, [])[:1]
+        dnets = [ipaddress.ip_network(n) for n in rule.dst.nets] if not rule.dst.any else (zone_nets.get(dz, [])[:1] or (
+            [ipaddress.ip_network("198.51.100.64/28")] if dz == wan else []))
+        if not snets or not dnets or snets[0].version != dnets[0].version:
+            continue
+        for entry in ([None] if rule.svc.any else rule.svc.entries[:2]):
+            spec = _entry_probes(entry) if entry is not None else ("tcp", 40000, 443, None, None, None)
+            if spec is None:
+                continue
+            proto, sport, dport, it, ic, _beyond = spec
+            probe = Probe(str(_first_host(snets[0])), str(_first_host(dnets[0])), proto, sport, dport, it, ic, src_zone=sz, dst_zone=dz)
+            cases.append((f"inside rule {rule.original_id}", probe))
+    return cases
 
 
 def probe_text(p):
@@ -155,9 +205,15 @@ def validate_preserve(source_policy, translation, ctx=None, extra_cases=(), max_
                            zone_map=dict(translation.zone_map))
     text = fw.render(clone, translation.target, identity=True)
     target_policy = parse_config(text, "validation-target", translation.target if translation.target != "cisco-asa" else "cisco-asa")
-    cases = [(label, _fill_zones(probe, source_policy, ctx)) for label, probe in rule_cases(source_policy)]
+    for item in target_policy.rules:                  # unlabelled rules would explain nothing; keep the source name for the report
+        item.extra.setdefault("source", item.original_id)
+    if translation.iface_nets:
+        cases = zone_pair_cases(source_policy, translation)
+    else:
+        cases = [(label, _fill_zones(probe, source_policy, ctx)) for label, probe in rule_cases(source_policy)]
     cases.extend(extra_cases)
-    blocked_ids = {e["source_rule"] for e in translation.report if e.get("status") == "blocked"}
+    blocked_ids = {e["source_rule"] for e in translation.report
+                   if e.get("status") == "blocked" or e.get("disposition") in ("unsupported", "unresolved")}
     reply_only_ids = {e["source_rule"] for e in translation.report
                       if e.get("status") == "skipped" and "reply traffic only" in e.get("reason", "")}
     if len(cases) > max_cases:

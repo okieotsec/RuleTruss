@@ -15,6 +15,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import sys
 import threading
 import traceback
@@ -23,6 +24,8 @@ from urllib.parse import parse_qs, urlparse
 
 from . import limits
 from .adapters.registry import SOURCE_FORMATS
+from .jobs import MAX_RUNNING as MAX_RUNNING_IMPORTS
+from .jobs import Jobs
 from .migrate import directional, firewall
 from .model import to_plain
 from .service import ApiError, Service
@@ -31,13 +34,14 @@ from .version import __version__
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript; charset=utf-8"),
-          "/style.css": ("style.css", "text/css; charset=utf-8"),
+          "/style.css": ("style.css", "text/css; charset=utf-8"), "/graph.js": ("graph.js", "text/javascript; charset=utf-8"),
           **{f"/brand/{name}.svg": (f"brand/{name}.svg", "image/svg+xml") for name in (
               "okieotsec-shield", "okieotsec-shield-dark", "okieotsec-app-tile", "okieotsec-lockup", "okieotsec-lockup-dark")}}
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; "
        "form-action 'none'; frame-ancestors 'none'")
 MAX_JSON_BODY = 8 * 1024 * 1024
 SOCKET_TIMEOUT = 60
+DISK_HEADROOM = 1024 ** 3                  # free space that must remain after an upload is stored
 ROUTES = []
 
 
@@ -53,6 +57,7 @@ class App:
 
     def __init__(self, data_store, token, host, port, ai_endpoint=None, ai_allow_remote=False):
         self.service = Service(data_store, ai_endpoint, ai_allow_remote)
+        self.jobs = Jobs()
         self.store = data_store
         self.token = token
         self.allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}", f"{host}:{port}"}
@@ -150,7 +155,12 @@ def make_handler(app):
             if length <= 0:
                 raise ApiError("the file is empty")
             if length > limits.MAX_CAPTURE_BYTES:
-                raise ApiError(f"the file is larger than the {limits.MAX_CAPTURE_BYTES // (1024 * 1024)} MB limit", 413)
+                raise ApiError(f"the file is larger than the {limits.MAX_CAPTURE_BYTES // (1024 * 1024):,} MB limit "
+                               "(start RuleTruss with --max-capture-mb to raise it)", 413)
+            free = shutil.disk_usage(app.store.root).free
+            if free < length + DISK_HEADROOM:
+                raise ApiError(f"not enough free disk space for this file: it is {length // 1024 ** 2:,} MB and "
+                               f"{free // 1024 ** 2:,} MB is free in {app.store.root}", 507)
             path = app.store.new_upload_path(project_id)
             remaining = length
             try:
@@ -242,8 +252,10 @@ def status(h, app, q):
                  "limits": {"max_capture_bytes": limits.MAX_CAPTURE_BYTES, "max_config_bytes": limits.MAX_CONFIG_BYTES,
                             "parse_seconds": limits.PARSE_SECONDS, "max_flows": limits.MAX_FLOWS, "max_packets": limits.MAX_PACKETS},
                  "model": directional.MODEL_FACTS, "usage": app.store.usage(), "ai_enabled": app.ai_enabled,
-                 "network": "This server makes no outbound connections"
-                            + (" except to the AI endpoint you configured" if app.ai_enabled else "") + "."})
+                 "vendor_names": app.service.vendor_names(),
+                 "network": "This server makes no outbound connections of its own. The only exceptions: the vendor-name download, "
+                            "and only when you press its button"
+                            + (", and the AI endpoint you configured" if app.ai_enabled else "") + "."})
 
 
 @route("GET", "/api/projects")
@@ -278,10 +290,37 @@ def update_context(h, app, q, pid):
 @route("POST", r"/api/projects/([0-9a-f]{16})/sources")
 def upload(h, app, q, pid):
     app.service.project(pid)
+    background = q.get("async") == "1"
+    if background and not app.jobs.has_room():
+        raise ApiError(f"{MAX_RUNNING_IMPORTS} imports are already running; wait for one to finish", 429)
     path = h.stream_upload(pid)
     filename = os.path.basename(q.get("name", "upload"))[:120] or "upload"
-    entry = app.service.import_upload(pid, path, filename, q.get("observation_point", ""), q.get("format") or None)
-    h.send_json(entry, 201)
+    observation_point, fmt = q.get("observation_point", ""), q.get("format") or None
+    if not background:
+        h.send_json(app.service.import_upload(pid, path, filename, observation_point, fmt), 201)
+        return
+    try:
+        job = app.jobs.start(pid, filename, lambda j: app.service.import_upload(pid, path, filename, observation_point, fmt, job=j))
+    except RuntimeError as error:
+        app.store.discard_upload(path)
+        raise ApiError(str(error), 429) from error
+    h.send_json({"job": job.id}, 202)
+
+
+@route("GET", r"/api/jobs/([0-9a-f]{16})")
+def job_status(h, app, q, jid):
+    job = app.jobs.get(jid)
+    if job is None:
+        raise ApiError("no such import", 404)
+    h.send_json(job.view())
+
+
+@route("DELETE", r"/api/jobs/([0-9a-f]{16})")
+def job_cancel(h, app, q, jid):
+    job = app.jobs.cancel(jid)
+    if job is None:
+        raise ApiError("no such import", 404)
+    h.send_json(job.view())
 
 
 @route("DELETE", r"/api/projects/([0-9a-f]{16})/sources/([0-9a-f]{16})")
@@ -303,6 +342,11 @@ def communications(h, app, q, pid):
 @route("GET", r"/api/projects/([0-9a-f]{16})/graph")
 def graph(h, app, q, pid):
     h.send_json(app.service.graph(pid, q))
+
+
+@route("GET", r"/api/projects/([0-9a-f]{16})/graph/detail")
+def graph_detail(h, app, q, pid):
+    h.send_json(app.service.graph_detail(pid, q))
 
 
 @route("GET", r"/api/projects/([0-9a-f]{16})/policies/([0-9a-f]{16})")
@@ -350,10 +394,25 @@ def ai(h, app, q, pid):
 
 @route("POST", "/api/sample")
 def sample(h, app, q):
-    from .samples import create_demo, create_riverbend
+    from .samples import create_demo, create_riverbend, create_unifi
     body = h.read_json() if int(h.headers.get("Content-Length", "0") or 0) else {}
-    maker = create_riverbend if body.get("name") == "riverbend" else create_demo
+    maker = {"riverbend": create_riverbend, "unifi": create_unifi}.get(body.get("name"), create_demo)
     h.send_json(maker(app.service), 201)
+
+
+@route("GET", "/api/vendor-names")
+def vendor_names(h, app, q):
+    h.send_json(app.service.vendor_names())
+
+
+@route("POST", "/api/vendor-names")
+def update_vendor_names(h, app, q):
+    h.send_json(app.service.update_vendor_names())
+
+
+@route("DELETE", "/api/vendor-names")
+def remove_vendor_names(h, app, q):
+    h.send_json(app.service.remove_vendor_names())
 
 
 @route("DELETE", "/api/data")
@@ -388,7 +447,18 @@ def main(argv=None):
     parser.add_argument("--ai-endpoint", default=None, help="OPTIONAL: a chat endpoint to send parsed facts to (off by default)")
     parser.add_argument("--ai-allow-remote", action="store_true", help="allow the AI endpoint to be on another machine")
     parser.add_argument("--allow-non-loopback", action="store_true")
+    group = parser.add_argument_group("size limits", "Defaults guard against hostile or broken files; raise them for captures you trust.")
+    for flag, label, default in (("--max-capture-mb", "largest capture file in MB", limits.MAX_CAPTURE_BYTES // 1024 ** 2),
+                                 ("--max-packets", "packets read from one capture", limits.MAX_PACKETS),
+                                 ("--max-flows", "flows kept from one capture", limits.MAX_FLOWS),
+                                 ("--parse-minutes", "minutes allowed to analyse one file", limits.PARSE_SECONDS // 60),
+                                 ("--parse-memory-gb", "GB of memory one analysis may use", limits.PARSE_MEMORY_BYTES // 1024 ** 3)):
+        group.add_argument(flag, type=int, default=None, help=f"{label} (default {default:,})")
     args = parser.parse_args(argv)
+    try:
+        limits.configure(args.max_capture_mb, args.max_packets, args.parse_minutes, args.max_flows, args.parse_memory_gb)
+    except ValueError as error:
+        raise SystemExit(f"Invalid size limit: {error}") from None
     try:
         server = build_server(args.host, args.port, args.data_dir, args.ai_endpoint, args.ai_allow_remote, None, args.allow_non_loopback)
     except OSError as error:
@@ -404,6 +474,8 @@ def main(argv=None):
     port = server.server_address[1]
     print(f"RuleTruss {__version__}")
     print(f"Data folder: {server.app.store.root}")
+    print(f"Limits per file: {limits.MAX_CAPTURE_BYTES // 1024 ** 2:,} MB, {limits.MAX_PACKETS:,} packets, {limits.MAX_FLOWS:,} flows, "
+          f"{limits.PARSE_SECONDS // 60} minutes, {limits.PARSE_MEMORY_BYTES // 1024 ** 3} GB of memory")
     print("Open this address in your browser (the part after # is the access token and stays in your browser):")
     print(f"  http://{args.host}:{port}/#token={server.app.token}")
     print("Press Ctrl+C to stop. Nothing is sent anywhere" + (" except to your AI endpoint." if args.ai_endpoint else "."))

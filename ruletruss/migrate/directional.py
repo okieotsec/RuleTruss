@@ -151,7 +151,10 @@ def _same_scope(rule):
 
 
 def _is_reply_rule(rule, allow_rules):
-    """True when an entry only permits replies: TCP `established`, or the port-mirror of another allowed rule."""
+    """True when an entry only permits replies: TCP `established`, the port-mirror of another allowed rule, or (UniFi) a policy that
+    covers existing connections only."""
+    if rule.extra.get("new_connections") is False:
+        return True
     if not rule.svc.entries or rule.svc.any:
         return False
     if all(e.established for e in rule.svc.entries):
@@ -367,7 +370,8 @@ def _egress_from_rule(plan, rule, endpoint_groups):
 
 def _check_aggregation(plan, source_policy, groups):
     """Detect access that group membership grants but the source never did."""
-    allow = [r for r in source_policy.rules if r.enabled and r.action == "allow" and r.extra.get("stage") != "unbound"]
+    allow = [r for r in source_policy.rules if r.enabled and r.action == "allow" and r.extra.get("stage") != "unbound"
+             and r.extra.get("new_connections") is not False]
     by_name = {g.name: g for g in groups}
     budget = PAIR_CHECK_LIMIT
     truncated = False

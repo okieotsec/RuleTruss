@@ -194,8 +194,11 @@ class Rule:
     evidence: list = field(default_factory=list)
     extra: dict = field(default_factory=dict)         # vendor-specific values kept for provenance
 
-    def condition_unknowns(self):
-        """Conditions that make a decision uncertain even when addresses and services match."""
+    def condition_unknowns(self, probe=None):
+        """Conditions that make a decision uncertain even when addresses and services match.
+
+        With a `probe` whose sender MAC is known, a source MAC filter that the MAC satisfies is no longer in doubt.
+        """
         out = []
         if self.applications and "any" not in [a.lower() for a in self.applications]:
             out.append("application condition: " + ", ".join(self.applications))
@@ -203,7 +206,8 @@ class Rule:
             out.append("identity condition: " + ", ".join(self.users))
         if self.schedule:
             out.append(f"schedule: {self.schedule}")
-        out.extend(self.unsupported)
+        known_mac = probe is not None and getattr(probe, "src_mac", None) and self.extra.get("src_macs")
+        out.extend(u for u in self.unsupported if not (known_mac and u.startswith("MAC address filter")))
         return out
 
 
@@ -366,3 +370,47 @@ def from_plain(cls, data):
             value = [tuple(r) for r in value]
         kwargs[key] = value
     return cls(**kwargs)
+
+
+# ---------------------------------------------------------------- device identification
+
+@dataclass
+class MacBinding:
+    """A MAC address seen together with an IP address. basis: arp or dhcp (the device announced it), or frame (the MAC that
+    carried this IP's packets, which is the router's when the IP is on another network)."""
+    mac: str
+    ip: str
+    basis: str
+    packets: int = 1
+    evidence: list = field(default_factory=list)
+
+
+@dataclass
+class L2Sender:
+    """A MAC that sent frames with no IP layer (ARP, LLDP, spanning tree and so on)."""
+    mac: str
+    frames: int = 1
+    kinds: list = field(default_factory=list)
+    evidence: list = field(default_factory=list)
+
+
+@dataclass
+class Observation:
+    """One thing a device told us about itself, or a weak hint. source_type: self-reported or weak-hint. It is attached to an IP,
+    a MAC, or both; nothing here is a statement of what the device is for."""
+    kind: str
+    value: str
+    confidence: str                     # confirmed, probable or possible
+    source_type: str = "self-reported"
+    basis: str = ""
+    ip: str = ""
+    mac: str = ""
+    evidence: list = field(default_factory=list)
+
+
+@dataclass
+class DeviceFacts:
+    bindings: list = field(default_factory=list)
+    l2_senders: list = field(default_factory=list)
+    observations: list = field(default_factory=list)
+    limits_hit: list = field(default_factory=list)

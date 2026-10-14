@@ -12,8 +12,39 @@ MAX_EXPANSION = 50_000                        # addresses or services one group 
 MAX_PACKETS = 5_000_000
 MAX_FLOWS = 200_000
 MAX_NAME_CHARS = 120
+MAX_RESULT_BYTES = 512 * 1024 * 1024         # the analysis of one file, as the worker hands it back and as it is stored
+MAX_DEVICE_ITEMS = 50_000                     # MAC bindings, layer-2 senders and identity observations per capture
 PARSE_SECONDS = 600                           # wall-clock limit for a parser subprocess (about 18,000 packets per second)
 PARSE_MEMORY_BYTES = 2 * 1024 ** 3
+
+
+# The five limits below can be raised (or lowered) at start-up with --max-capture-mb, --max-packets, --parse-minutes, --max-flows and
+# --parse-memory-gb. They are a protection against a hostile or broken file, so each has a ceiling that no setting can exceed.
+CEILINGS = {"MAX_CAPTURE_BYTES": 256 * 1024 ** 3, "MAX_PACKETS": 2_000_000_000, "MAX_FLOWS": 500_000, "PARSE_SECONDS": 24 * 3600,
+            "PARSE_MEMORY_BYTES": 128 * 1024 ** 3}
+TUNABLE = tuple(CEILINGS)
+
+
+def snapshot():
+    """The current values of the adjustable limits, as a plain dict (sent to the parsing process)."""
+    return {name: globals()[name] for name in TUNABLE}
+
+
+def apply(values):
+    """Set adjustable limits from a dict. Unknown names, non-integers and values outside 1..ceiling are refused."""
+    for name, value in (values or {}).items():
+        if name not in CEILINGS:
+            raise ValueError(f"unknown limit {name!r}")
+        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= CEILINGS[name]:
+            raise ValueError(f"{name} must be a whole number from 1 to {CEILINGS[name]:,}")
+        globals()[name] = value
+
+
+def configure(max_capture_mb=None, max_packets=None, parse_minutes=None, max_flows=None, parse_memory_gb=None):
+    """Apply the command-line settings (None leaves a limit alone)."""
+    scale = {"MAX_CAPTURE_BYTES": (max_capture_mb, 1024 ** 2), "MAX_PACKETS": (max_packets, 1), "PARSE_SECONDS": (parse_minutes, 60),
+             "MAX_FLOWS": (max_flows, 1), "PARSE_MEMORY_BYTES": (parse_memory_gb, 1024 ** 3)}
+    apply({name: int(value * unit) for name, (value, unit) in scale.items() if value is not None})
 
 
 class LimitExceeded(ValueError):

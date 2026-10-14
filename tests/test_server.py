@@ -65,6 +65,31 @@ class ServerCase(unittest.TestCase):
                 return handle.read()
 
 
+class StaticPageTests(ServerCase):
+    def test_every_script_the_page_loads_is_served_and_nothing_inline_is_needed(self):
+        status, resp, page = self.request("GET", "/", raw=True, token=False)
+        html = page.decode()
+        self.assertEqual(status, 200)
+        import re
+        scripts = re.findall(r'<script src="([^"]+)"', html)
+        self.assertEqual(scripts, ["/app.js", "/graph.js"])
+        self.assertNotRegex(html, r"<script(?![^>]*\bsrc=)")                 # no inline script
+        self.assertNotRegex(html, r"\sstyle=")                                # no style attributes (the page's policy forbids them)
+        for path in scripts + ["/style.css"]:
+            code, response, body = self.request("GET", path, raw=True, token=False)
+            self.assertEqual(code, 200, path)
+            self.assertIn("javascript" if path.endswith(".js") else "css", response.getheader("Content-Type"))
+            self.assertTrue(body)
+
+    def test_the_scripts_set_styles_only_through_the_cssom(self):
+        from pathlib import Path
+        for name in ("app.js", "graph.js"):
+            text = (Path(__file__).resolve().parent.parent / "ruletruss" / "web" / name).read_text(encoding="utf-8")
+            self.assertNotRegex(text, r"""setAttribute\(\s*["']style["']""", name)
+            self.assertNotRegex(text, r"""\bstyle:\s*[`"']""", name)           # h(tag, {style: "..."}) would set a style attribute
+            self.assertNotRegex(text, r"\.innerHTML|\.outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function", name)
+
+
 class AccessControlTests(ServerCase):
     def test_every_api_call_needs_the_token(self):
         for method, path in (("GET", "/api/status"), ("GET", "/api/projects"), ("POST", "/api/projects"), ("DELETE", "/api/data")):

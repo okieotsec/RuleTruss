@@ -45,7 +45,7 @@ Regenerate everything, including this page, with `python tools/make_samples.py`.
 | `configs/vendor-access-pfsense.xml` | pfSense 23.09 config.xml | the vendor remote-access appliance |
 | `context.json` | subnets, labels and groups | what you, the engineer, know |
 
-In total the three captures and the log hold **197 flows** that group into **81 communications** between **43 devices**. Direction confidence across the flows: high 117, medium 32, low 47, unknown 1.
+In total the three captures and the log hold **198 flows** that group into **82 communications** between **47 devices**. Direction confidence across the flows: high 117, medium 33, low 47, unknown 1.
 
 ## How to read the application (a suggested order)
 
@@ -53,7 +53,7 @@ In total the three captures and the log hold **197 flows** that group into **81 
 2. **Communications** is where the explanations live. Click any row for the plain-language sentence, why the direction was chosen, how the application was identified, and the evidence (packet numbers).
 3. **Graph** draws the same facts: arrows run from the side that initiated. Switch to *Devices*.
 4. **Configuration** shows one device's rules in order, with the analysis (shadowed, redundant, conflicting, broad rules) and the things the tool did *not* evaluate.
-5. **Compare** sets observed traffic against one configuration. By default it shows only traffic that **crosses that device** (both ends in zones it knows), because a configuration cannot be judged by traffic that never reaches it. perimeter-asa.cfg: 13 of 81; it-ot-boundary-panos.xml: 9 of 81; ops-field-fortios.conf: 44 of 81; cell3-router-ios.cfg: 10 of 81; vendor-access-pfsense.xml: 3 of 81.
+5. **Compare** sets observed traffic against one configuration. By default it shows only traffic that **crosses that device** (both ends in zones it knows), because a configuration cannot be judged by traffic that never reaches it. perimeter-asa.cfg: 13 of 82; it-ot-boundary-panos.xml: 9 of 82; ops-field-fortios.conf: 44 of 82; cell3-router-ios.cfg: 10 of 82; vendor-access-pfsense.xml: 3 of 82.
 6. **Groups & labels**, then **Migrate** (the two workflows, then translation), then **Export & AI**.
 
 ## What to look for: observed traffic
@@ -74,6 +74,20 @@ In total the three captures and the log hold **197 flows** that group into **81 
 | T12 | Treatment PLC 1 to 203.0.113.10:443 | A TLS connection with the server name `telemetry.vendor.example`. The *Treatment PLCs* group is marked isolated behind a gateway, so the narrow plan proposes an **external egress policy** with that prefix and DNS name. | The egress policy type is separate from group policies. |
 | T13 | SCADA-1 to intake PLC 1, port 502 | Two flows, from two captures, merged; the communication takes the **weakest** direction confidence. | Several observation points combine conservatively. |
 | T14 | Corporate DNS to 9.9.9.9 | From the Zeek log: direction **low** and labelled as Zeek's own inference. | A summary is not packet evidence. |
+
+## What to look for: devices (MAC addresses and what devices say about themselves)
+
+Open **Inventory**, then the *Devices* table; click a row for the detail. Nothing here is probed: it is all read from the captures. The card maker comes from the IEEE vendor-name table, which RuleTruss does not ship: press *Download from the IEEE* on **Data & privacy** to load it (until then the table shows MACs but no maker). The prefixes used here are real IEEE registrations, so after the download they show the real registrants; the names written in this guide come from a small *fictional* table (`ruletruss/samples/vendor_names.py`) so that no invented device is attributed to a real company. The devices themselves are invented.
+
+| Id | Where to look | What you should see | Why it matters |
+| --- | --- | --- | --- |
+| D01 | Operations hosts (10.20.0.10 and others) | SCADA, engineering and HMI hosts show a **confirmed** MAC (they answered ARP). The network monitor (10.20.0.70) and the services host (10.20.0.2) show only **probable**: nothing but their own frames. | Confirmed means the device announced it; probable is an inference. |
+| D02 | *MACs shared by several addresses* | In the span, every field PLC arrives with the firewall's MAC: one MAC (Example Firewall Co.) carries 14 addresses, and only the firewall's own address is confirmed for it. The DMZ tap shows the same for everything outside the DMZ. The PLCs get no MAC from this capture. | A MAC is only a device's while it is on the same segment. Router MACs are listed apart and never attributed. |
+| D03 | Cell 2 PLCs and the dosing PLC, in the late-start capture | On the cell switch the PLCs have their own MACs: **Example Automation AG** on PLC 1 (confirmed), **Example Industrial Controls** on the dosing PLC. The three that never answered ARP are **probable**. | The registry names the maker of the network card, not necessarily of the device. A prefix registered to a virtualisation company on the SCADA servers says only that they use a virtual network card. |
+| D04 | *Says it is* column, and the row detail | PLC 1 on port 502 returned a Modbus identity (*Pump controller (Example Controls; EC-100; revision V3.1)*). The dosing PLC answered an EtherNet/IP discovery with its product name and a vendor ID (RuleTruss names only the few IDs it can vouch for, so this one stays a number). Three PLCs describe themselves over SNMP, intake PLC 2 names its web server, and the cell switches advertise their names with LLDP. | Self-reported text is evidence of what the device said, not of what it is. It can be wrong or forged, and it is labelled that way. |
+| D05 | 10.30.2.77 | A contractor laptop asked for an address with the hostname *CONTRACTOR-LT*. Its MAC (da:4e:91:2c:07:b3) is **randomised**, so no card maker is shown, and the DHCP answer is what ties it to the address. | Phones and laptops randomise their MACs; a prefix that means nothing is not shown as if it did. |
+| D06 | *Seen without an IP address* | A second cell switch (cell1-sw1) advertises itself with LLDP but never sends IP traffic in this capture. | Some devices are visible only at layer 2. |
+| D07 | The *Says it is* column for hosts with no other identity, and the row detail | Windows hosts show a TTL hint of 128, Linux and PLCs 64, the IEC 104 gateway 255. Treatment PLC 3 (10.30.2.23) also says 128, which would suggest Windows. | A TTL is a weak hint that is shown apart from the self-reported text, and it can mislead. |
 
 ## What to look for: configurations
 

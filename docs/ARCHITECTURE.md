@@ -45,9 +45,12 @@ Not chosen for the MVP: FastAPI/React (more dependencies for no gain here), a SQ
 | `evaluate.py` | Ordered evaluation, ACL stages, ASA security levels, PAN-OS defaults, stateless replies |
 | `adapters/{cisco,panos,fortios,pfsense}.py`, `registry.py`, `xmlsafe.py`, `common.py` | One adapter per source format; content-based detection; safe XML loading |
 | `capture/{reader,flows,appid,zeek}.py` | Packet reading, flow assembly with direction inference, application identification, Zeek logs |
+| `adapters/unifi.py` (+ `tools/unifi_export.py`, run separately) | UniFi zone-based firewall JSON to the neutral policy model |
+| `capture/fingerprint.py`, `oui.py`, `oui_build.py`, `devices.py` | Passive device identification (`oui_build.py` is the only code that can use the network, on request, in its own process): bounded decoders for ARP/LLDP/DHCP/SNMP/Modbus/EtherNet/IP/HTTP/SSH, the IEEE prefix lookup, and the merge that attributes MACs to IPs with a stated confidence |
 | `analysis.py` | Communications, inventory, matrix, explanations, comparison, rule analysis |
 | `migrate/{groups,directional,firewall,validate}.py` | Group arithmetic, group-policy plans, destination translation, validation |
-| `store.py`, `isolate.py`, `worker.py`, `server.py`, `service.py`, `exports.py`, `redact.py`, `limits.py`, `netutil.py` | Storage, isolation, HTTP, logic behind the pages, exports, credential redaction, limits, helpers |
+| `web/graph.js` | The relationship graph: force layout, pan/zoom/drag, resizable box, drill-down panel (data from `/graph` and `/graph/detail`) |
+| `store.py`, `isolate.py`, `jobs.py`, `worker.py`, `server.py`, `service.py`, `exports.py`, `redact.py`, `limits.py`, `netutil.py` | Storage, isolation, HTTP, logic behind the pages, exports, credential redaction, limits, helpers |
 | `web/` | The single-page interface |
 | `synthetic.py`, `samples/`, `riverbend.py`, `riverbend_configs.py` | Synthetic packet builders, the small demonstration project, and the larger Riverbend example (captures, flow log, five device exports, context) |
 
