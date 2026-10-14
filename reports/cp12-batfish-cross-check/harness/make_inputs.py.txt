@@ -1,0 +1,28 @@
+"""Host side, run with the project's python from the repo root: build the mapped ASA config and the list of cases with RuleTruss's own source decisions."""
+import json, sys, ipaddress
+sys.path.insert(0, "tests")
+import unifi_zones as z
+from ruletruss.adapters.registry import parse_config
+from ruletruss.migrate.firewall import translate_policy, render
+from ruletruss.migrate.validate import zone_pair_cases
+from ruletruss.evaluate import evaluate
+
+OUT = sys.argv[1]
+names = {k: "n_" + k.lower() for k in [*z.NETWORKS, "zone-External"]}
+policy = parse_config(z.text(False), "s", "unifi")
+t = translate_policy(policy, "cisco-asa", zone_map=names, confirmed=("gateway", "vpn"))
+assert t.deployable, t.blockers
+text = render(t, "cisco-asa")
+scaffold = [": Saved", "ASA Version 9.16(1)", "!", "hostname rtasa", ""]
+for i, (key, net) in enumerate(z.NETWORKS.items()):
+    n = ipaddress.ip_network(net)
+    scaffold += [f"interface GigabitEthernet0/{i}", f" nameif {names[key]}", " security-level 50", f" ip address {n.network_address + 1} {n.netmask}", "!"]
+scaffold += ["interface GigabitEthernet0/9", f" nameif {names['zone-External']}", " security-level 0", " ip address 192.0.2.2 255.255.255.252", "!", ""]
+open(f"{OUT}/configs/rtasa.cfg", "w").write("\n".join(scaffold) + "\n" + text + "\n")
+cases = []
+for label, p in zone_pair_cases(policy, t):
+    d = evaluate(policy, p)
+    cases.append({"label": label, "src": p.src, "dst": p.dst, "proto": p.proto, "sport": p.sport, "dport": p.dport, "icmp_type": p.icmp_type,
+                  "src_zone": p.src_zone, "dst_zone": p.dst_zone, "source_decision": d.outcome})
+json.dump({"names": names, "cases": cases, "ifaces": {k: v for k, v in (t.iface_nets or {}).items()}}, open(f"{OUT}/cases.json", "w"), default=str, indent=1)
+print(len(cases), "cases;", len(text.splitlines()), "config lines; iface_nets:", t.iface_nets)

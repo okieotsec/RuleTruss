@@ -1,0 +1,39 @@
+"""Runs inside the container. Asks Batfish what the generated ASA ACLs do with each case. Writes /out/bf.json."""
+import ipaddress, json, sys, time, socket
+from pybatfish.client.session import Session
+from pybatfish.datamodel.flow import HeaderConstraints
+
+for _ in range(180):
+    try:
+        socket.create_connection(("127.0.0.1", 9996), 1).close()
+        break
+    except OSError:
+        time.sleep(1)
+else:
+    sys.exit("batfish did not start")
+data = json.load(open("/in/cases.json"))
+bf = Session(host="127.0.0.1")
+bf.set_network("rt")
+bf.init_snapshot("/in", name="snap", overwrite=True)
+issues = {}
+for name in ("initIssues", "parseWarning", "undefinedReferences", "unusedStructures"):
+    try:
+        issues[name] = json.loads(getattr(bf.q, name)().answer().frame().to_json(orient="records"))
+    except Exception as e:                                           # a question the version lacks must not hide the rest
+        issues[name] = f"error: {type(e).__name__}"
+nets = {k: [ipaddress.ip_network(n) for n in v] for k, v in data["ifaces"].items()}
+results = []
+for c in data["cases"]:
+    src = ipaddress.ip_address(c["src"])
+    key = next((k for k, v in nets.items() if any(src in n for n in v)), "zone-External")
+    acl = f"RT-{key}-IN"
+    proto = {"tcp": "TCP", "udp": "UDP", "icmp": "ICMP"}[c["proto"]]
+    kw = {"srcIps": c["src"], "dstIps": c["dst"], "ipProtocols": [proto]}
+    if c["proto"] in ("tcp", "udp"):
+        kw.update(srcPorts=str(c["sport"]), dstPorts=str(c["dport"]))
+    else:
+        kw.update(icmpTypes=str(c["icmp_type"]), icmpCodes="0")
+    row = bf.q.testFilters(nodes="rtasa", filters=acl, headers=HeaderConstraints(**kw)).answer().frame().iloc[0]
+    results.append({"label": c["label"], "acl": acl, "action": str(row["Action"]), "line": str(row.get("Line_Content", ""))[:120]})
+json.dump({"issues": issues, "results": results}, open("/out/bf.json", "w"), indent=1, default=str)
+print("done", len(results))
