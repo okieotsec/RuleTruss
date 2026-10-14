@@ -79,7 +79,7 @@ Run `python tools/security_checks.py reports/<checkpoint>`; it writes each tool'
 **Dynamic testing** is automated: `tests/test_malicious.py` (hostile files through the real isolation path, resource-limit mechanisms, no-network and no-dynamic-code scans),
 `tests/test_properties.py` (Hypothesis; `RT_FUZZ_SCALE=30` for the checkpoint run), `tests/test_server.py` (access control, limits, workflows, exports, deletion, AI path).
 
-**Not yet automated, required before a public release:** a coverage-guided fuzzing run (`atheris`, at least 15 minutes per parser) on the capture and configuration parsers, and a dynamic scan of the local web server (OWASP ZAP baseline in a container, against a throwaway token on loopback). If either is not run, the report says so under "Tools not run" with the reason; the Hypothesis and hostile-file tests cover different ground and do not replace them.
+**Not yet automated, required before a public release:** a coverage-guided fuzzing run (`atheris`, at least 15 minutes per parser; first run at CP13, repeat for the release candidate) on the capture and configuration parsers, and a dynamic scan of the local web server (OWASP ZAP baseline in a container, against a throwaway token on loopback). If either is not run, the report says so under "Tools not run" with the reason; the Hypothesis and hostile-file tests cover different ground and do not replace them.
 
 ## 7. Severity rubric
 

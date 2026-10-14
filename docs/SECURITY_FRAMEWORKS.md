@@ -7,7 +7,7 @@ How RuleTruss's security practice lines up with two public frameworks, what evid
 
 **This is the developer's own assessment of a small, pre-release project, written with AI assistance. It is not an audit, and nothing here is a certification or a claim of compliance.** Every status points at a file you can read. Where the repository cannot show something (a setting on GitHub, for example), the table says so. SSDF 1.2 is an initial public draft (December 2025) with no final version yet; this page follows 1.1 and will be re-mapped when 1.2 is final.
 
-Last reviewed: 2026-10-14, checkpoint [CP9](../reports/cp9-security-framework/claude.md).
+Last reviewed: 2026-10-14, checkpoints [CP9](../reports/cp9-security-framework/claude.md) and [CP13](../reports/cp13-fuzzing/claude.md).
 
 ## How to read the status column
 
@@ -48,7 +48,7 @@ Last reviewed: 2026-10-14, checkpoint [CP9](../reports/cp9-security-framework/cl
 | PW.5 Follow secure coding practices | Met | ruff's `S` and `B` rules, bandit and semgrep clean; no `eval`, `exec`, `pickle` or `shell=True`; XML refused when it declares a DTD or entity; a test that parsers import no networking modules | None. |
 | PW.6 Configure build and interpreter settings | Partly | Tests run with `python -X dev -W error::ResourceWarning` | There is no build or packaging step yet. |
 | PW.7 Review and analyze code | Partly | Scanners at every checkpoint and in CI; manual checklist; since CP9, **every suppression comment is inventoried** and a new one fails the gate until it is reviewed ([baseline](../security/suppressions.baseline.json)); CodeQL added in CP9 | No human reviewer other than the owner. CodeQL results appear only once the repository is on GitHub. |
-| PW.8 Test executable code | Met | About 450 test functions; hostile captures and configurations run through the real isolation path; hypothesis fuzzing (`RT_FUZZ_SCALE=30` for a checkpoint); server access-control tests; resource-limit tests | Atheris has not been run, and the local web server has not been scanned with a dynamic tool such as OWASP ZAP. Both are open items. |
+| PW.8 Test executable code | Met | About 450 test functions; hostile captures and configurations run through the real isolation path; hypothesis fuzzing (`RT_FUZZ_SCALE=30` for a checkpoint); server access-control tests; resource-limit tests | Atheris was run once on the configuration, capture, Zeek and UniFi translation parsers (CP13: it found four robustness bugs, all fixed with regression tests). The local web server has not been scanned with a dynamic tool such as OWASP ZAP; that and a fresh Atheris run on the release candidate are open. |
 | PW.9 Secure defaults | Met | Loopback only with a per-run token; no outbound connection unless asked; size limits only changeable at start-up; the AI feature off unless configured; data folder 0700, files 0600 | None. |
 
 ### RV: Respond to vulnerabilities
@@ -120,7 +120,7 @@ These are GitHub settings, to be done when the repository is published. Until th
 1. Independent review before any public release (PO.2, PW.2, PW.7): required by the release gate.
 2. Review the local history before publishing anything (PS.1).
 3. Dynamic scan of the local web server with OWASP ZAP, in a container, using a throwaway token (PW.8).
-4. Atheris on the capture and configuration parsers for a release candidate (PW.8).
+4. Repeat Atheris on the capture and configuration parsers for the release candidate (PW.8). Done once at CP13 ([reports/cp13-fuzzing](../reports/cp13-fuzzing/claude.md)); a new run is needed after any parser change.
 5. A release workflow with build provenance, once there is something to release (PS.2, PS.3).
 6. Optionally, an InSpec-compatible profile (Cinc Auditor is the free build) that asserts loopback binding and file modes (SAF Validate).
 7. Tick the owner checklist; re-map to SSDF 1.2 when NIST finalises it.
