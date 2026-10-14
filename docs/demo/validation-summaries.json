@@ -10,7 +10,8 @@
     "explained_by_source_default": 0,
     "unexplained_broader": 0,
     "explained_by_reply_entry": 0,
-    "result": "no difference found on the sampled connections"
+    "compared": 61,
+    "result": "no difference found on the 61 sampled connections that could be compared; 6 could not be compared"
   },
   "preserve/cisco-ios": {
     "cases": 67,
@@ -23,6 +24,7 @@
     "explained_by_source_default": 0,
     "unexplained_broader": 0,
     "explained_by_reply_entry": 0,
+    "compared": 61,
     "result": "destination blocks connections the source allowed"
   },
   "preserve/fortios": {
@@ -36,6 +38,7 @@
     "explained_by_source_default": 0,
     "unexplained_broader": 0,
     "explained_by_reply_entry": 0,
+    "compared": 61,
     "result": "destination blocks connections the source allowed"
   },
   "narrow/cisco-asa": {

@@ -7,7 +7,7 @@ How RuleTruss's security practice lines up with two public frameworks, what evid
 
 **This is the developer's own assessment of a small, pre-release project, written with AI assistance. It is not an audit, and nothing here is a certification or a claim of compliance.** Every status points at a file you can read. Where the repository cannot show something (a setting on GitHub, for example), the table says so. SSDF 1.2 is an initial public draft (December 2025) with no final version yet; this page follows 1.1 and will be re-mapped when 1.2 is final.
 
-Last reviewed: 2026-10-14, checkpoints [CP9](../reports/cp9-security-framework/claude.md), [CP13](../reports/cp13-fuzzing/claude.md) and [CP14](../reports/cp14-zap-scan/claude.md).
+Last reviewed: 2026-10-14, checkpoints [CP9](../reports/cp9-security-framework/claude.md), [CP13](../reports/cp13-fuzzing/claude.md), [CP14](../reports/cp14-zap-scan/claude.md) and [CP15](../reports/cp15-codex-review/claude.md).
 
 ## How to read the status column
 
@@ -25,7 +25,7 @@ Last reviewed: 2026-10-14, checkpoints [CP9](../reports/cp9-security-framework/c
 | Practice | Status | Evidence | Open item |
 | --- | --- | --- | --- |
 | PO.1 Define security requirements | Met | [Test plan](../SECURITY_TEST_PLAN.md) sections 2 and 3 (scope and a threat model for captures, configurations, the local server, stored data and the optional AI path); [SECURITY.md](../SECURITY.md) | Threat model is a table, not a data-flow diagram. |
-| PO.2 Roles and responsibilities | Partly | Test plan header names the owner and the reviewer | One-person project. **No independent review has been done**; the plan and release gate require one before a public release. |
+| PO.2 Roles and responsibilities | Partly | Test plan header names the owner and the reviewer | One-person project. **No review by a person other than the developer has been done** (one read-only review by a different AI model, Codex, was done at CP15); the plan and release gate require one before a public release. |
 | PO.3 Supporting toolchains | Met | [ruff.toml](../ruff.toml), [CI](../.github/workflows/ci.yml), [security runner](../tools/security_checks.py), pinned tool versions in [requirements-dev.txt](../requirements-dev.txt) | CP9 added osv-scanner to CI, a weekly schedule and Dependabot for pip. |
 | PO.4 Criteria for security checks | Met | Test plan sections 7 and 9 (severity rubric, exit criteria); each report ends with a verdict | None. |
 | PO.5 Secure development environments | Partly | CI jobs have read-only tokens, do not persist credentials and pin every action to a commit; only synthetic data is used (plan rule 5); the UI is checked in a headless browser, never on the desktop | Developer-machine and GitHub account settings cannot be seen from the repository: see the owner checklist below. |
@@ -43,7 +43,7 @@ Last reviewed: 2026-10-14, checkpoints [CP9](../reports/cp9-security-framework/c
 | Practice | Status | Evidence | Open item |
 | --- | --- | --- | --- |
 | PW.1 Design to meet security requirements | Met | Threat model in the test plan; [ARCHITECTURE.md](ARCHITECTURE.md); the parser runs in a resource-limited subprocess; the evaluator has a three-valued result so that "unknown" is never read as "false" | None. |
-| PW.2 Review the design | Partly | Each checkpoint report reviews the design of what changed | No independent design review (see PO.2). |
+| PW.2 Review the design | Partly | Each checkpoint report reviews the design of what changed | No design review by a person other than the developer (see PO.2); CP15 was a code review by another AI model. |
 | PW.4 Reuse well-secured software | Met | One runtime dependency, dpkt (BSD), pinned with hashes and justified in the test plan; everything else is the Python standard library | The UniFi, SNMP, LLDP and other protocol readers are written here, not reused; they are covered by the hostile-input and fuzz tests. |
 | PW.5 Follow secure coding practices | Met | ruff's `S` and `B` rules, bandit and semgrep clean; no `eval`, `exec`, `pickle` or `shell=True`; XML refused when it declares a DTD or entity; a test that parsers import no networking modules | None. |
 | PW.6 Configure build and interpreter settings | Partly | Tests run with `python -X dev -W error::ResourceWarning` | There is no build or packaging step yet. |
@@ -117,7 +117,7 @@ These are GitHub settings, to be done when the repository is published. Until th
 
 ## Open items, in order
 
-1. Independent review before any public release (PO.2, PW.2, PW.7): required by the release gate.
+1. Review by a person other than the developer before any public release (PO.2, PW.2, PW.7): required by the release gate. CP15 (another AI model) found 17 issues, all fixed; that is evidence, not a substitute.
 2. Review the local history before publishing anything (PS.1).
 3. Repeat the ZAP scan of the local web server for the release candidate (PW.8). Done once at CP14 ([reports/cp14-zap-scan](../reports/cp14-zap-scan/claude.md)); the API requests were seeded from a scripted walk, so routes not in that walk were not attacked.
 4. Repeat Atheris on the capture and configuration parsers for the release candidate (PW.8). Done once at CP13 ([reports/cp13-fuzzing](../reports/cp13-fuzzing/claude.md)); a new run is needed after any parser change.

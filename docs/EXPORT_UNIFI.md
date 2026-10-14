@@ -75,10 +75,11 @@ destination zone, so RuleTruss combines the pairs on purpose rather than flatten
   network. A policy whose addresses fall outside its zone's networks is reported, not moved.
 * **Order is rebuilt per interface.** Each ACL lists the pairs of its source zone one after another: pairs whose destination zone has networks
   first (they cannot overlap, each default names only its own destination), External last, every pair in UniFi's index order and ending in its own
-  default. A pair with no listed policy is a blocker: the ASA would deny it and UniFi's behaviour is not in the export.
+  default. A pair needs an enabled final Allow All / Block All policy, including the pairs that start at External; a pair with none (or with only some policies) is a blocker: the ASA would deny it and UniFi's behaviour is not in the export.
 * **Connection-state policies are implemented by the ASA's stateful inspection**, not by entries: *Allow Return Traffic* (replies are always
   accepted for permitted connections) and *Block Invalid Traffic* (the ASA drops packets of unknown connections; similar, not identical). UniFi's
-  all-states blocks can also drop replies, which the ASA does not do; those policies are flagged.
+  all-states blocks can also drop replies, which the ASA does not do; those policies are flagged. A block on established or related
+  traffic, and an allow of invalid traffic, cannot be written as an interface ACL and are marked *unsupported*, not implemented.
 * **Traffic to the firewall itself** (the Gateway zone) is not governed by interface ACLs and needs explicit ssh/http/icmp/DNS/DHCP/control-plane
   configuration. **VPN** needs the target's VPN design. Both stay *unresolved* until you tick that you handle them; then they are marked as handled by you.
 * **Every source policy ends with one disposition:** translated, implemented through target behaviour, unsupported, unresolved or not applicable
@@ -92,7 +93,9 @@ destination zone, so RuleTruss combines the pairs on purpose rather than flatten
   also a preview because return paths are not generated for zone-pair sources.
 
 Validation compares sampled connections (every source network to every destination zone, and the inside of each policy you wrote) on both sides with
-this tool's evaluator. It is not proof of equivalence; NAT, routing, VPN and local services are not part of it.
+this tool's evaluator. The headline says how many were actually compared and how many could not be ("nothing could be compared" means no
+agreement is claimed). It is not proof of equivalence; NAT, routing, VPN and local services are not part of it. An independent parser (Batfish, CP12)
+agreed with it on the clean example.
 
 ## How RuleTruss reads the result
 

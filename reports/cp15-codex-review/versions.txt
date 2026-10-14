@@ -1,0 +1,6 @@
+ruff: ruff 0.16.10
+bandit: bandit 1.9.4
+semgrep: 1.180.0
+gitleaks: version is set by build process
+pip-audit: pip-audit 2.10.1
+osv-scanner: osv-scanner version: 2.5.1

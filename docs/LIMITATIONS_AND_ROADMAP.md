@@ -15,6 +15,12 @@ Zone-based firewall only (Network 10.1 or later, through the API export); connec
 settings are not read, and the encrypted backup file is not read. Written from the published schema; one real export was read successfully, and decisions have not yet been compared with real traffic.
 See [EXPORT_UNIFI.md](EXPORT_UNIFI.md).
 
+## Limits that refuse a file
+
+A configuration line longer than 20,000 characters, a UniFi list of more than 100,000 items, more than 100,000 rules, or a group that expands past
+50,000 entries is not cut short: the line, list or rule count is refused with a message, and a group that is too large leaves the rules that use it
+undecidable. A single rule that needs more than 2,000 access-list lines is not written and makes the translation non-deployable.
+
 ## UniFi to Cisco ASA
 
 IPv4 only; no IPv6 prefixes for zones in the export. Gateway (local services) and VPN are left to you and stay unresolved until you say so. MAC filters,

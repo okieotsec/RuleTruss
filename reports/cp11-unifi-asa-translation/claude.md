@@ -61,3 +61,7 @@ was added, so no new Atheris target is required; the Atheris and ZAP runs remain
   gating, not the interface-ACL logic).
 * MAC, application, domain, region and schedule conditions are unsupported. ICMPv6 policies without a message type (the API omits it) are unsupported.
 * Gateway and VPN need the user's design; stale zone references in the source (for example the Internal zone with no networks) must be fixed in UniFi.
+
+## Correction (added at CP15)
+
+The in-product validation described above compared **nothing** when the interfaces were mapped, while still printing "no difference found" (CP15-04, now fixed). The independent Batfish comparison in CP12 is the first real check of this translation. See [CP15](../cp15-codex-review/claude.md).
