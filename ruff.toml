@@ -32,3 +32,5 @@ ignore = ["SIM105", "SIM108", "RUF005", "ISC004"]
 "tools/*.py" = ["E501"]
 # The example generators are long tables of invented data.
 "ruletruss/riverbend*.py" = ["E501", "S104"]
+"ruletruss/migrate/zonepairs.py" = ["E501"]          # long, human-readable reasons are the product of this module
+"ruletruss/samples/__init__.py" = ["E501"]          # long lines of invented sample data and one-line comments on each flow

@@ -21,12 +21,14 @@ class Probe:
     icmp_code: int = None
     src_zone: str = None
     dst_zone: str = None
+    src_mac: str = None                     # the sender's MAC address when it is known (a captured frame, a device list)
+    state: str = None                       # connection state for platforms that match it (UniFi): None means NEW; replies are ESTABLISHED
 
     def reply(self):
         """The server-to-client direction of the same connection (an echo request is answered by an echo reply)."""
         icmp_type = {("icmp", 8): 0, ("icmp6", 128): 129}.get((self.proto, self.icmp_type), self.icmp_type)
         return Probe(self.dst, self.src, self.proto, self.dport, self.sport, icmp_type, self.icmp_code,
-                     self.dst_zone, self.src_zone)
+                     self.dst_zone, self.src_zone, state="ESTABLISHED")
 
 
 @dataclass
@@ -49,6 +51,12 @@ def _zone_match(rule_zones, probe_zone):
 
 def rule_matches(rule, probe, tcp_established=False):
     """True, False or None for one rule and one probe, ignoring enabled/ordering."""
+    states = rule.extra.get("states")                    # UniFi: connection states the policy matches (None means all)
+    if states is not None and (probe.state or "NEW") not in states:
+        return False
+    macs = rule.extra.get("src_macs")                    # UniFi: a source MAC filter; decided only when the sender's MAC is known
+    if macs and probe.src_mac and probe.src_mac.lower().replace("-", ":") not in macs:
+        return False
     rule_type = rule.extra.get("rule_type", "universal")
     if rule_type in ("intrazone", "interzone"):
         if probe.src_zone is None or probe.dst_zone is None:
@@ -86,6 +94,9 @@ def default_decision(policy, probe):
                                          f"level {b} is allowed by default")
         return Decision(DENY, basis=f"no ACL is applied inbound; traffic from security level {a} to {b} is denied "
                                     "by default")
+    if policy.default_mode == "zone_pairs":
+        return Decision(INDETERMINATE, basis="no listed policy matched, and this zone pair lists no final Allow All / Block All policy",
+                        uncertain=["the zone pair's built-in default is not in the export"])
     if policy.default_mode == "panos":
         if probe.src_zone is None or probe.dst_zone is None:
             return Decision(INDETERMINATE, basis="no rule matched; PAN-OS default rules depend on whether the source and "
@@ -107,7 +118,7 @@ def _first_match(rules, probe, tcp_established):
         result = rule_matches(rule, probe, tcp_established)
         if result is False:
             continue
-        unknowns = rule.condition_unknowns()
+        unknowns = rule.condition_unknowns(probe)
         if result is None:
             note = f"rule {rule.original_id}: a condition depends on unavailable information (zone, unresolved object)"
             unknowns = [*unknowns, note]
@@ -215,6 +226,8 @@ def evaluate_connection(policy, probe):
     """
     forward = evaluate(policy, probe)
     reply = None
-    if forward.outcome != DENY and not policy.stateful:
+    # A stateless ACL needs a rule for the replies. A zone-pair policy (UniFi) matches connection states, so replies are evaluated too:
+    # a policy for all states that blocks the reverse direction also blocks the replies unless an earlier policy allows them.
+    if forward.outcome != DENY and (not policy.stateful or policy.default_mode == "zone_pairs"):
         reply = evaluate(policy, probe.reply(), tcp_established=(probe.proto == "tcp"))
     return forward, reply

@@ -10,6 +10,7 @@
 </head>
 <body>
 <a class="skip" href="#view">Skip to content</a>
+<div class="chrome">
 <header class="top">
   <div class="brand"><img class="logo only-light" src="/brand/okieotsec-shield.svg" alt="" width="40" height="44"><img class="logo only-dark" src="/brand/okieotsec-shield-dark.svg" alt="" width="40" height="44">
     <div><h1>Rule<span class="truss">Truss</span></h1><p class="tag">Explain communications. Migrate policy. Keep it local.</p></div></div>
@@ -18,9 +19,11 @@
     <select id="projectSelect"></select>
     <button id="newProject" type="button">New project</button>
     <label class="verbose" title="Open every explanation instead of just the short version"><input type="checkbox" id="verbose"> Show explanations</label>
+    <button id="themeToggle" class="icon" type="button" title="Colour theme: follows your system. Click to change." aria-label="Colour theme"></button>
   </div>
 </header>
 <nav class="tabs" role="tablist" aria-label="Workflow" id="tabs"></nav>
+</div>
 <div class="legend" aria-label="What the labels mean">
   <span class="chip observed">OBSERVED</span> seen in a capture or flow log
   <span class="chip configured">CONFIGURED</span> read from a device export
@@ -30,5 +33,6 @@
 <div id="toast" role="status" aria-live="polite"></div>
 <footer class="foot"><img class="only-light" src="/brand/okieotsec-lockup.svg" alt="OkieOTSec"><img class="only-dark" src="/brand/okieotsec-lockup-dark.svg" alt="OkieOTSec"><br>Runs only on this computer. Nothing you import is sent anywhere. Output is for review; this tool never changes a live device.</footer>
 <script src="/app.js"></script>
+<script src="/graph.js"></script>
 </body>
 </html>

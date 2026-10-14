@@ -61,6 +61,12 @@ class Translation:
     placeholders: list = field(default_factory=list)
     summary: dict = field(default_factory=dict)
     zone_map: dict = field(default_factory=dict)
+    deployable: bool = True                          # False while anything is unresolved, unsupported or still a placeholder
+    blockers: list = field(default_factory=list)     # why it is not deployable, in words
+    dispositions: dict = field(default_factory=dict) # disposition -> number of source policies
+    iface_nets: dict = field(default_factory=dict)   # zone-pair sources: target interface key -> networks behind it
+    iface_zone: dict = field(default_factory=dict)   # zone-pair sources: target interface key -> the source zone it belongs to
+    confirmed: list = field(default_factory=list)    # things the user said they handle themselves ("gateway", "vpn")
 
 
 def _issue(sev, code, msg, ev=None):
@@ -154,16 +160,21 @@ def _default_behaviour_notes(policy, caps):
         notes.append(_issue("info", "default-block", "pfSense/OPNsense block traffic that no rule on the entry interface permits; "
                             "the destination's default deny matches, but automatic rules (anti-lockout, NAT-associated) are not "
                             "in the export's rule list and are not translated."))
+    if policy.vendor == "unifi":
+        notes.append(_issue("warning", "default-zone-pairs", "UniFi applies its own built-in policy to each zone pair (for example "
+                            "allowing traffic from Internal to External and blocking the reverse). Policies listed in the export are "
+                            "translated, but anything UniFi does with a zone pair that has no listed policy is not, and the destination "
+                            "denies it unless a rule permits it."))
     if policy.default_action == "allow" and caps:
         notes.append(_issue("warning", "default-allow", "The source's default action is allow; the destination's is deny."))
     return notes
 
 
-def translate_policy(policy, target, zone_map=None, identity=False, ctx=None):
+def translate_policy(policy, target, zone_map=None, identity=False, ctx=None, confirmed=()):
     """Preserve workflow: source PolicySet to destination rules."""
     caps = TARGETS[target]
     zone_map = dict(zone_map or {})
-    t = Translation(target=target, workflow="preserve", zone_map=zone_map)
+    t = Translation(target=target, workflow="preserve", zone_map=zone_map, confirmed=sorted(set(confirmed)))
     allow_all = [r for r in policy.rules if r.enabled and r.action == "allow"]
     t.issues.append(_issue("info", "order", "Rule order is preserved within each destination ACL or rulebase."))
     if policy.stateful and not caps["stateful"]:
@@ -177,6 +188,13 @@ def translate_policy(policy, target, zone_map=None, identity=False, ctx=None):
         t.issues.append(_issue("warning", "address-context", f"The source writes rule addresses as '{policy.address_context}' and "
                                f"the destination as '{caps['address_context']}'. Rules whose addresses are touched by destination "
                                "or static NAT are blocked; check the others against your NAT design."))
+    if policy.default_mode == "zone_pairs" and target in ("cisco-asa", "cisco-ios"):
+        from . import zonepairs  # imported here: that module builds on the classes above
+        zonepairs.translate(policy, caps, t, zone_map, identity, set(confirmed))
+        for note in _default_behaviour_notes(policy, caps):
+            t.issues.append(note)
+        _finish(t, policy, zone_map, identity)
+        return t
     n_rules = 0
     # ASA evaluates the interface ACL first and the global ACL after it, so global rules come last.
     ordered = sorted(policy.rules, key=lambda r: (r.extra.get("stage") == "global", str(r.extra.get("stage")), str(r.extra.get("bind")),
@@ -192,6 +210,16 @@ def translate_policy(policy, target, zone_map=None, identity=False, ctx=None):
             continue
         if rule.extra.get("stage") == "unbound":
             entry.update(status="skipped", reason="the ACL is not applied to any interface in the source export")
+            continue
+        if rule.extra.get("new_connections") is False:
+            if rule.action == "allow":
+                reason = "permits reply traffic only (existing connections); " + (
+                    "the destination tracks state so it is not needed" if caps["stateful"] else
+                    "return rules for this stateless destination are generated from the permitted rules instead")
+            else:
+                reason = ("applies only to packets that are not the start of a connection (for example INVALID); "
+                          "not translated, because it never affected new connections")
+            entry.update(status="skipped", reason=reason)
             continue
         if caps["stateful"] and rule.action == "allow" and _is_reply_rule(rule, allow_all):
             entry.update(status="skipped", reason="permits reply traffic only; the destination tracks state so it is not needed")
@@ -299,6 +327,21 @@ def _return_rules(label, src, dst, svc, out, dst_zone):
     return ret
 
 
+DISPOSITIONS = ("translated", "implemented", "unsupported", "unresolved", "not-applicable")
+
+
+def _disposition_of(entry):
+    """The disposition of a report entry written by the generic path (the zone-pair path writes its own)."""
+    status, reason = entry.get("status"), entry.get("reason", "")
+    if status == "translated":
+        return "translated"
+    if status == "blocked":
+        return "unsupported"
+    if "reply traffic only" in reason or "not the start of a connection" in reason:
+        return "implemented"
+    return "not-applicable"
+
+
 def _finish(t, policy, zone_map, identity):
     for rule in t.rules:
         if rule.kind != "blocked":
@@ -307,22 +350,41 @@ def _finish(t, policy, zone_map, identity):
                     _zone_name(z, zone_map, t, identity)
     for rule in t.rules:
         t.issues.extend(rule.warnings)
+    for entry in t.report:
+        entry.setdefault("disposition", _disposition_of(entry))
+    counts = {d: sum(1 for e in t.report if e.get("disposition") == d) for d in DISPOSITIONS}
+    t.dispositions = counts
     translated = [r for r in t.rules if r.kind in ("translated", "observed")]
-    blocked = [e for e in t.report if e.get("status") == "blocked"]
+    not_done = [e for e in t.report if e.get("disposition") in ("unsupported", "unresolved")]
     t.summary = {
         "source_rules": len(policy.rules) if policy is not None else 0, "translated": len(translated),
-        "blocked": len(blocked), "blocked_returns": sum(1 for r in t.rules if r.kind == "blocked" and r.name.endswith("-return")),
-        "skipped": sum(1 for e in t.report if e.get("status") == "skipped"),
+        "blocked": len(not_done), "blocked_returns": sum(1 for r in t.rules if r.kind == "blocked" and r.name.endswith("-return")),
+        "skipped": counts["implemented"] + counts["not-applicable"],
         "return_rules_added": sum(1 for r in t.rules if r.kind == "return-path"),
         "rules_known_broader": sum(1 for r in t.rules if r.broader and r.kind != "blocked"),
-        "blocked_deny_rules": sum(1 for r in t.rules if r.kind == "blocked" and r.action == "deny"),
+        "blocked_deny_rules": sum(1 for r in t.rules if r.kind == "blocked" and r.action == "deny")
+                              + sum(1 for e in not_done if e.get("action") == "deny"),
         "placeholders": len(t.placeholders),
+        "policies_translated": counts["translated"], "policies_implemented_by_target": counts["implemented"],
+        "policies_unsupported": counts["unsupported"], "policies_unresolved": counts["unresolved"],
+        "policies_not_applicable": counts["not-applicable"],
     }
-    t.summary["verdict"] = _verdict(t.summary)
+    t.blockers = []
+    if t.placeholders:
+        t.blockers.append(f"{len(t.placeholders)} interface name(s) are still placeholders")
+    if not_done:
+        t.blockers.append(f"{len(not_done)} source policy(ies) could not be translated or are unresolved")
+    others = [i.message[:160] for i in t.issues if i.severity == "blocker" and i.code not in ("rule-blocked", "policy-not-translated")]
+    t.blockers += others[:6]
+    t.deployable = not t.blockers
+    t.summary["deployable"] = "yes" if t.deployable else "no (preview only)"
+    t.summary["verdict"] = _verdict(t.summary, t)
 
 
-def _verdict(s):
+def _verdict(s, t=None):
     bits = []
+    if t is not None and not t.deployable:
+        bits.append("NOT DEPLOYABLE (diagnostic preview): " + "; ".join(t.blockers[:3]))
     if s["blocked_deny_rules"]:
         bits.append(f"{s['blocked_deny_rules']} deny rule(s) could not be translated, which BROADENS access")
     if s["blocked"]:
@@ -388,6 +450,32 @@ def rules_from_observation(comms, ctx, policy_zone_lookup, include_low_confidenc
 
 # ------------------------------------------------------------------------------------------------ rendering
 
+def _preface(t, mark):
+    """A loud banner on output that must not be deployed."""
+    if getattr(t, "deployable", True):
+        return []
+    rule = mark + " " + "*" * 76
+    return [rule, f"{mark} DIAGNOSTIC PREVIEW - NOT DEPLOYABLE. Do not load this configuration on a device.",
+            *[f"{mark}   - {b}" for b in t.blockers[:8]], rule]
+
+
+def _appendix(t, mark, limit=2000):
+    """One comment line per source policy: its id, pair and what became of it. Nothing is silently left out."""
+    entries = [e for e in t.report if e.get("disposition")]
+    if not entries or t.workflow != "preserve":
+        return []
+    out = [mark, f"{mark} ---- Source policy dispositions ({len(entries)}): every source policy and what became of it ----"]
+    for e in entries[:limit]:
+        name = limits.clip(" ".join(str(e.get("source_rule", "")).split()), 40)
+        where = f" {e['pair']}" if e.get("pair") else ""
+        pid = f"{str(e['policy_id'])[:8]} " if e.get("policy_id") else ""
+        why = limits.clip(" ".join(str(e.get("reason", "")).split()), 120)
+        out.append(f"{mark} {e['disposition']:<14} {pid}{name}{where}" + (f": {why}" if why else ""))
+    if len(entries) > limit:
+        out.append(f"{mark} ... {len(entries) - limit} more in the translation report")
+    return out
+
+
 def _cisco_addr(net, flavour):
     """One address specification, or 'any' when net is None."""
     if net is None:
@@ -449,6 +537,7 @@ def render_cisco(t, flavour, identity=False):
     lines = [f"! Generated by RuleTruss ({t.workflow} workflow) for {label}.",
              "! REVIEW BEFORE USE. This is a proposal, not a verified equivalent of the source.",
              "! Rules marked NOT TRANSLATED were left out on purpose; see the translation report."]
+    lines[1:1] = _preface(t, "!")
     acls = {}
     for rule in t.rules:
         key = rule.src_zone if rule.src_zone is not None else "global"
@@ -509,6 +598,7 @@ def render_cisco(t, flavour, identity=False):
         lines.append("access-group RT-GLOBAL global")
     if flavour == "ios" and any(r.src.any and r.dst.any for r in t.rules if r.kind != "blocked"):
         lines.append("! NOTE: rules with 'any' on both sides were written for IPv4 only; IPv6 needs its own ACL")
+    lines += _appendix(t, "!")
     return "\n".join(lines) + "\n"
 
 
@@ -544,6 +634,7 @@ def render_fortios(t, identity=False, first_id=1):
     lines = ["# Generated by RuleTruss (" + t.workflow + " workflow) for Fortinet FortiOS.",
              "# REVIEW BEFORE USE. This is a proposal, not a verified equivalent of the source.",
              "# Rules marked NOT TRANSLATED were left out on purpose; see the translation report."]
+    lines[1:1] = _preface(t, "#")
     live = [r for r in t.rules if r.kind != "blocked"]
     nets4, nets6, services = {}, {}, {}
     for r in live:
@@ -618,6 +709,7 @@ def render_fortios(t, identity=False, first_id=1):
             for body in policies[fam]:
                 lines.extend(body)
             lines.append("end")
+    lines += _appendix(t, "#")
     return "\n".join(lines) + "\n"
 
 

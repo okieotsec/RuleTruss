@@ -29,7 +29,29 @@ TEXT_PAIRS = [("text", "bg"), ("text", "panel"), ("muted", "bg"), ("muted", "pan
               ("bad", "bad-bg"), ("text", "ok-bg"), ("text", "warn-bg"), ("text", "bad-bg")]
 
 
+def palette(block):
+    return {k: v.upper() for k, v in re.findall(r"--(g\d):\s*(#[0-9A-Fa-f]{6})", block)}
+
+
+LIGHT_PALETTE = palette(CSS[CSS.index(":root {"):CSS.index(":root:not([data-theme")])
+DARK_PALETTE = palette(CSS[CSS.index("@media (prefers-color-scheme: dark)"):CSS.index("* { box-sizing")])
+
+
 class ContrastTests(unittest.TestCase):
+    def test_graph_colours_are_visible_against_the_panel_and_all_different(self):
+        for name, colours, theme in (("light", LIGHT_PALETTE, LIGHT), ("dark", DARK_PALETTE, DARK)):
+            self.assertEqual(len(colours), 8, name)
+            self.assertEqual(len(set(colours.values())), 8, name)
+            for key, value in colours.items():
+                self.assertGreaterEqual(ratio(value, theme["panel"]), 3.0, f"{name}: {key} {value} on the panel")
+
+    def test_the_forced_dark_theme_repeats_the_system_dark_tokens(self):
+        forced = CSS[CSS.index(':root[data-theme="dark"] {'):CSS.index("}", CSS.index(':root[data-theme="dark"] {'))]
+        for key, value in variables(forced).items():
+            self.assertEqual(value, DARK[key], key)
+        self.assertEqual(palette(forced), DARK_PALETTE)
+        self.assertTrue(set(variables(CSS[CSS.index("@media (prefers-color-scheme: dark)"):CSS.index("* { box-sizing")])) <= set(variables(forced)))
+
     def test_every_text_pair_meets_4_5_to_1_in_both_themes(self):
         for name, theme in (("light", LIGHT), ("dark", DARK)):
             for fg, bg in TEXT_PAIRS:

@@ -8,7 +8,7 @@ Project: Sample plant (synthetic)
 
 - Absence from this capture is not evidence of absence: devices, subnets, ports and protocols that never appear may simply not have been visible to the capture point or active during this period.
 - Observation point (as supplied by the user): SPAN of the controller-facing switch ports (fictional). Traffic that does not pass that point is not seen, for example traffic between two devices on a switch port that is not mirrored.
-- 1 non-IP frame(s) (for example ARP or spanning tree) were counted but not analysed.
+- 1 non-IP frame(s) were not analysed as traffic; ARP and LLDP among them were read for device identification.
 
 ## Communications
 

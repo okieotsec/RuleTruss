@@ -2,13 +2,14 @@
 
 Only the headers and a short payload prefix are kept. Nothing from a capture is ever executed or evaluated.
 """
+import contextlib
 import os
 import struct
 from dataclasses import dataclass
 
 import dpkt
 
-from .. import limits
+from .. import limits, oui
 
 PCAP_MAGICS = {b"\xd4\xc3\xb2\xa1", b"\xa1\xb2\xc3\xd4", b"\x4d\x3c\xb2\xa1", b"\xa1\xb2\x3c\x4d"}
 PCAPNG_MAGIC = b"\x0a\x0d\x0d\x0a"
@@ -40,6 +41,19 @@ class Packet:
     vlan: int = None
     truncated: bool = False
     fragment: bool = False
+    src_mac: str = None        # Ethernet captures only
+    dst_mac: str = None
+    ttl: int = None            # IPv4 TTL or IPv6 hop limit as captured
+
+
+@dataclass
+class L2Frame:
+    """A non-IP Ethernet frame worth recording for device identification: ARP, LLDP, or any other frame's sender."""
+    number: int
+    src_mac: str
+    kind: str                  # arp, lldp or other
+    arp: tuple = None          # (operation, sender mac, sender IPv4)
+    lldp: bytes = b""
 
 
 class UnsupportedCapture(ValueError):
@@ -62,7 +76,7 @@ def _ip_text(raw):
     return str(ipaddress.ip_address(raw))
 
 
-def _decode_ip(number, ts, ip, vlan):
+def _decode_ip(number, ts, ip, vlan, macs=(None, None)):
     """Decode a dpkt IP/IP6 object to a Packet, or None for unsupported content."""
     if isinstance(ip, dpkt.ip.IP):
         version = 4
@@ -80,6 +94,8 @@ def _decode_ip(number, ts, ip, vlan):
     src, dst = _ip_text(ip.src), _ip_text(ip.dst)
     packet = Packet(number, ts, version, src, dst, f"other:{proto_num}", vlan=vlan, wire_len=getattr(ip, "len", 0) or 0)
     packet.fragment = fragment
+    packet.src_mac, packet.dst_mac = macs
+    packet.ttl = getattr(ip, "ttl", None) if version == 4 else getattr(ip, "hlim", None)
     if fragment:
         packet.truncated = False
         return packet
@@ -109,11 +125,13 @@ def _decode_ip(number, ts, ip, vlan):
 def decode_frame(number, ts, buf, linktype):
     """Decode one captured frame. Returns a Packet, or None if it is not IP (ARP, STP, etc.)."""
     vlan = None
+    macs = (None, None)
     if linktype == DLT_EN10MB:
         eth = dpkt.ethernet.Ethernet(buf)
         tags = getattr(eth, "vlan_tags", None)
         if tags:
             vlan = tags[0].id
+        macs = (oui.normalize_mac(eth.src), oui.normalize_mac(eth.dst))
         ip = eth.data
     elif linktype in (DLT_RAW, DLT_RAW_ALT, DLT_IPV4, DLT_IPV6):
         version = buf[0] >> 4 if buf else 0
@@ -129,7 +147,25 @@ def decode_frame(number, ts, buf, linktype):
         raise UnsupportedCapture(f"link type {linktype} is not supported (Ethernet, raw IP, Linux cooked and loopback are)")
     if not isinstance(ip, (dpkt.ip.IP, dpkt.ip6.IP6)):
         return None
-    return _decode_ip(number, ts, ip, vlan)
+    return _decode_ip(number, ts, ip, vlan, macs)
+
+
+ETH_TYPE_ARP, ETH_TYPE_LLDP = 0x0806, 0x88CC
+
+
+def decode_l2(number, buf):
+    """Describe a non-IP Ethernet frame for device identification, or None. Group-addressed senders are not devices."""
+    eth = dpkt.ethernet.Ethernet(buf)
+    src = oui.normalize_mac(eth.src)
+    if src is None or oui.mac_kind(src) in ("multicast", "broadcast"):
+        return None
+    if eth.type == ETH_TYPE_ARP and isinstance(eth.data, dpkt.arp.ARP) and eth.data.hln == 6 and eth.data.pln == 4:
+        arp = eth.data
+        sender = oui.normalize_mac(arp.sha)
+        return L2Frame(number, src, "arp", arp=(arp.op, sender, _ip_text(arp.spa)) if sender else None)
+    if eth.type == ETH_TYPE_LLDP:
+        return L2Frame(number, src, "lldp", lldp=bytes(eth.data)[:1500])
+    return L2Frame(number, src, "other")
 
 
 class CaptureStats:
@@ -147,11 +183,20 @@ class CaptureStats:
         self.interfaces = 1
 
 
-def iter_packets(path, stats, max_packets=limits.MAX_PACKETS):
-    """Yield Packet objects from a capture file, updating `stats`. Stops (and records it) at the packet limit."""
+PROGRESS_EVERY = 50_000
+
+
+def iter_packets(path, stats, max_packets=None, on_l2=None, progress=None):
+    """Yield Packet objects from a capture file, updating `stats`. Stops (and records it) at the packet limit.
+
+    If `on_l2` is given it is called with an L2Frame for each non-IP Ethernet frame (ARP, LLDP and other senders). If `progress` is
+    given it is called every PROGRESS_EVERY packets with (packets read, bytes consumed, file size).
+    """
+    if max_packets is None:
+        max_packets = limits.MAX_PACKETS
     size = os.path.getsize(path)
     if size > limits.MAX_CAPTURE_BYTES:
-        raise limits.LimitExceeded(f"capture is {size:,} bytes; the limit is {limits.MAX_CAPTURE_BYTES:,}")
+        raise limits.LimitExceeded(f"capture is {size:,} bytes; the limit is {limits.MAX_CAPTURE_BYTES:,} (see --max-capture-mb)")
     kind = sniff(path)
     with open(path, "rb") as handle:
         try:
@@ -166,6 +211,9 @@ def iter_packets(path, stats, max_packets=limits.MAX_PACKETS):
             for ts, buf in reader:
                 number += 1
                 stats.read = number
+                if progress is not None and number % PROGRESS_EVERY == 0:
+                    with contextlib.suppress(OSError, ValueError):
+                        progress(number, handle.tell(), size)
                 if number > max_packets:
                     stats.limits_hit.append(f"stopped after {max_packets:,} packets; the rest of the file was not analysed")
                     stats.read = max_packets
@@ -183,6 +231,13 @@ def iter_packets(path, stats, max_packets=limits.MAX_PACKETS):
                     continue
                 if packet is None:
                     stats.skipped_non_ip += 1
+                    if on_l2 is not None and stats.linktype == DLT_EN10MB:
+                        try:
+                            frame = decode_l2(number, buf)
+                        except DECODE_ERRORS:
+                            frame = None
+                        if frame is not None:
+                            on_l2(frame)
                     continue
                 if packet.fragment:
                     stats.fragments += 1

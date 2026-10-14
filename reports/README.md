@@ -4,3 +4,9 @@ One folder per checkpoint, each with the raw tool output (`*.json`, `versions.tx
 
 The project was first called Policy Bridge (package `pbridge`) and was renamed RuleTruss (package `ruletruss`) after `cp2-release-candidate`.
 The `cp0`, `cp1` and `cp2` folders are kept exactly as they were produced, so file paths and names inside them use the old names.
+
+`cp5-device-identification` covers passive device identification (MAC, OUI, self-reported identity).
+`cp6-vendor-names` covers the move from a bundled IEEE snapshot to a user-requested download.
+`cp7-large-captures` covers adjustable size limits, background imports and the stored-analysis size fix.
+`cp8-unifi` covers the UniFi zone-based firewall import and its export helper.
+`cp9-security-framework` covers the security process: NIST SSDF and MITRE SAF alignment, the suppression gate, CI hardening.

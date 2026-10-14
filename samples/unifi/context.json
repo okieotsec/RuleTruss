@@ -1,0 +1,34 @@
+{
+  "subnets": [
+    {
+      "cidr": "192.168.1.0/24",
+      "label": "Default LAN",
+      "zone": "Internal"
+    },
+    {
+      "cidr": "10.10.10.0/24",
+      "label": "Servers",
+      "zone": "Internal"
+    },
+    {
+      "cidr": "192.168.20.0/24",
+      "label": "IoT",
+      "zone": "IoT"
+    },
+    {
+      "cidr": "172.16.50.0/24",
+      "label": "DMZ",
+      "zone": "DMZ"
+    }
+  ],
+  "labels": {
+    "192.168.1.10": "Admin PC",
+    "192.168.1.50": "Laptop",
+    "10.10.10.5": "NAS",
+    "10.10.10.9": "File server",
+    "192.168.20.31": "Camera",
+    "192.168.20.32": "Smart TV",
+    "172.16.50.10": "Public web server"
+  },
+  "groups": []
+}

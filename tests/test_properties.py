@@ -81,6 +81,49 @@ class ParserFuzzTests(unittest.TestCase):
                 for name in hit.names:
                     self.assertRegex(name, r"^[a-z0-9.\-_*]{1,253}$")
 
+        json_value = st.recursive(st.none() | st.booleans() | st.integers(-10 ** 6, 10 ** 6) | st.text(max_size=30),
+                                  lambda inner: st.lists(inner, max_size=4) | st.dictionaries(st.sampled_from(
+                                      ["id", "name", "type", "zoneId", "networkIds", "items", "value", "start", "stop", "matchOpposite", "index",
+                                       "action", "source", "destination", "trafficFilter", "ipAddressFilter", "portFilter", "protocolFilter",
+                                       "ipProtocolScope", "ipVersion", "protocol", "preset", "metadata", "origin", "schedule", "mode",
+                                       "connectionStateFilter", "enabled", "domainFilter", "domains", "networkFilter", "trafficMatchingListId",
+                                       "ipv4Configuration", "hostIpAddress", "prefixLength"]), inner, max_size=5), max_leaves=40)
+
+        @hyp_settings(max_examples=n(300), deadline=None, suppress_health_check=[HealthCheck.too_slow])
+        @given(st.dictionaries(st.sampled_from(["zones", "policies", "networks", "traffic_matching_lists", "acl_rules", "site"]), json_value,
+                               max_size=6))
+        def test_unifi_adapter_never_raises_anything_but_a_clean_error(self, parts):
+            from ruletruss.adapters import unifi
+            try:
+                policy = unifi.parse(json.dumps({"ruletruss_unifi_export": 1, **parts}), "fuzz")
+            except OK_ERRORS:
+                return
+            json.dumps(to_plain(policy))
+
+        @hyp_settings(max_examples=n(400), deadline=None)
+        @given(st.binary(max_size=600), st.integers(0, 3), st.integers(0, 255))
+        def test_fingerprint_decoders_never_raise_and_only_return_plain_text(self, blob, cut, flip):
+            from ruletruss import synthetic as syn
+            from ruletruss.capture import fingerprint as fp
+            valid = [syn.dhcp_discover("da:4e:91:2c:07:b3", "host", "MSFT 5.0"), syn.enip_list_identity_reply("name"),
+                     syn.snmp_description_response("descr", "name"), syn.modbus_device_identification({0: "a", 4: "b"}), syn.http_ok_server("x")]
+            candidates = [blob] + [bytes(v[:len(v) - cut * 3]) for v in valid] + [bytes([flip]) + v[1:] for v in valid]
+            for data in candidates:
+                for decoder in (fp.parse_lldp, fp.parse_dhcp, fp.parse_enip_identity, fp.parse_snmp_response, fp.parse_modbus_device_id,
+                                fp.http_headers, fp.ssh_banner):
+                    result = decoder(data)
+                    for value in (result.values() if isinstance(result, dict) else result or ()):
+                        if isinstance(value, str):
+                            self.assertTrue(value.isascii() and value.isprintable(), value)
+
+        @hyp_settings(max_examples=n(300), deadline=None)
+        @given(st.binary(max_size=300))
+        def test_text_is_always_bounded_printable_ascii(self, raw):
+            from ruletruss.capture import fingerprint as fp
+            out = fp.text(raw)
+            self.assertLessEqual(len(out), fp.TEXT_LIMIT)
+            self.assertTrue(out.isascii() and out.isprintable())
+
 
 @unittest.skipIf(st is None, "hypothesis is not installed")
 class HelperPropertyTests(unittest.TestCase):

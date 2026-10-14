@@ -70,6 +70,37 @@ def context():
     return {"subnets": SUBNETS, "labels": LABELS, "groups": GROUPS}
 
 
+# ------------------------------------------------------------------------------------------------------------ device addresses
+# MAC addresses for the fictional devices. The prefixes are real IEEE registrations, so the card-maker lookup finds real registrants once
+# the user has downloaded the IEEE listings; the devices themselves, and which cards they contain, are made up (the guide and tests use the
+# fictional table in samples/vendor_names.py instead, so no invented device is tied to a real company). The card maker is not the device
+# maker: a plant PLC can sit on any vendor's network chip.
+OUI = {"net-a": "00:00:0c", "firewall-a": "00:09:0f", "firewall-b": "00:1b:17", "virtual": "00:0c:29", "computer-a": "00:06:5b", "computer-b": "00:01:e6",
+       "plc-a": "00:01:e3", "plc-b": "00:00:bc", "plc-c": "00:00:54", "rtu": "00:00:6c", "gateway": "00:02:a2",
+       "switch": "00:80:63"}
+CONTRACTOR_LAPTOP_MAC = "da:4e:91:2c:07:b3"     # locally administered bit set: a randomised address, so it has no card maker
+
+
+def _macs(table):
+    """OUI plus the address's last three octets, so no two addresses in the example share a MAC by accident."""
+    return {ip: "{}:{:02x}:{:02x}:{:02x}".format(OUI[vendor], *(int(o) for o in ip.split(".")[1:])) for ip, vendor in table.items()}
+
+
+OPS_MACS = _macs({"10.20.0.1": "firewall-a", "10.20.0.10": "virtual", "10.20.0.11": "virtual", "10.20.0.20": "virtual", "10.20.0.50": "computer-a",
+                  "10.20.0.51": "computer-a", "10.20.0.60": "computer-b", "10.20.0.61": "computer-b", "10.20.0.70": "computer-a", "10.20.0.80": "computer-a",
+                  "10.20.0.2": "virtual"})
+DMZ_MACS = _macs({"10.40.0.1": "firewall-b", "10.40.0.10": "virtual", "10.40.0.20": "virtual", "10.40.0.30": "virtual", "10.40.0.40": "computer-a"})
+CELL_MACS = _macs({"10.30.2.1": "firewall-a", "10.30.2.2": "switch", "10.30.1.11": "plc-c", "10.30.1.12": "plc-c",
+                   "10.30.1.13": "plc-c", "10.30.2.21": "plc-a", "10.30.2.22": "plc-a", "10.30.2.23": "plc-a",
+                   "10.30.2.24": "plc-a", "10.30.2.30": "plc-b"})
+WINDOWS_TTL = dict.fromkeys(("10.20.0.10", "10.20.0.11", "10.20.0.20", "10.20.0.50", "10.20.0.51", "10.20.0.60", "10.20.0.61",
+                                  "10.40.0.10", "10.40.0.20", "10.40.0.30", "10.10.9.5", "10.10.4.4", "10.10.4.20", "10.10.7.7"), 128)
+# one PLC stack that sends 128, to show that a TTL is a weak hint and not a verdict; the IEC 104 gateway sends 255
+TTLS = {**WINDOWS_TTL, "10.30.2.23": 128, "10.30.3.40": 255, "10.20.0.1": 255, "10.30.2.1": 255, "10.40.0.1": 255}
+PLC_DESCRIPTIONS = {"10.30.1.11": ("Intake pump controller, firmware 3.1", "intake-plc-1"), "10.30.1.12": ("Intake pump controller, firmware 3.1", "intake-plc-2"),
+                    "10.30.2.21": ("Treatment controller, firmware 2.8", "treat-plc-1")}
+
+
 # ----------------------------------------------------------------------------------------------------------------- captures
 
 def _cotp_confirm():
@@ -107,10 +138,21 @@ class _Ports:
 def ops_field_capture():
     """A SPAN of the trunk between operations and the field cells: five minutes of steady control traffic."""
     c, port = s.CaptureBuilder(T0_OPS), _Ports()
+    c.segment(["10.20.0.0/24"], OPS_MACS, OPS_MACS["10.20.0.1"])
+    c.ttls.update(TTLS)
+    # the router asks and the operations hosts answer: ARP confirms these MACs. The monitor, DNS/NTP host and backup server stay quiet,
+    # so they are seen only as the sender of their own frames (a "probable" MAC)
+    for k, host in enumerate(("10.20.0.10", "10.20.0.11", "10.20.0.20", "10.20.0.50", "10.20.0.51", "10.20.0.60", "10.20.0.61")):
+        c.arp_message(0.05 + k * 0.02, 2, host, "10.20.0.1", vlan=None)
+    c.arp_message(0.3, 2, "10.20.0.1", "10.20.0.10")
     scada1, scada2, hmi1, hmi2, ws1, ws2, mon, svc = "10.20.0.10", "10.20.0.11", "10.20.0.60", "10.20.0.61", "10.20.0.50", "10.20.0.51", "10.20.0.70", "10.20.0.2"
     # cell 1: Modbus/TCP polling by both SCADA servers and an HMI; VLAN 11 on the trunk
     for i, plc in enumerate(("10.30.1.11", "10.30.1.12", "10.30.1.13")):
-        c.conversation(1 + i, scada1, port(), plc, 502, _modbus_pairs(58, 1 + i * 100), interval=5.0, vlan=11)
+        pairs = _modbus_pairs(58, 1 + i * 100)
+        if i == 0:       # SCADA-1 asks this PLC to identify itself once (Modbus "read device identification")
+            pairs.insert(3, (s.modbus_device_id_request(900), s.modbus_device_identification(
+                {0: "Example Controls", 1: "EC-100", 2: "V3.1", 4: "Pump controller"}, 900)))
+        c.conversation(1 + i, scada1, port(), plc, 502, pairs, interval=5.0, vlan=11)
         c.conversation(2 + i, scada2, port(), plc, 502, _modbus_pairs(18, 5000 + i * 100), interval=16.0, vlan=11)
     c.conversation(3, hmi1, port(), "10.30.1.11", 502, _modbus_pairs(95, 9000, 4), interval=3.0, vlan=11)
     # cell 2: S7comm from SCADA-1 to the four treatment PLCs; VLAN 12
@@ -124,7 +166,7 @@ def ops_field_capture():
     c.conversation(70, ws2, port(), "10.30.1.13", 502, [(s.proprietary(i, 40), s.proprietary(i + 99, 24)) for i in range(5)], interval=4.0, vlan=11)
     c.conversation(80, ws2, port(), "10.30.2.24", 4000, [(s.proprietary(7 + i, 64), s.proprietary(70 + i, 32)) for i in range(4)], interval=5.0, vlan=12)
     for i in range(3):
-        c.session(100 + i * 20, ws2, port(), "10.30.1.12", 80, s.http_get("/status", "10.30.1.12"), s.http_ok(), vlan=11)
+        c.session(100 + i * 20, ws2, port(), "10.30.1.12", 80, s.http_get("/status", "10.30.1.12"), s.http_ok_server("EC-WebServer/1.4"), vlan=11)
     # cell 3: DNP3 polling of four RTUs, one unsolicited connection initiated BY an RTU, and the IEC 104 gateway; VLAN 13
     for i, rtu in enumerate(("10.30.3.31", "10.30.3.32", "10.30.3.33", "10.30.3.34")):
         c.conversation(6 + i, scada1 if i % 2 == 0 else scada2, port(), rtu, 20000, _dnp3_pairs(10, 30 + i + 1, 28), interval=10.0, vlan=13)
@@ -136,7 +178,9 @@ def ops_field_capture():
     for i, plc in enumerate(plcs):
         for k in range(8):
             c.udp(10 + i + k * 30, mon, 41000 + i, plc, 161, s.snmp_get())
-            c.udp(10.01 + i + k * 30, plc, 161, mon, 41000 + i, s.snmp_get(response=True))
+            described = PLC_DESCRIPTIONS.get(plc)
+            c.udp(10.01 + i + k * 30, plc, 161, mon, 41000 + i,
+                  s.snmp_description_response(*described) if described and k == 0 else s.snmp_get(response=True))
         for k in range(4):
             c.udp(20 + i + k * 64, plc, 123, svc, 123, s.ntp_packet(3))
             c.udp(20.02 + i + k * 64, svc, 123, plc, 123, s.ntp_packet(4))
@@ -157,6 +201,10 @@ def ops_field_capture():
 def dmz_tap_capture():
     """A tap on the DMZ firewall links over half an hour: sparse, bursty, human-driven traffic."""
     c, port = s.CaptureBuilder(T0_DMZ), _Ports(50000)
+    c.segment(["10.40.0.0/24"], DMZ_MACS, DMZ_MACS["10.40.0.1"])
+    c.ttls.update(TTLS)
+    for k, host in enumerate(("10.40.0.10", "10.40.0.20")):
+        c.arp_message(0.05 + k * 0.02, 2, host, "10.40.0.1")
     jump, replica, patch, xfer, hist = "10.40.0.10", "10.40.0.20", "10.40.0.30", "10.40.0.40", "10.20.0.20"
     for k in range(10):
         c.session(20 + k * 170, "10.10.4.4", port(), replica, 443, s.tls_client_hello("historian-replica.riverbend.example"), b"")
@@ -197,6 +245,13 @@ def dmz_tap_capture():
 def midstream_capture():
     """A laptop plugged into a cell switch for ninety seconds, started late: no handshakes, one direction missing, broadcasts."""
     c, port = s.CaptureBuilder(T0_MID), _Ports(51000)
+    c.segment(["10.30.1.0/24", "10.30.2.0/24"], {**CELL_MACS, "0.0.0.0": CONTRACTOR_LAPTOP_MAC}, CELL_MACS["10.30.2.1"])  # nosec B104 - a packet source address in generated data, not a bind
+    c.ttls.update(TTLS)
+    for k, host in enumerate(("10.30.1.11", "10.30.2.21", "10.30.2.30")):        # three PLCs answer ARP; the others are seen only by their frames
+        c.arp_message(0.1 + k * 0.02, 2, host, "10.30.2.1")
+    c.lldp(2.0, CELL_MACS["10.30.2.2"], "cell2-sw1", "Managed industrial switch, 8 ports", management_ip="10.30.2.2", port="port 3")
+    c.lldp(32.0, CELL_MACS["10.30.2.2"], "cell2-sw1", "Managed industrial switch, 8 ports", management_ip="10.30.2.2", port="port 3")
+    c.lldp(3.0, f"{OUI['switch']}:01:01:01", "cell1-sw1", "Managed industrial switch, 8 ports", port="port 8")   # advertises no IP address
     scada1, ws1, ws2 = "10.20.0.10", "10.20.0.50", "10.20.0.51"
     # connections that were already running: only data packets, so who connected is not proven
     c.conversation(0.2, scada1, 49300, "10.30.2.21", 102, [(s.s7_pdu(1, ref=r), s7_ack(r)) for r in range(300, 312)], interval=6.0, handshake=False, vlan=12)
@@ -208,8 +263,13 @@ def midstream_capture():
     c.udp(31.0, "10.30.2.23", 514, "10.20.0.2", 514, b"<134>plc event: cycle ok")
     c.udp(5.0, ws1, 44818, "10.30.2.255", 44818, s.enip_list_identity())          # a broadcast discovery
     for k, plc in enumerate(("10.30.2.21", "10.30.2.22", "10.30.2.30")):
-        c.udp(5.01 + k * 0.01, plc, 44818, ws1, 44818, s.enip_list_identity_reply())
-    c.udp(20.0, "0.0.0.0", 68, "255.255.255.255", 67, s.dhcp_discover())  # nosec B104 - a packet source address in generated data, not a bind; a replaced device asking for an address
+        c.udp(5.01 + k * 0.01, plc, 44818, ws1, 44818,
+              s.enip_list_identity_reply("Dosing controller", vendor=9999, product_code=7, revision=(4, 2)) if plc == "10.30.2.30"
+              else s.enip_list_identity_reply())
+    # a contractor's laptop asks for an address: its hostname is in the request, its MAC is randomised, and the server's answer ties them
+    # to an IP address
+    c.udp(20.0, "0.0.0.0", 68, "255.255.255.255", 67, s.dhcp_discover(CONTRACTOR_LAPTOP_MAC, "CONTRACTOR-LT", "MSFT 5.0"))  # nosec B104 - a packet source address in generated data, not a bind
+    c.udp(20.2, "10.30.2.1", 67, "255.255.255.255", 68, s.dhcp_ack(CONTRACTOR_LAPTOP_MAC, "10.30.2.77"))
     c.udp(40.0, ws2, 51700, "239.255.255.250", 1900, s.ssdp_search())
     c.udp(41.0, ws2, 5353, "224.0.0.251", 5353, s.dns_message("_services._dns-sd._udp.local"))
     # a first look at a protocol we do not know, on a very common port

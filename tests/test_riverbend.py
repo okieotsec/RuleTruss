@@ -6,7 +6,7 @@ from ruletruss.adapters.registry import parse_config
 from ruletruss.migrate import firewall as fw
 from ruletruss.migrate import validate as val
 from ruletruss.riverbend_configs import configs
-from ruletruss.samples import create_riverbend, riverbend_files
+from ruletruss.samples import create_riverbend, riverbend_files, vendor_names
 from ruletruss.service import Service
 from ruletruss.store import Store
 
@@ -16,6 +16,7 @@ class RiverbendCase(unittest.TestCase):
     def setUpClass(cls):
         cls.dir = tempfile.TemporaryDirectory()
         cls.svc = Service(Store(cls.dir.name))
+        vendor_names.install(cls.svc.vendor_path)         # the fictional table: no real vendor is named by the example
         cls.project = create_riverbend(cls.svc)
         cls.pid = cls.project["id"]
         cls.rows = cls.svc.communications(cls.pid, {"limit": "500"})["rows"]
@@ -37,6 +38,71 @@ class RiverbendCase(unittest.TestCase):
 
     def plan(self, **body):
         return self.svc.plan_json(self.pid, body)
+
+
+class DeviceTeachingTests(RiverbendCase):
+    """D01-D07 in the guide."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.ov = cls.svc.overview(cls.pid)
+        cls.devs = {d["ip"]: d for d in cls.ov["inventory"]["devices"]}
+        cls.extras = cls.ov["device_extras"]
+
+    def test_d01_arp_confirms_some_hosts_and_others_are_only_probable(self):
+        for ip in ("10.20.0.10", "10.20.0.50", "10.20.0.60"):
+            self.assertEqual(self.devs[ip]["mac_confidence"], "confirmed", ip)
+        for ip in ("10.20.0.70", "10.20.0.2"):
+            self.assertEqual(self.devs[ip]["mac_confidence"], "probable", ip)
+
+    def test_d02_the_firewall_mac_is_shared_by_the_plcs_and_not_attributed(self):
+        from ruletruss import riverbend
+        router = {m["mac"]: m for m in self.extras["shared_macs"]}[riverbend.OPS_MACS["10.20.0.1"]]
+        self.assertGreaterEqual(len(router["ips"]), 10)
+        self.assertEqual(router["confirmed_ips"], ["10.20.0.1"])
+        self.assertIn("10.30.1.13", router["ips"])
+        self.assertEqual(self.devs["10.30.1.13"]["mac"], "")         # no capture sees this PLC on its own segment
+        self.assertTrue(any(m["nic_vendor"] == "Example Security Appliances Inc." for m in self.extras["shared_macs"]))   # the DMZ tap's firewall
+
+    def test_d03_card_maker_is_the_registry_name(self):
+        self.assertEqual(self.devs["10.30.2.21"]["nic_vendor"], "Example Automation AG")
+        self.assertEqual(self.devs["10.30.2.30"]["nic_vendor"], "Example Industrial Controls")
+        self.assertEqual(self.devs["10.20.0.10"]["nic_vendor"], "Example Virtualization Inc.")
+        self.assertEqual(self.devs["10.30.2.21"]["mac_confidence"], "confirmed")
+        for ip in ("10.30.2.22", "10.30.2.23", "10.30.2.24"):
+            self.assertEqual(self.devs[ip]["mac_confidence"], "probable", ip)
+
+    def test_d04_self_reported_identity(self):
+        self.assertEqual(self.devs["10.30.1.11"]["identity_short"], "Pump controller (Example Controls; EC-100; revision V3.1)")
+        dosing = {i["kind"]: i for i in self.devs["10.30.2.30"]["identity"]}
+        self.assertTrue(dosing["enip-identity"]["value"].startswith("Dosing controller (CIP vendor ID 9999"))
+        self.assertEqual(sum(1 for d in self.devs.values() if any(i["kind"] == "snmp-sysdescr" for i in d["identity"])), 3)
+        self.assertTrue(any(i["kind"] == "http-server" for i in self.devs["10.30.1.12"]["identity"]))
+        self.assertEqual(self.devs["10.30.2.2"]["identity_short"], "Managed industrial switch, 8 ports")
+        for d in self.devs.values():
+            for i in d["identity"]:
+                self.assertIn(i["type"], ("self-reported", "weak-hint"))
+
+    def test_d05_a_randomised_mac_has_no_maker_and_dhcp_ties_it_to_an_address(self):
+        row = self.devs["10.30.2.77"]
+        self.assertEqual((row["mac_kind"], row["nic_vendor"], row["mac_confidence"], row["mac_basis"]), ("local", "", "confirmed", "dhcp"))
+        self.assertEqual(row["identity_short"], "CONTRACTOR-LT")
+
+    def test_d06_a_switch_seen_only_at_layer_2(self):
+        self.assertEqual([m["identity_short"] for m in self.extras["l2_only"]], ["cell1-sw1"])
+
+    def test_d07_ttl_hints_are_apart_and_can_mislead(self):
+        self.assertTrue(self.devs["10.20.0.10"]["hint"].startswith("initial TTL probably 128"))
+        self.assertTrue(self.devs["10.30.1.11"]["hint"].startswith("initial TTL probably 64"))
+        self.assertTrue(self.devs["10.30.3.40"]["hint"].startswith("initial TTL probably 255"))
+        self.assertTrue(self.devs["10.30.2.23"]["hint"].startswith("initial TTL probably 128"))      # a PLC that says 128
+        self.assertNotIn("TTL", self.devs["10.30.2.23"]["identity_short"])
+
+    def test_the_example_uses_no_mac_twice_by_accident(self):
+        from ruletruss import riverbend
+        every = {**riverbend.OPS_MACS, **riverbend.DMZ_MACS, **riverbend.CELL_MACS}
+        self.assertEqual(len(set(every.values())), len(every))
 
 
 class DatasetShapeTests(RiverbendCase):
@@ -67,8 +133,8 @@ class DatasetShapeTests(RiverbendCase):
 
     def test_the_capture_scale_is_what_the_guide_says(self):
         o = self.svc.overview(self.pid)
-        self.assertEqual((o["flows"], o["communications"]), (197, 81))
-        self.assertEqual(len(o["inventory"]["devices"]), 43)
+        self.assertEqual((o["flows"], o["communications"]), (198, 82))
+        self.assertEqual(len(o["inventory"]["devices"]), 47)      # 43 with flows, plus 4 seen only by ARP or LLDP
 
 
 class CaptureLessonTests(RiverbendCase):

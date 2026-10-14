@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from ruletruss import server  # noqa: E402
-from ruletruss.samples import create_riverbend  # noqa: E402
+from ruletruss.samples import create_riverbend, create_unifi  # noqa: E402
 
 TABS = [("inventory", 1100), ("comms", 900), ("graph", 800), ("compare", 1000), ("migrate", 1400)]
 
@@ -40,6 +40,16 @@ def main():
                        f"--window-size=1300,{height}", "--virtual-time-budget=9000", f"--screenshot={out / (tab + '.png')}",
                        f"http://127.0.0.1:{port}/#token={token}&tab={tab}"]
             subprocess.run(command, env=env, capture_output=True, timeout=120, check=False)  # noqa: S603  # nosec B603
+        srv.shutdown()
+    with tempfile.TemporaryDirectory() as data, tempfile.TemporaryDirectory() as profile:      # the UniFi example, on its own, so it is the project shown
+        token = secrets.token_urlsafe(24)
+        srv = server.build_server("127.0.0.1", 0, data, token=token)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        create_unifi(srv.app.service)
+        command = [browser, "--headless=new", "--disable-gpu", "--no-sandbox", f"--user-data-dir={profile}", "--hide-scrollbars", "--window-size=1300,1150",
+                   "--virtual-time-budget=9000", f"--screenshot={out / 'zone-matrix.png'}",
+                   f"http://127.0.0.1:{srv.server_address[1]}/#token={token}&tab=config"]
+        subprocess.run(command, env=env, capture_output=True, timeout=120, check=False)  # noqa: S603  # nosec B603
         srv.shutdown()
     print("wrote docs/images/")
 

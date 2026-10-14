@@ -19,7 +19,7 @@ from . import limits
 from .model import Group, to_plain
 
 ID_RE = re.compile(r"^[0-9a-f]{16}$")
-MAX_JSON_BYTES = 64 * 1024 * 1024
+MAX_JSON_BYTES = limits.MAX_RESULT_BYTES         # a stored analysis may be as large as the worker may return
 MAX_PROJECTS = 500
 MAX_SOURCES_PER_PROJECT = 100
 
@@ -168,8 +168,10 @@ class Store:
             raise StoreError("project not found")
         project = self._read_json(path)
         if summary:
-            return {"id": project["id"], "name": project["name"], "created": project["created"],
-                    "sources": len(project.get("sources", []))}
+            sources = project.get("sources", [])
+            return {"id": project["id"], "name": project["name"], "created": project["created"], "sources": len(sources),
+                    "traffic": sum(1 for s in sources if s.get("kind") in ("capture", "flows")),
+                    "configs": sum(1 for s in sources if s.get("kind") == "policy"), "subnets": len(project.get("subnets", []))}
         return project
 
     def save_project(self, project):

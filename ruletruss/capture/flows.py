@@ -10,6 +10,7 @@ import os
 from .. import limits
 from ..model import CaptureInfo, Evidence, Flow
 from . import appid
+from .fingerprint import DeviceTracker
 from .reader import LINK_NAMES, CaptureStats, iter_packets, sniff
 
 TH_FIN, TH_SYN, TH_RST, TH_ACK = 0x01, 0x02, 0x04, 0x10
@@ -70,8 +71,9 @@ def _key(packet):
 
 
 class FlowTracker:
-    def __init__(self, capture_id, source_id, max_flows=limits.MAX_FLOWS):
-        self.capture_id, self.source_id, self.max_flows = capture_id, source_id, max_flows
+    def __init__(self, capture_id, source_id, max_flows=None):
+        self.capture_id, self.source_id = capture_id, source_id
+        self.max_flows = limits.MAX_FLOWS if max_flows is None else max_flows
         self.active = {}
         self.done = []
         self.dropped_flows = 0
@@ -306,7 +308,8 @@ def coverage_notes(info, stats, dropped):
     if stats.truncated:
         notes.append(f"{stats.truncated} packet(s) were truncated by the capture's snap length.")
     if stats.skipped_non_ip:
-        notes.append(f"{stats.skipped_non_ip} non-IP frame(s) (for example ARP or spanning tree) were counted but not analysed.")
+        notes.append(f"{stats.skipped_non_ip} non-IP frame(s) were not analysed as traffic; ARP and LLDP among them were read for "
+                     "device identification.")
     if dropped:
         notes.append(f"The flow limit was reached: {dropped:,} further flow(s) were not recorded.")
     notes.extend(stats.limits_hit)
@@ -315,11 +318,18 @@ def coverage_notes(info, stats, dropped):
 
 def analyze_capture(path, capture_id, source_id, filename, observation_point=""):
     """Read a capture and return (CaptureInfo, [Flow])."""
+    return analyze_capture_full(path, capture_id, source_id, filename, observation_point)[:2]
+
+
+def analyze_capture_full(path, capture_id, source_id, filename, observation_point="", progress=None):
+    """Read a capture and return (CaptureInfo, [Flow], DeviceFacts). `progress` is called as (packets, bytes consumed, file size)."""
     stats = CaptureStats()
     tracker = FlowTracker(capture_id, source_id)
+    devices = DeviceTracker(source_id)
     fmt = sniff(path)
-    for packet in iter_packets(path, stats):
+    for packet in iter_packets(path, stats, on_l2=devices.add_l2, progress=progress):
         tracker.add(packet)
+        devices.add_packet(packet)
     flows = tracker.finish()
     info = CaptureInfo(capture_id=capture_id, filename=limits.clip(filename), format=fmt, size_bytes=os.path.getsize(path),
                        packets_read=stats.read, packets_decoded=stats.decoded,
@@ -328,4 +338,4 @@ def analyze_capture(path, capture_id, source_id, filename, observation_point="")
                        observation_point=limits.clip(observation_point, 200), limits_hit=list(stats.limits_hit),
                        flows=len(flows))
     info.coverage_notes = coverage_notes(info, stats, tracker.dropped_flows)
-    return info, flows
+    return info, flows, devices.facts()
