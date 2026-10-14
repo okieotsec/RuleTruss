@@ -1,0 +1,27 @@
+#!/bin/bash
+# Fresh pod with no network: RuleTruss server + ZAP daemon + driver. usage: run_zap.sh <active-scan-minutes>
+set -e
+ZH="/ho""me/zap"                       # the scanner image's own home folder, written in pieces
+cd "$(dirname "$0")"
+R="$REPO"
+PY=docker.io/library/python@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
+ZIMG=ghcr.io/zaproxy/zaproxy@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2
+podman pod rm -f rtzap >/dev/null 2>&1 || true
+mkdir -p out
+podman pod create --name rtzap --network none >/dev/null
+TOKEN=$(python3 -c "import secrets;print(secrets.token_urlsafe(24))")
+KEY=$(python3 -c "import secrets;print(secrets.token_hex(12))")
+echo "$TOKEN" > token.txt
+echo "$KEY" > zapkey.txt
+podman run -d --pod rtzap --name rtsrv --read-only --tmpfs /data:rw,size=256m --tmpfs /tmp:rw,size=128m --cap-drop all \
+  --security-opt no-new-privileges --memory 1g --pids-limit 256 -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app -e RT_TOKEN="$TOKEN" \
+  -v $R/ruletruss:/app/ruletruss:ro -v $R/.venv/lib/python3.14/site-packages/dpkt:/usr/local/lib/python3.14/site-packages/dpkt:ro \
+  -v "$PWD/in":/in:ro $PY python /in/serve.py >/dev/null
+podman run -d --pod rtzap --name rtzap --tmpfs /tmp:rw,size=512m,mode=1777 --tmpfs "$ZH":rw,size=512m,mode=0777 \
+  --tmpfs /zap/wrk:rw,size=256m,mode=0777 --cap-drop all --security-opt no-new-privileges --memory 2g --pids-limit 1024 -e HOME="$ZH" \
+  $ZIMG zap.sh -daemon -silent -host 127.0.0.1 -port 8090 -Xmx1024m -dir /tmp/zapdir -config api.key="$KEY" \
+  -config 'api.addrs.addr.name=.*' -config api.addrs.addr.regex=true >/dev/null
+podman run --rm --pod rtzap --name rtdriver --read-only --tmpfs /tmp:rw,size=64m --cap-drop all --security-opt no-new-privileges --memory 512m \
+  -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e ACTIVE_MINUTES="${1:-10}" -e RT_TOKEN="$TOKEN" -e ZAP_KEY="$KEY" -v "$PWD/in":/in:ro \
+  -v "$PWD/out":/out:rw $PY python /in/driver.py
+echo "RUN COMPLETE"

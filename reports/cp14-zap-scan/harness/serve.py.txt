@@ -1,0 +1,9 @@
+import os
+import sys
+
+sys.path.insert(0, "/app")
+from ruletruss.server import build_server  # noqa: E402
+
+server = build_server("127.0.0.1", 8765, "/data", None, False, os.environ["RT_TOKEN"])
+print("serving", server.server_address, flush=True)
+server.serve_forever()

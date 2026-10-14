@@ -1,0 +1,102 @@
+"""Runs in the pod (no network beyond it). Walks the API through ZAP's proxy so ZAP records every request, then runs ZAP's spider, a passive
+scan and a time-limited active scan against what it recorded, and writes the alerts to /out."""
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+BASE = "http://127.0.0.1:8765"
+ZAP = "http://127.0.0.1:8090"
+TOKEN, KEY = os.environ["RT_TOKEN"], os.environ["ZAP_KEY"]
+ACTIVE_MINUTES = int(os.environ.get("ACTIVE_MINUTES", "10"))
+direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+proxied = urllib.request.build_opener(urllib.request.ProxyHandler({"http": ZAP}))
+
+
+def zap(path, **params):
+    params["apikey"] = KEY
+    with direct.open(f"{ZAP}/{path}?{urllib.parse.urlencode(params)}", timeout=60) as r:
+        return json.loads(r.read() or b"{}")
+
+
+def call(method, path, body=None, auth=True, raw=False):
+    data = None if body is None else json.dumps(body).encode()
+    req = urllib.request.Request(BASE + path, data=data, method=method)
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    if auth:
+        req.add_header("Authorization", "Bearer " + TOKEN)
+    try:
+        with proxied.open(req, timeout=120) as r:
+            payload = r.read()
+            return r.status, (payload if raw else json.loads(payload or b"{}"))
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()[:200]
+
+
+for _ in range(150):
+    try:
+        zap("JSON/core/view/version/")
+        break
+    except Exception:
+        time.sleep(2)
+else:
+    sys.exit("zap did not start")
+
+log = []
+for p in ("/", "/index.html", "/app.js", "/graph.js", "/style.css", "/favicon.ico", "/robots.txt", "/sitemap.xml"):
+    log.append((p, call("GET", p, auth=False, raw=True)[0]))
+log.append(("no token", call("GET", "/api/status", auth=False)[0]))
+log.append(("wrong method", call("PATCH", "/api/status")[0]))
+call("GET", "/api/status")
+status, project = call("POST", "/api/sample", {"name": "unifi"})
+pid = project["id"]
+status, proj = call("GET", f"/api/projects/{pid}")
+sources = proj.get("sources", [])
+policy = next((s["id"] for s in sources if s.get("kind") == "policy"), sources[-1]["id"] if sources else "0" * 16)
+calls = [("GET", "/api/projects", None), ("POST", "/api/projects", {"name": "zap"}),
+         ("PUT", f"/api/projects/{pid}/context", {"subnets": {}, "labels": {}, "groups": {}}),
+         ("GET", f"/api/projects/{pid}/overview", None), ("GET", f"/api/projects/{pid}/communications", None),
+         ("GET", f"/api/projects/{pid}/graph?level=subnet", None),
+         ("GET", f"/api/projects/{pid}/graph/detail?kind=device&id=10.0.0.5", None),
+         ("GET", f"/api/projects/{pid}/policies/{policy}", None), ("GET", f"/api/projects/{pid}/policies/{policy}/compare", None),
+         ("POST", f"/api/projects/{pid}/plan", {"workflow": "preserve", "policy": policy}),
+         ("POST", f"/api/projects/{pid}/plan", {"workflow": "narrow"}),
+         ("POST", f"/api/projects/{pid}/translate", {"workflow": "preserve", "policy": policy, "target": "cisco-asa", "zone_map": {}}),
+         ("POST", f"/api/projects/{pid}/export", {"kind": "plan-markdown", "workflow": "preserve", "policy": policy}),
+         ("POST", f"/api/projects/{pid}/export", {"kind": "communications-csv"}),
+         ("POST", f"/api/projects/{pid}/suggest-groups", {}), ("POST", f"/api/projects/{pid}/ai", {}),
+         ("GET", "/api/vendor-names", None), ("GET", "/api/jobs/" + "0" * 16, None)]
+for method, path, body in calls:
+    log.append((f"{method} {path[:70]}", call(method, path, body, raw=True)[0]))
+log.append(("POST sources (empty)", call("POST", f"/api/projects/{pid}/sources?name=probe.txt", None)[0]))
+json.dump({"requests": log}, open("/out/driver-requests.json", "w"), indent=1)
+
+zap("JSON/spider/action/scan/", url=BASE + "/", recurse="true")
+time.sleep(5)
+for _ in range(120):
+    if zap("JSON/spider/view/status/").get("status") == "100":
+        break
+    time.sleep(2)
+while int(zap("JSON/pscan/view/recordsToScan/").get("recordsToScan", "0")) > 0:
+    time.sleep(2)
+zap("JSON/ascan/action/setOptionMaxScanDurationInMins/", Integer=str(ACTIVE_MINUTES))
+zap("JSON/ascan/action/setOptionThreadPerHost/", Integer="4")
+scan = zap("JSON/ascan/action/scan/", url=BASE + "/", recurse="true", inScopeOnly="false").get("scan")
+start = time.time()
+while time.time() - start < (ACTIVE_MINUTES + 3) * 60:
+    if zap("JSON/ascan/view/status/", scanId=scan).get("status") == "100":
+        break
+    time.sleep(10)
+while int(zap("JSON/pscan/view/recordsToScan/").get("recordsToScan", "0")) > 0:
+    time.sleep(2)
+alerts = zap("JSON/core/view/alerts/", baseurl=BASE, start="0", count="5000").get("alerts", [])
+urls = zap("JSON/core/view/urls/", baseurl=BASE).get("urls", [])
+final = zap("JSON/ascan/view/status/", scanId=scan).get("status")
+json.dump({"alerts": alerts, "urls": urls, "ascan_status": final}, open("/out/zap.json", "w"), indent=1)
+with direct.open(f"{ZAP}/OTHER/core/other/htmlreport/?apikey={KEY}", timeout=120) as r:
+    open("/out/zap-report.html", "wb").write(r.read())
+print("alerts", len(alerts), "urls", len(urls), "ascan", final)
