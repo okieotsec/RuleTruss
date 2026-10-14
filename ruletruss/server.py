@@ -19,6 +19,7 @@ import shutil
 import sys
 import threading
 import traceback
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -110,6 +111,16 @@ def make_handler(app):
 
         def error(self, status, message):
             self.send_json({"error": message}, status)
+
+        def send_error(self, code, message=None, explain=None):
+            """The base class calls this itself for what it refuses before our code runs (an unsupported method, a malformed or over-long
+            request line). It would answer with its own HTML page and none of the security headers, so answer like every other error."""
+            self.close_connection = True
+            try:
+                reason = HTTPStatus(code).phrase.lower()
+            except ValueError:
+                reason = "request refused"
+            self.send(code, json.dumps({"error": reason}).encode("ascii"), extra={"Connection": "close"})
 
         def check_host_and_origin(self):
             if self.headers.get("Host", "") not in app.allowed_hosts:

@@ -90,6 +90,32 @@ class StaticPageTests(ServerCase):
             self.assertNotRegex(text, r"\.innerHTML|\.outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function", name)
 
 
+class RefusalHeaderTests(ServerCase):
+    """Found by a dynamic scan: what the HTTP library refuses by itself (before our code runs) used to carry its own HTML page and none of the
+    security headers."""
+
+    def check(self, status, resp, payload):
+        self.assertGreaterEqual(status, 400)
+        self.assertEqual(resp.getheader("Content-Type"), "application/json")
+        self.assertIn("default-src 'none'", resp.getheader("Content-Security-Policy", ""))
+        self.assertEqual(resp.getheader("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(resp.getheader("Cache-Control"), "no-store")
+        self.assertNotIn(b"<", payload)                                  # no HTML page
+
+    def test_unsupported_methods_get_a_json_refusal_with_the_security_headers(self):
+        for method in ("PATCH", "TRACE", "CONNECT"):
+            self.check(*self.request(method, "/api/status", raw=True))
+
+    def test_an_over_long_request_line_gets_the_same(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
+        try:
+            conn.request("GET", "/" + "a" * 70000, headers={"Host": f"127.0.0.1:{self.port}"})
+            resp = conn.getresponse()
+            self.check(resp.status, resp, resp.read())
+        finally:
+            conn.close()
+
+
 class AccessControlTests(ServerCase):
     def test_every_api_call_needs_the_token(self):
         for method, path in (("GET", "/api/status"), ("GET", "/api/projects"), ("POST", "/api/projects"), ("DELETE", "/api/data")):
