@@ -1,0 +1,86 @@
+"""Atheris harness for the RuleTruss parsers. Usage: fuzz.py <target> [libFuzzer options]. Targets: config, unifi, capture, zeek.
+Only ValueError and OSError are expected (parsers raise them on purpose, with user-safe messages). Anything else is a finding."""
+import copy, json, os, sys, tempfile
+import atheris
+
+with atheris.instrument_imports():
+    from ruletruss import limits
+    from ruletruss.adapters.registry import SOURCE_FORMATS, parse_config
+    from ruletruss.capture.flows import analyze_capture_full
+    from ruletruss.capture.zeek import parse_conn_log
+    from ruletruss.migrate.firewall import render, translate_policy
+
+REPO = os.environ["RT_REPO"]
+FORMATS = [None, *SOURCE_FORMATS]
+TMP = tempfile.mkdtemp(prefix="rtfuzz")
+SEED = json.load(open(os.path.join(REPO, "samples/unifi/unifi-export.json")))
+EXPECTED = (ValueError, OSError)
+
+
+def leaves(node, path=()):
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield from leaves(v, path + (k,))
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from leaves(v, path + (i,))
+    else:
+        yield path
+
+
+def config(data):
+    fdp = atheris.FuzzedDataProvider(data)
+    fmt = FORMATS[fdp.ConsumeIntInRange(0, len(FORMATS) - 1)]
+    text = fdp.ConsumeUnicodeNoSurrogates(fdp.remaining_bytes())
+    try:
+        parse_config(text, "f", fmt)
+    except EXPECTED:
+        pass
+
+
+def unifi(data):
+    """Structure-aware: keep the seed export valid JSON and change a few of its values, then parse and translate to every target."""
+    fdp = atheris.FuzzedDataProvider(data)
+    doc = copy.deepcopy(SEED)
+    paths = list(leaves(doc))
+    for _ in range(fdp.ConsumeIntInRange(1, 6)):
+        path = paths[fdp.ConsumeIntInRange(0, len(paths) - 1)]
+        node = doc
+        for key in path[:-1]:
+            node = node[key]
+        kind = fdp.ConsumeIntInRange(0, 6)
+        value = [None, True, fdp.ConsumeIntInRange(-2**40, 2**40), fdp.ConsumeUnicodeNoSurrogates(40), [], {}, "x\n" + fdp.ConsumeUnicodeNoSurrogates(20)][kind]
+        node[path[-1]] = value
+    try:
+        policy = parse_config(json.dumps(doc), "f", "unifi")
+        for target in ("cisco-asa", "cisco-ios", "fortios"):
+            translation = translate_policy(policy, target)
+            render(translation, target)
+    except EXPECTED:
+        pass
+
+
+def capture(data):
+    path = os.path.join(TMP, "in.bin")
+    with open(path, "wb") as handle:
+        handle.write(data)
+    try:
+        analyze_capture_full(path, "c", "c", "x.pcap")
+    except EXPECTED:
+        pass
+
+
+def zeek(data):
+    path = os.path.join(TMP, "conn.log")
+    with open(path, "wb") as handle:
+        handle.write(data)
+    try:
+        parse_conn_log(path, "c", "c", "conn.log")
+    except EXPECTED:
+        pass
+
+
+TARGETS = {"config": config, "unifi": unifi, "capture": capture, "zeek": zeek}
+name = sys.argv.pop(1)
+atheris.Setup(sys.argv, TARGETS[name], enable_python_coverage=True)
+atheris.Fuzz()

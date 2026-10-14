@@ -13,3 +13,4 @@ The `cp0`, `cp1` and `cp2` folders are kept exactly as they were produced, so fi
 `cp10-interface-and-training` covers the interface rework, tab prerequisites and the training guide.
 `cp11-unifi-asa-translation` covers the zone-pair to ASA translation redesign after an external review.
 `cp12-batfish-cross-check` covers an independent check of that translation with Batfish in a locked-down container.
+`cp13-fuzzing` covers the Atheris fuzzing of the configuration, capture, Zeek and UniFi translation parsers and the four bugs it found.

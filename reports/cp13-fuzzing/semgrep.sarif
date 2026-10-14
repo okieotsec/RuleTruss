@@ -1,0 +1,296 @@
+{
+ "version": "2.1.0",
+ "runs": [
+  {
+   "invocations": [
+    {
+     "executionSuccessful": true,
+     "toolExecutionNotifications": []
+    }
+   ],
+   "results": [
+    {
+     "fingerprints": {
+      "matchBasedId/v1": "requires login"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "ruletruss/adapters/xmlsafe.py",
+         "uriBaseId": "%SRCROOT%"
+        },
+        "region": {
+         "endColumn": 34,
+         "endLine": 8,
+         "snippet": {
+          "text": "from xml.etree import ElementTree  # nosec B405"
+         },
+         "startColumn": 1,
+         "startLine": 8
+        }
+       }
+      }
+     ],
+     "message": {
+      "text": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service."
+     },
+     "properties": {},
+     "ruleId": "python.lang.security.use-defused-xml.use-defused-xml",
+     "suppressions": [
+      {
+       "kind": "inSource"
+      }
+     ],
+     "ruleIndex": 3
+    },
+    {
+     "fingerprints": {
+      "matchBasedId/v1": "requires login"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "ruletruss/service.py",
+         "uriBaseId": "%SRCROOT%"
+        },
+        "region": {
+         "endColumn": 61,
+         "endLine": 637,
+         "snippet": {
+          "text": "            with urllib.request.urlopen(request, timeout=60) as response:   # noqa: S310  # nosec B310 - scheme and host checked above"
+         },
+         "startColumn": 18,
+         "startLine": 637
+        }
+       }
+      }
+     ],
+     "message": {
+      "text": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+     },
+     "properties": {},
+     "ruleId": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+     "suppressions": [
+      {
+       "kind": "inSource"
+      }
+     ],
+     "ruleIndex": 0
+    },
+    {
+     "fingerprints": {
+      "matchBasedId/v1": "requires login"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "ruletruss/store.py",
+         "uriBaseId": "%SRCROOT%"
+        },
+        "region": {
+         "endColumn": 35,
+         "endLine": 111,
+         "snippet": {
+          "text": "        os.chmod(self.root, 0o700)  # nosemgrep: insecure-file-permissions - 0o700 is owner-only; directories need the execute bit"
+         },
+         "startColumn": 9,
+         "startLine": 111
+        }
+       }
+      }
+     ],
+     "message": {
+      "text": "These permissions `0o700` are widely permissive and grant access to more people than may be necessary. A good default is `0o644` which gives read and write access to yourself and read access to everyone else."
+     },
+     "properties": {},
+     "ruleId": "python.lang.security.audit.insecure-file-permissions.insecure-file-permissions",
+     "suppressions": [
+      {
+       "kind": "inSource"
+      }
+     ],
+     "ruleIndex": 2
+    },
+    {
+     "fingerprints": {
+      "matchBasedId/v1": "requires login"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "tools/unifi_export.py",
+         "uriBaseId": "%SRCROOT%"
+        },
+        "region": {
+         "endColumn": 109,
+         "endLine": 64,
+         "snippet": {
+          "text": "        conn = http.client.HTTPSConnection(self.host, self.port, timeout=self.timeout, context=self.context)"
+         },
+         "startColumn": 16,
+         "startLine": 64
+        }
+       }
+      }
+     ],
+     "message": {
+      "text": "The HTTPSConnection API has changed frequently with minor releases of Python. Ensure you are using the API for your version of Python securely. For example, Python 3 versions prior to 3.4.3 will not verify SSL certificates by default. See https://docs.python.org/3/library/http.client.html#http.client.HTTPSConnection for more information."
+     },
+     "properties": {},
+     "ruleId": "python.lang.security.audit.httpsconnection-detected.httpsconnection-detected",
+     "suppressions": [
+      {
+       "kind": "inSource"
+      }
+     ],
+     "ruleIndex": 1
+    },
+    {
+     "fingerprints": {
+      "matchBasedId/v1": "requires login"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "tools/unifi_export.py",
+         "uriBaseId": "%SRCROOT%"
+        },
+        "region": {
+         "endColumn": 85,
+         "endLine": 106,
+         "snippet": {
+          "text": "    conn = http.client.HTTPSConnection(host, port, timeout=timeout, context=context)"
+         },
+         "startColumn": 12,
+         "startLine": 106
+        }
+       }
+      }
+     ],
+     "message": {
+      "text": "The HTTPSConnection API has changed frequently with minor releases of Python. Ensure you are using the API for your version of Python securely. For example, Python 3 versions prior to 3.4.3 will not verify SSL certificates by default. See https://docs.python.org/3/library/http.client.html#http.client.HTTPSConnection for more information."
+     },
+     "properties": {},
+     "ruleId": "python.lang.security.audit.httpsconnection-detected.httpsconnection-detected",
+     "suppressions": [
+      {
+       "kind": "inSource"
+      }
+     ],
+     "ruleIndex": 1
+    }
+   ],
+   "tool": {
+    "driver": {
+     "name": "Semgrep OSS",
+     "rules": [
+      {
+       "defaultConfiguration": {
+        "level": "warning"
+       },
+       "fullDescription": {
+        "text": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+       },
+       "helpUri": "https://semgrep.dev/r/python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+       "id": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+       "name": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+       "properties": {
+        "precision": "very-high",
+        "tags": [
+         "CWE-939: Improper Authorization in Handler for Custom URL Scheme",
+         "LOW CONFIDENCE",
+         "OWASP-A01:2017 - Injection",
+         "security"
+        ]
+       },
+       "shortDescription": {
+        "text": "Semgrep Finding: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected"
+       }
+      },
+      {
+       "defaultConfiguration": {
+        "level": "warning"
+       },
+       "fullDescription": {
+        "text": "The HTTPSConnection API has changed frequently with minor releases of Python. Ensure you are using the API for your version of Python securely. For example, Python 3 versions prior to 3.4.3 will not verify SSL certificates by default. See https://docs.python.org/3/library/http.client.html#http.client.HTTPSConnection for more information."
+       },
+       "helpUri": "https://semgrep.dev/r/python.lang.security.audit.httpsconnection-detected.httpsconnection-detected",
+       "id": "python.lang.security.audit.httpsconnection-detected.httpsconnection-detected",
+       "name": "python.lang.security.audit.httpsconnection-detected.httpsconnection-detected",
+       "properties": {
+        "precision": "very-high",
+        "tags": [
+         "CWE-295: Improper Certificate Validation",
+         "LOW CONFIDENCE",
+         "OWASP-A03:2017 - Sensitive Data Exposure",
+         "OWASP-A07:2021 - Identification and Authentication Failures",
+         "OWASP-A07:2025 - Authentication Failures",
+         "security"
+        ]
+       },
+       "shortDescription": {
+        "text": "Semgrep Finding: python.lang.security.audit.httpsconnection-detected.httpsconnection-detected"
+       }
+      },
+      {
+       "defaultConfiguration": {
+        "level": "warning"
+       },
+       "fullDescription": {
+        "text": "These permissions `$BITS` are widely permissive and grant access to more people than may be necessary. A good default is `0o644` which gives read and write access to yourself and read access to everyone else."
+       },
+       "helpUri": "https://semgrep.dev/r/python.lang.security.audit.insecure-file-permissions.insecure-file-permissions",
+       "id": "python.lang.security.audit.insecure-file-permissions.insecure-file-permissions",
+       "name": "python.lang.security.audit.insecure-file-permissions.insecure-file-permissions",
+       "properties": {
+        "precision": "very-high",
+        "tags": [
+         "CWE-276: Incorrect Default Permissions",
+         "MEDIUM CONFIDENCE",
+         "OWASP-A01:2021 - Broken Access Control",
+         "OWASP-A01:2025 - Broken Access Control",
+         "security"
+        ]
+       },
+       "shortDescription": {
+        "text": "Semgrep Finding: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions"
+       }
+      },
+      {
+       "defaultConfiguration": {
+        "level": "error"
+       },
+       "fullDescription": {
+        "text": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service."
+       },
+       "helpUri": "https://semgrep.dev/r/python.lang.security.use-defused-xml.use-defused-xml",
+       "id": "python.lang.security.use-defused-xml.use-defused-xml",
+       "name": "python.lang.security.use-defused-xml.use-defused-xml",
+       "properties": {
+        "precision": "very-high",
+        "tags": [
+         "CWE-611: Improper Restriction of XML External Entity Reference",
+         "LOW CONFIDENCE",
+         "OWASP-A02:2025 - Security Misconfiguration",
+         "OWASP-A04:2017 - XML External Entities (XXE)",
+         "OWASP-A05:2021 - Security Misconfiguration",
+         "security"
+        ]
+       },
+       "shortDescription": {
+        "text": "Semgrep Finding: python.lang.security.use-defused-xml.use-defused-xml"
+       }
+      }
+     ],
+     "semanticVersion": "1.180.0"
+    }
+   }
+  }
+ ],
+ "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json"
+}
