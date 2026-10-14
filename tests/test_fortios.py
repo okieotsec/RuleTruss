@@ -99,6 +99,15 @@ class FortiosTests(unittest.TestCase):
         fortios.parse("config firewall policy\n" + " edit 1\n set srcintf a\n next\n" * 2000 + "end\n", "x")
         fortios.parse("end\nend\nnext\nconfig firewall policy\n", "x")
 
+    def test_a_set_line_with_no_value_is_ignored_not_a_crash(self):
+        # found by fuzzing: "set logtraffic" alone left an empty list that the policy reader indexed
+        keys = ("logtraffic", "status", "name", "schedule", "service-negate", "srcaddr-negate", "dstaddr-negate", "nat", "action", "internet-service")
+        text = ("config firewall policy\n edit 1\n set srcintf lan\n set dstintf wan\n set srcaddr all\n set dstaddr all\n set service ALL\n"
+                + "".join(f" set {k}\n" for k in keys) + " next\nend\n")
+        policy = fortios.parse(text, "x")
+        self.assertEqual(len(policy.rules), 1)
+        self.assertFalse(policy.rules[0].log)
+
 
 if __name__ == "__main__":
     unittest.main()

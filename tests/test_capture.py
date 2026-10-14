@@ -303,6 +303,16 @@ class ZeekTests(unittest.TestCase):
         self.assertEqual(len(flows), 1)
         self.assertEqual(flows[0].responder_port, 80)
 
+    def test_infinite_numbers_in_a_row_do_not_crash_the_parser(self):
+        # found by fuzzing: "inf" and "1e999" are floats but cannot become ports
+        head = self.TSV.split("#types")[0]
+        row = "{ts}\tC1\t10.0.0.1\t{sport}\t10.0.0.2\t80\ttcp\t-\t1.0\t{bytes}\t1\tSF\tShADadFf\t1\t1\n"
+        rows = (row.format(ts="1700000000.0", sport="inf", bytes="1") + row.format(ts="1700000000.0", sport="1e999", bytes="-inf")
+                + row.format(ts="inf", sport="5", bytes="1") + row.format(ts="1700000001.0", sport="50000", bytes="1"))
+        info, flows = zeek.parse_conn_log(self.write(head + rows), "z", "s", "conn.log")
+        self.assertGreaterEqual(len(flows), 1)
+        self.assertGreaterEqual(info.packets_skipped, 1)                       # the infinite timestamp is counted, not read
+
     def test_tsv_without_header_and_empty_file_are_rejected(self):
         with self.assertRaises(ValueError):
             zeek.parse_conn_log(self.write("a\tb\tc\n"), "z", "s", "conn.log")

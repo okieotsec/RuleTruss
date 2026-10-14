@@ -83,8 +83,10 @@ def build_tree(lines):
         elif head in ("set", "append") and len(words) > 1:
             if head == "append" and words[1] in current.sets:
                 current.sets[words[1]] = current.sets[words[1]] + words[2:]
-            else:
+            elif len(words) > 2:
                 current.sets[words[1]] = words[2:]
+            elif head == "set":
+                current.sets.pop(words[1], None)       # no value: nothing to read; callers index the first value
             if isinstance(current, _Entry):
                 current.last_line = number
         elif head == "unset" and len(words) > 1:

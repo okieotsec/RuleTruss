@@ -211,6 +211,19 @@ class RejectionTests(unittest.TestCase):
         self.assertTrue(all(r.unsupported for r in policy.rules))
 
 
+class EmptyRuleBodyTests(unittest.TestCase):
+    def test_an_access_list_line_with_no_rule_after_the_type_is_skipped_not_a_crash(self):
+        # found by fuzzing: "access-list NAME extended" alone left an empty token list
+        for flavour in ("asa", "ios"):
+            text = "access-list OUT extended\naccess-list OUT line 3 extended\naccess-list OUT extended permit ip any any\n"
+            policy = cisco.parse(text, "x", flavour)
+            self.assertEqual(len(policy.rules), 1, flavour)
+
+    def test_a_network_object_subnet_with_no_mask_is_skipped_not_a_crash(self):
+        policy = cisco.parse("object network N1\n subnet 10.0.0.0\n host 10.0.0.9\naccess-list A extended permit ip object N1 any\n", "x", "asa")
+        self.assertEqual(len(policy.rules), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -226,4 +239,3 @@ class Ipv6AclTests(unittest.TestCase):
         self.assertTrue(all(r.src.nets == ["::/0"] and not r.src.any for r in v6))
         v4 = [r for r in policy.rules if r.extra["acl"] == "V4"]
         self.assertTrue(v4[0].src.any)
-
