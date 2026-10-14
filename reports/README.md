@@ -15,3 +15,4 @@ The `cp0`, `cp1` and `cp2` folders are kept exactly as they were produced, so fi
 `cp12-batfish-cross-check` covers an independent check of that translation with Batfish in a locked-down container.
 `cp13-fuzzing` covers the Atheris fuzzing of the configuration, capture, Zeek and UniFi translation parsers and the four bugs it found.
 `cp14-zap-scan` covers the OWASP ZAP scan of the local web server in a networkless pod and the one gap it found.
+`cp15-codex-review` covers a read-only review of the code by a different AI model (Codex): 17 findings, all confirmed by a failing test first and then fixed.
