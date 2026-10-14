@@ -2,6 +2,7 @@
 
 **Owner:** okieotsec (project lead, final approver)
 **Reviewers:** Claude Code (developer and reviewer). Independent review by another reviewer is recommended before any public release and has **not** been done.
+**Frameworks:** the plan follows the NIST Secure Software Development Framework (SSDF, SP 800-218 version 1.1) and organises its automation along MITRE's Security Automation Framework (SAF). [docs/SECURITY_FRAMEWORKS.md](docs/SECURITY_FRAMEWORKS.md) maps each practice to its evidence and lists what is still open.
 **Applies to:** every checkpoint below. The method follows the sibling project's plan (OT Triage); the threat model is new because this application reads untrusted
 packet captures and configuration exports and serves a local web page.
 
@@ -14,6 +15,8 @@ packet captures and configuration exports and serves a local web page.
 3. **Run the tools; don't simulate them.** Output comes from a real run (`tools/security_checks.py`). A tool that cannot run is reported as NOT RUN with the reason.
 4. **Don't fix while reviewing.** Findings are reported, then fixed in a separate change and re-tested (section 8).
 5. **No sensitive data.** Only synthetic inputs (`ruletruss/synthetic.py`, `tests/fixtures/`, `samples/`) are used. Never real captures, customer or employer configurations.
+6. **Record the cause.** For every confirmed finding the report says what the root cause was and what now prevents it from coming back (a test, a check, a changed rule). A fix without a stated cause is not complete.
+7. **Suppressions are reviewed.** Every in-source suppression comment (semgrep, bandit or ruff) must be in `security/suppressions.baseline.json`. A new one fails the checkpoint until someone has read it, judged that the reason is true, and accepted it (section 5).
 
 ## 2. Scope
 
@@ -56,6 +59,10 @@ Run `python tools/security_checks.py reports/<checkpoint>`; it writes each tool'
 * `pip-audit -r requirements.txt --require-hashes` and `osv-scanner --lockfile=requirements.txt`
 * SBOM: `python tools/make_sbom.py` builds a clean environment from `requirements.txt` with `--require-hashes` and writes `sbom/sbom.cdx.json`; it fails if the SBOM and the
   requirements disagree.
+* `osv-scanner` also runs in CI (`security.yml`), so both dependency databases are checked on every push and every week, not only at a checkpoint.
+* **Suppression inventory (SSDF PW.7).** The runner lists every suppression comment in `suppressions.json` and compares it with `security/suppressions.baseline.json`. A suppression that is new, or used more often than the baseline allows, fails the run. After reading each one, accept them with `python tools/security_checks.py reports/<checkpoint> --accept-suppressions`, and list in the report which were added or removed and why.
+* **Repository and pipeline checks** (`.github/workflows/security.yml`, also weekly): zizmor audits the workflows (unpinned actions, excess permissions, template injection, persisted credentials); CodeQL analyses the Python; dependency review blocks a pull request that adds a dependency with a known high-severity vulnerability; OpenSSF Scorecard measures supply-chain practice. Workflows must pass `zizmor --persona pedantic` with no findings. None of these runs until the repository is on GitHub.
+* **Normalised results (MITRE SAF, optional).** When the SAF CLI is installed (`saf`, or the `SAF_CLI` environment variable), the runner converts the SARIF output of each tool to the Heimdall Data Format under `hdf/`, applies `saf validate threshold -I "{failed.total.max: 0}"` and archives `saf-summary.txt`. Results suppressed in the source are removed first, because the inventory above accounts for them. Without the CLI the step is reported as NOT RUN. It is not part of the release gate.
 * Every new dependency needs a one-line justification in the report. Current runtime dependencies: **dpkt 1.9.8** (BSD; reads PCAP/PCAPNG and decodes link, IP and
   transport headers; pure Python; no network or shell code).
 
@@ -71,6 +78,8 @@ Run `python tools/security_checks.py reports/<checkpoint>`; it writes each tool'
 
 **Dynamic testing** is automated: `tests/test_malicious.py` (hostile files through the real isolation path, resource-limit mechanisms, no-network and no-dynamic-code scans),
 `tests/test_properties.py` (Hypothesis; `RT_FUZZ_SCALE=30` for the checkpoint run), `tests/test_server.py` (access control, limits, workflows, exports, deletion, AI path).
+
+**Not yet automated, required before a public release:** a coverage-guided fuzzing run (`atheris`, at least 15 minutes per parser) on the capture and configuration parsers, and a dynamic scan of the local web server (OWASP ZAP baseline in a container, against a throwaway token on loopback). If either is not run, the report says so under "Tools not run" with the reason; the Hypothesis and hostile-file tests cover different ground and do not replace them.
 
 ## 7. Severity rubric
 
@@ -93,9 +102,11 @@ Reviewer:
 Checkpoint / commit:
 Tools run (with versions):
 Tools not run (and why):
+Suppressions added / removed (and why):
+SSDF practices touched (for example PW.7, RV.1):
 
 Finding <ID>
-- Title / Severity / Location (file:line) / Description / Evidence / Recommended fix / Confidence (Confirmed, Likely, Needs verification)
+- Title / Severity / Location (file:line) / Description / Evidence / Recommended fix / Root cause and prevention / Confidence (Confirmed, Likely, Needs verification)
 ```
 
 The project lead merges findings, verifies each by reproducing it, and assigns: fix now, fix before release, or accept with documented reasoning. After a fix the finding is re-tested and marked
@@ -103,5 +114,5 @@ verified. AI-written findings can be plausible but wrong: nothing is fixed or ac
 
 ## 9. Exit criteria
 
-**Each checkpoint:** every tool in section 5 ran with output attached; no open Critical or High finding; each Medium fixed or accepted with reasoning; the full test suite passes; SBOM generated.
-**Release additionally requires:** no known dependency vulnerability or each documented as unreachable; `SECURITY.md` current; an independent review by someone other than the developer.
+**Each checkpoint:** every tool in section 5 ran with output attached; no open Critical or High finding; each Medium fixed or accepted with reasoning; the full test suite passes; SBOM generated; the suppression inventory matches the reviewed baseline, with any change explained in the report; `docs/SECURITY_FRAMEWORKS.md` updated if a practice's status changed.
+**Release additionally requires:** no known dependency vulnerability or each documented as unreachable; `SECURITY.md` current (response targets, supported versions, how to verify a download); the release bundle built by a workflow with a build-provenance attestation that `gh attestation verify` accepts; the atheris and ZAP runs above, or their recorded reasons; an independent review by someone other than the developer.

@@ -1,7 +1,16 @@
-# Keeps the pinned GitHub Actions in .github/workflows up to date by opening a pull request when a new version is out.
+# Keeps the pinned GitHub Actions in .github/workflows and the hash-pinned requirements.txt and the test tools in requirements-dev.txt up to date by opening
+# a pull request when a new version is out. The cooldown leaves a new release a week to be noticed if it is bad before it is proposed.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

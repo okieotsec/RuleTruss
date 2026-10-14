@@ -1,0 +1,147 @@
+{
+  "platform": {
+    "name": "Heimdall Tools",
+    "release": "2.14.0",
+    "target_id": "Static Analysis Results Interchange Format"
+  },
+  "version": "2.14.0",
+  "statistics": {},
+  "profiles": [
+    {
+      "name": "SARIF",
+      "version": "2.1.0",
+      "title": "Static Analysis Results Interchange Format",
+      "supports": [],
+      "attributes": [],
+      "groups": [],
+      "status": "loaded",
+      "controls": [],
+      "sha256": "d65847af6d3dc72272d8cdf0b3c4b2bb3fbe6d79dd4b0ebdb2d18e4905a33e4a"
+    }
+  ],
+  "passthrough": {
+    "auxiliary_data": [
+      {
+        "name": "SARIF",
+        "data": {
+          "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json",
+          "runs": [
+            {
+              "invocations": [
+                {
+                  "executionSuccessful": true,
+                  "toolExecutionNotifications": []
+                }
+              ],
+              "tool": {
+                "driver": {
+                  "name": "Semgrep OSS",
+                  "rules": [
+                    {
+                      "defaultConfiguration": {
+                        "level": "warning"
+                      },
+                      "fullDescription": {
+                        "text": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+                      },
+                      "helpUri": "https://semgrep.dev/r/python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+                      "id": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+                      "name": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+                      "properties": {
+                        "precision": "very-high",
+                        "tags": [
+                          "CWE-939: Improper Authorization in Handler for Custom URL Scheme",
+                          "LOW CONFIDENCE",
+                          "OWASP-A01:2017 - Injection",
+                          "security"
+                        ]
+                      },
+                      "shortDescription": {
+                        "text": "Semgrep Finding: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected"
+                      }
+                    },
+                    {
+                      "defaultConfiguration": {
+                        "level": "warning"
+                      },
+                      "fullDescription": {
+                        "text": "The HTTPSConnection API has changed frequently with minor releases of Python. Ensure you are using the API for your version of Python securely. For example, Python 3 versions prior to 3.4.3 will not verify SSL certificates by default. See https://docs.python.org/3/library/http.client.html#http.client.HTTPSConnection for more information."
+                      },
+                      "helpUri": "https://semgrep.dev/r/python.lang.security.audit.httpsconnection-detected.httpsconnection-detected",
+                      "id": "python.lang.security.audit.httpsconnection-detected.httpsconnection-detected",
+                      "name": "python.lang.security.audit.httpsconnection-detected.httpsconnection-detected",
+                      "properties": {
+                        "precision": "very-high",
+                        "tags": [
+                          "CWE-295: Improper Certificate Validation",
+                          "LOW CONFIDENCE",
+                          "OWASP-A03:2017 - Sensitive Data Exposure",
+                          "OWASP-A07:2021 - Identification and Authentication Failures",
+                          "OWASP-A07:2025 - Authentication Failures",
+                          "security"
+                        ]
+                      },
+                      "shortDescription": {
+                        "text": "Semgrep Finding: python.lang.security.audit.httpsconnection-detected.httpsconnection-detected"
+                      }
+                    },
+                    {
+                      "defaultConfiguration": {
+                        "level": "warning"
+                      },
+                      "fullDescription": {
+                        "text": "These permissions `$BITS` are widely permissive and grant access to more people than may be necessary. A good default is `0o644` which gives read and write access to yourself and read access to everyone else."
+                      },
+                      "helpUri": "https://semgrep.dev/r/python.lang.security.audit.insecure-file-permissions.insecure-file-permissions",
+                      "id": "python.lang.security.audit.insecure-file-permissions.insecure-file-permissions",
+                      "name": "python.lang.security.audit.insecure-file-permissions.insecure-file-permissions",
+                      "properties": {
+                        "precision": "very-high",
+                        "tags": [
+                          "CWE-276: Incorrect Default Permissions",
+                          "MEDIUM CONFIDENCE",
+                          "OWASP-A01:2021 - Broken Access Control",
+                          "OWASP-A01:2025 - Broken Access Control",
+                          "security"
+                        ]
+                      },
+                      "shortDescription": {
+                        "text": "Semgrep Finding: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions"
+                      }
+                    },
+                    {
+                      "defaultConfiguration": {
+                        "level": "error"
+                      },
+                      "fullDescription": {
+                        "text": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service."
+                      },
+                      "helpUri": "https://semgrep.dev/r/python.lang.security.use-defused-xml.use-defused-xml",
+                      "id": "python.lang.security.use-defused-xml.use-defused-xml",
+                      "name": "python.lang.security.use-defused-xml.use-defused-xml",
+                      "properties": {
+                        "precision": "very-high",
+                        "tags": [
+                          "CWE-611: Improper Restriction of XML External Entity Reference",
+                          "LOW CONFIDENCE",
+                          "OWASP-A02:2025 - Security Misconfiguration",
+                          "OWASP-A04:2017 - XML External Entities (XXE)",
+                          "OWASP-A05:2021 - Security Misconfiguration",
+                          "security"
+                        ]
+                      },
+                      "shortDescription": {
+                        "text": "Semgrep Finding: python.lang.security.use-defused-xml.use-defused-xml"
+                      }
+                    }
+                  ],
+                  "semanticVersion": "1.180.0"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

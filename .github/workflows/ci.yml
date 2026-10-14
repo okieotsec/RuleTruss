@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 6 * * 1"  # weekly, so a new advisory, Python release or runner image is noticed without a code change
+  workflow_dispatch:
 
 permissions:
   contents: read
