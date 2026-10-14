@@ -338,7 +338,7 @@ class _Parser:
                 word = ctokens[0]
                 if word == "host" and len(ctokens) > 1:
                     members.append(("leaf", ("host", ctokens[1])))
-                elif word == "subnet" and len(ctokens) > 1:
+                elif word == "subnet" and len(ctokens) > 1 and ("/" in ctokens[1] or len(ctokens) > 2):
                     members.append(("leaf", ("net", ctokens[1]) if "/" in ctokens[1] else ("mask", ctokens[1], ctokens[2])))
                 elif word == "range" and len(ctokens) > 2:
                     members.append(("leaf", ("range", ctokens[1], ctokens[2])))
@@ -523,9 +523,9 @@ class _Parser:
         if kind in ("webtype", "ethertype"):
             self.issue("info", "acl-type-skipped", f"{kind} ACL {name} is not a packet filter this tool evaluates", number)
             return
-        action = tokens[0]
-        if action not in ("permit", "deny"):
+        if not tokens or tokens[0] not in ("permit", "deny"):       # "access-list NAME extended" alone leaves nothing to read
             return
+        action = tokens[0]
         counters[name] = counters.get(name, 0) + 1
         v6_only = name in self.ipv6_acls
         record = {"acl": name, "line": number, "index": counters[name], "action": action, "kind": kind,

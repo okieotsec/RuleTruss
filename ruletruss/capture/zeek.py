@@ -6,6 +6,7 @@ than direct packet evidence.
 """
 import ipaddress
 import json
+import math
 import os
 
 from .. import limits
@@ -82,7 +83,7 @@ def _iter_records(path, stats):
 def _int(value):
     try:
         return int(float(value)) if value not in (None, "-") else 0
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):        # 'inf' and '1e999' are numbers to float() but not to int()
         return 0
 
 
@@ -100,6 +101,8 @@ def parse_conn_log(path, capture_id, source_id, filename, observation_point=""):
         stats.read += 1
         try:
             ts = float(rec["ts"])
+            if not math.isfinite(ts):
+                raise ValueError("timestamp is not a finite number")
             src, dst = str(ipaddress.ip_address(rec["orig_h"])), str(ipaddress.ip_address(rec["resp_h"]))
             sport, dport = _int(rec["orig_p"]), _int(rec["resp_p"])
         except (TypeError, ValueError, KeyError):
