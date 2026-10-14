@@ -13,7 +13,7 @@ import re
 
 from .. import limits, netutil
 from ..model import AddrSet, NatRule, PolicySet, Rule, ServiceSet, SvcEntry
-from .common import Lines, Resolver, dedupe
+from .common import Lines, Resolver, cap_expansion, dedupe
 
 ICMP_TYPES = {"echo-reply": (0, None), "unreachable": (3, None), "net-unreachable": (3, 0), "host-unreachable": (3, 1),
               "protocol-unreachable": (3, 2), "port-unreachable": (3, 3), "packet-too-big": (3, 4),
@@ -131,7 +131,7 @@ class _Parser:
             if kind == "range":
                 lo, hi = ipaddress.ip_address(rest[0]), ipaddress.ip_address(rest[1])
                 return [str(n) for n in ipaddress.summarize_address_range(lo, hi)]
-        except (netutil.ParseProblem, ValueError):
+        except (netutil.ParseProblem, ValueError, TypeError):           # TypeError: a range from an IPv4 to an IPv6 address
             return None
         return None
 
@@ -231,6 +231,8 @@ class _Parser:
                 unresolved.extend(sub_un)
             else:
                 entries.append(value)
+            if cap_expansion(entries, unresolved, name, self.issue):
+                break
         return entries, unresolved
 
     def parse_service_tokens(self, tokens, i):

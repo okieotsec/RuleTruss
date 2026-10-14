@@ -12,7 +12,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from ruletruss import isolate
+from ruletruss import isolate, limits
 from ruletruss.adapters import registry, unifi
 from ruletruss.evaluate import ALLOW, DENY, INDETERMINATE, Probe, evaluate
 
@@ -418,10 +418,11 @@ class RobustnessTests(unittest.TestCase):
         self.assertTrue(weird.isprintable() and len(weird) <= 120)
         self.assertNotIn("\x1b", weird)
 
-    def test_huge_lists_are_cut_off(self):
+    def test_huge_lists_are_refused_not_cut_short(self):
         doc = self.doc()
         doc["policies"] = [doc["policies"][0]] * (unifi.MAX_ITEMS + 5)
-        self.assertEqual(len(self.parse(doc).rules), unifi.MAX_ITEMS)
+        with self.assertRaises(limits.LimitExceeded):
+            self.parse(doc)
 
     def test_a_policy_for_an_unknown_zone_gets_a_placeholder_name(self):
         doc = self.doc()
@@ -553,6 +554,27 @@ class ExporterTests(unittest.TestCase):
         original = unifi.parse(TEXT, "s1")
         self.assertEqual([(r.original_id, r.action, r.scope) for r in parsed.rules], [(r.original_id, r.action, r.scope) for r in original.rules])
         self.assertEqual(parsed.interfaces, original.interfaces)
+
+    def test_a_gateway_that_never_stops_paging_or_sends_oversized_pages_is_cut_off(self):
+        def endless(path, params=None):
+            return {"data": [{"id": "x"}] * 200, "totalCount": 10_000_000}
+
+        def oversized(path, params=None):
+            return {"data": [{"id": "x"}] * 201, "totalCount": 201}
+
+        for source in (endless, oversized):
+            with self.assertRaises(self.tool.ExportError):
+                self.tool.pages(source, "/sites")
+
+    def test_the_whole_run_has_a_request_and_a_time_budget(self):
+        gateway = self.tool.Gateway("192.0.2.1", "key")
+        gateway.requests = self.tool.MAX_REQUESTS
+        with self.assertRaises(self.tool.ExportError):
+            gateway.get("/info")
+        gateway = self.tool.Gateway("192.0.2.1", "key")
+        gateway.started -= self.tool.MAX_SECONDS + 1
+        with self.assertRaises(self.tool.ExportError):
+            gateway.get("/info")
 
     def test_every_request_is_a_get_of_a_known_read_path(self):
         api = FakeApi()

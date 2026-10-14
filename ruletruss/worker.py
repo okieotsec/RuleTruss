@@ -66,6 +66,11 @@ def run(kind, input_path, options):
     return {"kind": "policy", "format": fmt, "policy": to_plain(policy)}
 
 
+def write(output_path, payload):
+    with open(output_path, "w", encoding="ascii") as handle:
+        json.dump(payload, handle, ensure_ascii=True, separators=(",", ":"), allow_nan=False)
+
+
 def main(argv):
     input_path, output_path, options_json = argv[1], argv[2], argv[3]
     options = json.loads(options_json)
@@ -80,8 +85,10 @@ def main(argv):
         payload = {"ok": False, "error": "the file needs more memory than the parser is allowed to use", "known": True}
     except Exception:
         payload = {"ok": False, "error": "the file could not be processed", "known": False}
-    with open(output_path, "w", encoding="ascii") as handle:
-        json.dump(payload, handle, ensure_ascii=True, separators=(",", ":"))
+    try:
+        write(output_path, payload)               # streamed once; a value JSON cannot hold becomes an error message, not a crash
+    except (TypeError, ValueError):
+        write(output_path, {"ok": False, "error": "the analysis contained a value that cannot be stored", "known": False})
     return 0
 
 

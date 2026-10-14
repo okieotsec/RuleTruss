@@ -228,7 +228,10 @@ class CleanGatewayTests(unittest.TestCase):
         result = translate(self.service, self.pid, self.sid, zone_map=MAP, confirm=["gateway", "vpn"])
         self.assertTrue(result["deployable"], result["blockers"])
         self.assertNotIn("DIAGNOSTIC PREVIEW", result["text"])
-        self.assertEqual(result["validation"]["summary"]["result"], "no difference found on the sampled connections")
+        summary = result["validation"]["summary"]
+        self.assertGreater(summary["compared"], 0, "a fully mapped translation must have connections that were actually compared")
+        self.assertEqual(summary["compared"], summary["same_allow"] + summary["same_deny"])
+        self.assertTrue(summary["result"].startswith("no difference found on the"))
         self.assertEqual(result["validation"]["summary"]["target_broader"], 0)
         self.assertEqual(result["validation"]["summary"]["target_narrower"], 0)
 
@@ -250,6 +253,68 @@ class ExportGateTests(TranslationCase):
         _, report_name, report = self.service.export(self.pid, {**body, "kind": "firewall-markdown", "acknowledge_preview": True})
         self.assertIn("DIAGNOSTIC PREVIEW", report.decode())
         self.assertIn("Per-policy disposition", report.decode())
+
+
+class ReviewFindingTests(unittest.TestCase):
+    """Defects an independent reviewer (CP15) found in the zone-pair translation, each reduced to a small change of the clean fixture."""
+
+    def doc(self):
+        return json.loads(unifi_zones.text(False))
+
+    def pair(self, doc, source, target):
+        zones = {z["id"]: z["name"] for z in doc["zones"]}
+        return [p for p in doc["policies"] if (zones.get(p["source"]["zoneId"]), zones.get(p["destination"]["zoneId"])) == (source, target)]
+
+    def run_translation(self, doc, **extra):
+        service, pid, sid = project(json.dumps(doc))
+        return translate(service, pid, sid, zone_map=MAP, confirm=["gateway", "vpn"], **extra)
+
+    def test_a_block_on_established_traffic_is_not_called_implemented(self):
+        doc = self.doc()
+        for policy in self.pair(doc, "External", "Isolation"):
+            if policy["name"] == "Allow Return Traffic":
+                policy["action"] = {"type": "BLOCK"}
+        result = self.run_translation(doc)
+        entry = next(e for e in result["report"] if e["pair"] == "External to Isolation" and e["source_rule"] == "Allow Return Traffic")
+        self.assertEqual(entry["disposition"], "unsupported")
+        self.assertFalse(result["deployable"])
+
+    def test_an_allow_of_invalid_traffic_is_not_called_implemented(self):
+        doc = self.doc()
+        for policy in self.pair(doc, "Default LAN", "External"):
+            if policy["name"] == "Block Invalid Traffic":
+                policy["action"] = {"type": "ALLOW", "allowReturnTraffic": False}
+        result = self.run_translation(doc)
+        entry = next(e for e in result["report"] if e["pair"] == "Default LAN to External" and e["source_rule"] == "Block Invalid Traffic")
+        self.assertEqual(entry["disposition"], "unsupported")
+
+    def test_a_pair_with_policies_but_no_final_default_blocks_deployment(self):
+        doc = self.doc()
+        doc["policies"] = [p for p in doc["policies"] if not (p in self.pair(doc, "Isolation", "External") and p["name"] == "Allow All Traffic")]
+        result = self.run_translation(doc)
+        self.assertFalse(result["deployable"])
+        self.assertTrue(any(i["code"] == "pair-without-policy" and "Isolation" in i["message"] and "External" in i["message"] for i in result["issues"]))
+
+    def test_missing_policies_for_every_pair_that_starts_at_external_block_deployment(self):
+        doc = self.doc()
+        zones = {z["id"]: z["name"] for z in doc["zones"]}
+        doc["policies"] = [p for p in doc["policies"] if zones.get(p["source"]["zoneId"]) != "External"]
+        result = self.run_translation(doc)
+        self.assertFalse(result["deployable"])
+        self.assertTrue(any(i["code"] == "pair-without-policy" and "External to" in i["message"] for i in result["issues"]))
+
+    def test_the_validation_headline_never_claims_agreement_without_comparing_anything(self):
+        from ruletruss.migrate import validate
+        base = {"target_broader": 0, "target_narrower": 0, "cases": 10, "compared": 0, "not_compared": 10}
+        self.assertNotIn("no difference found", validate._result(base))
+        self.assertIn("no difference found on the 7 ", validate._result({**base, "compared": 7, "not_compared": 3}))
+        self.assertIn("3 could not be compared", validate._result({**base, "compared": 7, "not_compared": 3}))
+
+    def test_interface_names_with_line_breaks_or_commands_are_refused(self):
+        service, pid, sid = project(unifi_zones.text(False))
+        for bad in ("Gi0/0\npermit ip any any", "Gi0/0; reload", "x" * 61, "", "$(id)", "a b"):
+            with self.subTest(bad=bad), self.assertRaises(ApiError):
+                translate(service, pid, sid, zone_map={"Default": bad})
 
 
 class OtherTargetsTests(TranslationCase):

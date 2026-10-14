@@ -22,12 +22,17 @@ import os
 import ssl
 import stat
 import sys
+import time
 from datetime import UTC, datetime
 
 BASE = "/proxy/network/integration/v1"
 PAGE = 200
 MAX_BODY = 64 * 1024 * 1024
 MAX_PAGES = 500
+MAX_ITEMS = 50_000                      # items of one list
+MAX_TOTAL_BYTES = 256 * 1024 * 1024    # everything read from the gateway in one run
+MAX_REQUESTS = 3_000
+MAX_SECONDS = 600                      # the whole run, not one request
 MARK = "ruletruss_unifi_export"
 
 
@@ -58,6 +63,7 @@ class Gateway:
         self.api_key = api_key
         self.fingerprint = clean_fingerprint(fingerprint) if fingerprint else None
         self.context = make_context(self.fingerprint, insecure)
+        self.started, self.requests, self.total_bytes = time.monotonic(), 0, 0
 
     def _connect(self):
         # nosemgrep: httpsconnection-detected - an explicit SSLContext is passed (verifying by default, or pinned by fingerprint)
@@ -77,6 +83,10 @@ class Gateway:
         return conn
 
     def get(self, path, params=None):
+        self.requests += 1
+        if self.requests > MAX_REQUESTS or time.monotonic() - self.started > MAX_SECONDS:
+            raise ExportError(f"stopped: more than {MAX_REQUESTS:,} requests or {MAX_SECONDS // 60} minutes; the gateway is not behaving "
+                              "like a Network application")
         query = "&".join(f"{k}={v}" for k, v in (params or {}).items())
         conn = self._connect()
         try:
@@ -88,6 +98,9 @@ class Gateway:
             conn.close()
         if len(body) > MAX_BODY:
             raise ExportError(f"the answer to {path} is larger than {MAX_BODY // 2**20} MB; stopped")
+        self.total_bytes += len(body)
+        if self.total_bytes > MAX_TOTAL_BYTES:
+            raise ExportError(f"the gateway has sent more than {MAX_TOTAL_BYTES // 2**20} MB in this run; stopped")
         if response.status == 401 or response.status == 403:
             raise ExportError("the gateway refused the API key (check that it is current and belongs to the Network application)")
         if response.status == 404:
@@ -121,7 +134,11 @@ def pages(get, path):
         data = page.get("data") if isinstance(page, dict) else None
         if not isinstance(data, list):
             raise ExportError(f"{path} did not return a list")
+        if len(data) > PAGE:
+            raise ExportError(f"{path} returned {len(data)} items for a page of {PAGE}; stopped")
         items += data
+        if len(items) > MAX_ITEMS:
+            raise ExportError(f"{path} has more than {MAX_ITEMS:,} items; stopped")
         offset += len(data)
         total = page.get("totalCount")
         if not data or (isinstance(total, int) and offset >= total):

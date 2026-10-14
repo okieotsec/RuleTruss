@@ -51,7 +51,9 @@ def _s(value, limit=120):
 
 
 def _list(value):
-    return value[:MAX_ITEMS] if isinstance(value, list) else []
+    if isinstance(value, list) and len(value) > MAX_ITEMS:       # a policy list cut short would change what the rest of the export means
+        raise limits.LimitExceeded(f"a list in the export has {len(value):,} items; the limit is {MAX_ITEMS:,}")
+    return value if isinstance(value, list) else []
 
 
 def _dict(value):
@@ -247,7 +249,7 @@ class _Parser:
             return
         rule.extra[f"{which}_macs"] = macs
         listed = ", ".join(macs[:5]) + (" ..." if len(macs) > 5 else "") if macs else "(unreadable)"
-        rule.unsupported.append(f"MAC address filter: {listed}")
+        rule.unsupported.append(f"{'source' if which == 'src' else 'destination'} MAC address filter: {listed}")
 
     def side(self, traffic_filter, rule, which="src"):
         """(AddrSet, port ranges, unresolved port notes) for one side of a policy; adds conditions the evaluator cannot decide to `rule`.

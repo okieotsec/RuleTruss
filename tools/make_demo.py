@@ -81,7 +81,8 @@ def main():
         results = {}
         for workflow in ("preserve", "narrow"):
             for target, zmap in zone_maps.items():
-                body = {"workflow": workflow, "policy": sid, "target": target, "zone_map": zmap, "acknowledge_observation_limits": True}
+                body = {"workflow": workflow, "policy": sid, "target": target, "zone_map": zmap, "acknowledge_observation_limits": True,
+                        "acknowledge_preview": True}               # some demo translations are previews on purpose (a schedule cannot be translated)
                 t = service.translation_json(pid, body)
                 results[(workflow, target)] = t
                 write(f"07-{workflow}-{target}.md", service.export(pid, {**body, "kind": "firewall-markdown"})[2])

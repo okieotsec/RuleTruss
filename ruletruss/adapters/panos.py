@@ -12,7 +12,7 @@ import ipaddress
 
 from .. import limits, netutil
 from ..model import AddrSet, Evidence, NatRule, PolicySet, Rule, ServiceSet, SvcEntry
-from .common import dedupe
+from .common import cap_expansion, dedupe
 from .xmlsafe import members, parse_xml, snippet, text
 
 # Built-in services documented by Palo Alto Networks. Anything else with application-default is undecidable here.
@@ -92,7 +92,7 @@ class _Parser:
                     lo, _, hi = value.partition("-")
                     return [str(n) for n in ipaddress.summarize_address_range(
                         ipaddress.ip_address(lo.strip()), ipaddress.ip_address(hi.strip()))], []
-            except (netutil.ParseProblem, ValueError):
+            except (netutil.ParseProblem, ValueError, TypeError):
                 pass
             self.issue("warning", "address-unresolved", f"address {name!r} ({kind}) cannot be resolved to IP addresses; "
                        "rules that use it are reported as undecidable")
@@ -108,6 +108,8 @@ class _Parser:
                 n, u = self.address_nets(member, depth + 1, (*seen, name))
                 nets += n
                 unresolved += u
+                if cap_expansion(nets, unresolved, name, self.issue):
+                    break
             return nets, unresolved
         try:                                         # a literal IP written directly in the rule
             return [str(netutil.parse_ip_or_net(name))], []
@@ -138,6 +140,8 @@ class _Parser:
                 e, u = self.service_entries(member, depth + 1, (*seen, name))
                 entries += e
                 unresolved += u
+                if cap_expansion(entries, unresolved, name, self.issue):
+                    break
             return entries, unresolved
         self.issue("warning", "unresolved-object", f"service {name!r} is not defined in this export")
         return [], [name]
@@ -216,6 +220,8 @@ class _Parser:
                 extra={"rule_type": rule_type, "scope": scope_label})
             if rule.svc.unresolved and not rule.applications:
                 rule.notes.append("application-default with no application restriction: effective ports are unknown.")
+            if len(self.policy.rules) >= limits.MAX_RULES:
+                raise limits.LimitExceeded(f"more than {limits.MAX_RULES:,} rules")
             self.policy.rules.append(rule)
 
     def read_nat(self, vsys):

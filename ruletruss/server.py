@@ -9,6 +9,7 @@ Protections, in order of what they stop:
   * Responses carry a strict Content-Security-Policy (no inline script, no remote resources) and no-store caching.
 """
 import argparse
+import contextlib
 import errno
 import hmac
 import json
@@ -16,6 +17,7 @@ import os
 import re
 import secrets
 import shutil
+import socket
 import sys
 import threading
 import traceback
@@ -42,6 +44,8 @@ CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' 
        "form-action 'none'; frame-ancestors 'none'")
 MAX_JSON_BODY = 8 * 1024 * 1024
 SOCKET_TIMEOUT = 60
+MAX_CONNECTIONS = 64                       # open connections at once; more are closed at once, so slow ones cannot use up every thread
+HEADER_DEADLINE = 15                       # seconds in all for the request line and headers (an idle timeout can be fed a byte at a time)
 DISK_HEADROOM = 1024 ** 3                  # free space that must remain after an upload is stored
 ROUTES = []
 
@@ -69,6 +73,22 @@ class App:
 class QuietServer(ThreadingHTTPServer):
     """A client that disconnects or sends a malformed request is routine, not an error worth a stack trace."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
+
+    def process_request(self, request, client_address):
+        if not self._slots.acquire(blocking=False):          # no free slot: refuse now, not queue behind connections that may never finish
+            self.shutdown_request(request)
+            return
+        super().process_request(request, client_address)
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
+
     def handle_error(self, request, client_address):
         error = sys.exc_info()[1]
         if not isinstance(error, (BrokenPipeError, ConnectionResetError, TimeoutError)):
@@ -87,6 +107,26 @@ def make_handler(app):
 
         def log_message(self, fmt, *args):      # no access log of paths or queries
             return
+
+        def handle_one_request(self):
+            """Give the client HEADER_DEADLINE seconds in all to send a request line and headers; the deadline ends when they are parsed."""
+            self._deadline = threading.Timer(HEADER_DEADLINE, self._hang_up)
+            self._deadline.daemon = True
+            self._deadline.start()
+            try:
+                super().handle_one_request()
+            finally:
+                self._deadline.cancel()
+
+        def parse_request(self):
+            try:
+                return super().parse_request()
+            finally:
+                self._deadline.cancel()
+
+        def _hang_up(self):
+            with contextlib.suppress(OSError):
+                self.connection.shutdown(socket.SHUT_RDWR)
 
         # ---------------------------------------------------------- helpers
         def send(self, status, body=b"", content_type="application/json", extra=None):

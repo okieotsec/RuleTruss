@@ -207,7 +207,7 @@ class Rule:
         if self.schedule:
             out.append(f"schedule: {self.schedule}")
         known_mac = probe is not None and getattr(probe, "src_mac", None) and self.extra.get("src_macs")
-        out.extend(u for u in self.unsupported if not (known_mac and u.startswith("MAC address filter")))
+        out.extend(u for u in self.unsupported if not (known_mac and u.startswith("source MAC address filter")))
         return out
 
 

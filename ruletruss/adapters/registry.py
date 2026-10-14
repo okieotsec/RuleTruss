@@ -1,4 +1,6 @@
 """Pick the adapter for an uploaded file and run it. Detection looks at content, never at the file name alone."""
+from .. import limits
+from ..redact import redact, single_line
 from . import cisco, fortios, panos, pfsense, unifi
 
 SOURCE_FORMATS = {
@@ -37,6 +39,14 @@ def parse_config(text, source_id, fmt=None):
                          + "; ".join(SOURCE_FORMATS.values()))
     if fmt not in SOURCE_FORMATS:
         raise ValueError(f"unknown format {fmt!r}")
+    policy = _parse(text, source_id, fmt)
+    for rule in policy.rules:                        # administrators' comments: one plain line, and no credentials copied out of them
+        if rule.comment:
+            rule.comment = redact(single_line(rule.comment, limits.MAX_LINE_CHARS))
+    return policy
+
+
+def _parse(text, source_id, fmt):
     if fmt == "cisco-asa":
         return cisco.parse(text, source_id, "asa")
     if fmt == "cisco-ios":

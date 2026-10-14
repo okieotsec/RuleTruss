@@ -15,7 +15,7 @@
   "ruletruss/oui_build.py|nosec|B410": 1,
   "ruletruss/riverbend.py|nosec|B104": 2,
   "ruletruss/riverbend_configs.py|noqa|E731": 1,
-  "ruletruss/service.py|noqa|S310": 2,
+  "ruletruss/service.py|noqa|S310": 1,
   "ruletruss/service.py|nosec|B310": 2,
   "ruletruss/service.py|nosemgrep|dynamic-urllib-use-detected": 2,
   "ruletruss/store.py|nosemgrep|insecure-file-permissions": 1,

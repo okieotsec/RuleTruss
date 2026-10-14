@@ -80,11 +80,34 @@ def _iter_records(path, stats):
             yield number, _record(None, dict(zip(fields, parts, strict=True)))
 
 
-def _int(value):
-    try:
-        return int(float(value)) if value not in (None, "-") else 0
-    except (TypeError, ValueError, OverflowError):        # 'inf' and '1e999' are numbers to float() but not to int()
+def _digits(value):
+    return isinstance(value, str) and value.isascii() and value.isdigit()
+
+
+def _count(value):
+    """A packet or byte counter: a non-negative whole number, else 0."""
+    text = "" if value is None else str(value)
+    return int(text) if _digits(text) and len(text) < 19 else 0
+
+
+def _port(value):
+    """A port (or, for ICMP, a type or code): 0 to 65535 written as plain digits. Anything else is an error in this row."""
+    text = "" if value is None else str(value)
+    if text in ("", "-"):
         return 0
+    if not _digits(text) or len(text) > 5 or int(text) > 65535:
+        raise ValueError("not a port number")
+    return int(text)
+
+
+def _duration(value):
+    text = "" if value is None else str(value)
+    if text in ("", "-"):
+        return 0.0
+    seconds = float(text)
+    if not math.isfinite(seconds) or seconds < 0:
+        raise ValueError("not a duration")
+    return seconds
 
 
 def parse_conn_log(path, capture_id, source_id, filename, observation_point=""):
@@ -104,7 +127,8 @@ def parse_conn_log(path, capture_id, source_id, filename, observation_point=""):
             if not math.isfinite(ts):
                 raise ValueError("timestamp is not a finite number")
             src, dst = str(ipaddress.ip_address(rec["orig_h"])), str(ipaddress.ip_address(rec["resp_h"]))
-            sport, dport = _int(rec["orig_p"]), _int(rec["resp_p"])
+            sport, dport = _port(rec["orig_p"]), _port(rec["resp_p"])
+            duration = _duration(rec["duration"])
         except (TypeError, ValueError, KeyError):
             stats.errors += 1
             continue
@@ -141,13 +165,12 @@ def parse_conn_log(path, capture_id, source_id, filename, observation_point=""):
             if name:
                 apps.append(AppGuess(limits.clip(name, 40), "probable", "reported by Zeek's protocol analyzer "
                                      "(conn.log service column); not independently decoded here"))
-        duration = float(rec["duration"]) if rec["duration"] and rec["duration"] != "-" else 0.0
         flows.append(Flow(
             flow_id=f"{capture_id}-f{len(flows) + 1}", source_id=source_id, ip_version=6 if v6 else 4, proto=flow_proto,
             initiator=src, responder=dst, initiator_port=None if proto == "icmp" else sport,
             responder_port=None if proto == "icmp" else dport, direction_confidence=conf, direction_basis=basis,
-            pkts_fwd=_int(rec["orig_pkts"]), pkts_rev=_int(rec["resp_pkts"]), bytes_fwd=_int(rec["orig_bytes"]),
-            bytes_rev=_int(rec["resp_bytes"]), first_ts=ts, last_ts=ts + duration,
+            pkts_fwd=_count(rec["orig_pkts"]), pkts_rev=_count(rec["resp_pkts"]), bytes_fwd=_count(rec["orig_bytes"]),
+            bytes_rev=_count(rec["resp_bytes"]), first_ts=ts, last_ts=ts + duration,
             icmp_type=sport if proto == "icmp" else None, icmp_code=dport if proto == "icmp" else None, apps=apps,
             notes=notes,
             evidence=[Evidence(source_id, "flow", f"line {number} uid {limits.clip(rec['uid'] or '-', 30)}",

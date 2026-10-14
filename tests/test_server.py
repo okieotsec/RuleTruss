@@ -1,8 +1,10 @@
 import http.client
 import json
 import os
+import socket
 import tempfile
 import threading
+import time
 import unittest
 
 from ruletruss import limits, server
@@ -114,6 +116,60 @@ class RefusalHeaderTests(ServerCase):
             self.check(resp.status, resp, resp.read())
         finally:
             conn.close()
+
+
+class SlowClientTests(unittest.TestCase):
+    """Found by review: connections that never finish a request used to hold a thread each, for as long as they kept sending a byte."""
+
+    def setUp(self):
+        self.saved = (server.MAX_CONNECTIONS, server.HEADER_DEADLINE)
+        server.MAX_CONNECTIONS, server.HEADER_DEADLINE = 4, 1
+        self.dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dir.cleanup)
+        self.srv = server.build_server("127.0.0.1", 0, self.dir.name, token="test-token-1234567890")
+        self.port = self.srv.server_address[1]
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.opened = []
+
+    def tearDown(self):
+        server.MAX_CONNECTIONS, server.HEADER_DEADLINE = self.saved
+        for sock in self.opened:
+            sock.close()
+        self.srv.shutdown()
+        self.srv.server_close()
+
+    def open(self):
+        sock = socket.create_connection(("127.0.0.1", self.port), timeout=10)
+        self.opened.append(sock)
+        return sock
+
+    def status(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        try:
+            conn.request("GET", "/", headers={"Host": f"127.0.0.1:{self.port}"})
+            return conn.getresponse().status
+        finally:
+            conn.close()
+
+    def test_connections_beyond_the_limit_are_closed_at_once(self):
+        held = [self.open() for _ in range(4)]
+        for sock in held:
+            sock.sendall(b"GET / HT")                                   # an unfinished request line
+        time.sleep(0.3)
+        extra = self.open()
+        self.assertEqual(extra.recv(10), b"")                           # closed, not queued
+
+    def test_a_client_that_drips_bytes_is_cut_off_after_the_deadline_and_the_slots_come_back(self):
+        sock = self.open()
+        start = time.monotonic()
+        try:
+            while time.monotonic() - start < 6:
+                sock.sendall(b"X")                                       # a byte at a time keeps an idle timeout alive forever
+                time.sleep(0.2)
+        except OSError:
+            pass
+        self.assertLess(time.monotonic() - start, 4, "the server should hang up about a second after the first byte")
+        self.assertEqual(self.status(), 200)
 
 
 class AccessControlTests(ServerCase):
