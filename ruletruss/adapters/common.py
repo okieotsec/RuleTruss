@@ -12,7 +12,10 @@ class Lines:
         raw = text.splitlines()
         if len(raw) > limits.MAX_CONFIG_LINES:
             raise limits.LimitExceeded(f"configuration has {len(raw):,} lines; the limit is {limits.MAX_CONFIG_LINES:,}")
-        self.raw = [line[: limits.MAX_LINE_CHARS] for line in raw]
+        for number, line in enumerate(raw, start=1):             # never parse the front of a line and drop the rest
+            if len(line) > limits.MAX_LINE_CHARS:
+                raise limits.LimitExceeded(f"line {number} is {len(line):,} characters long; the limit is {limits.MAX_LINE_CHARS:,}")
+        self.raw = raw
 
     def evidence(self, first, last=None):
         """Evidence for line numbers (1-based). The stored text is redacted and clipped."""
@@ -62,8 +65,19 @@ class Resolver:
             if len(out) > limits.MAX_EXPANSION:
                 self.on_problem("warning", "group-too-large", f"group {name} expands to more than "
                                 f"{limits.MAX_EXPANSION:,} entries; the rest were not resolved")
+                unresolved.append(f"{name} (too large to resolve)")
                 return out[: limits.MAX_EXPANSION], unresolved
         return out, unresolved
+
+
+def cap_expansion(items, unresolved, name, issue):
+    """Bound a group that expands as it is resolved. When cut, the group is also reported as unresolved, so no rule relies on part of it."""
+    if len(items) <= limits.MAX_EXPANSION:
+        return False
+    issue("warning", "group-too-large", f"group {name} expands to more than {limits.MAX_EXPANSION:,} entries; the rest were not resolved")
+    del items[limits.MAX_EXPANSION:]
+    unresolved.append(f"{name} (too large to resolve)")
+    return True
 
 
 def dedupe(items):

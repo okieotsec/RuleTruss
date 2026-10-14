@@ -135,7 +135,7 @@ def _iface_for(ip, translation):
 def _target_probe(probe, translation):
     if translation.iface_nets:                                   # an interface ACL has no destination zone
         return Probe(probe.src, probe.dst, probe.proto, probe.sport, probe.dport, probe.icmp_type, probe.icmp_code,
-                     _iface_for(probe.src, translation), None)
+                     _map_zone(_iface_for(probe.src, translation), translation), None)
     return Probe(probe.src, probe.dst, probe.proto, probe.sport, probe.dport, probe.icmp_type, probe.icmp_code,
                  _map_zone(probe.src_zone, translation), _map_zone(probe.dst_zone, translation))
 
@@ -194,6 +194,19 @@ def _fill_zones(probe, source_policy, ctx):
     if probe.dst_zone is None:
         probe.dst_zone = analysis.zone_for(probe.dst, ctx, source_policy)
     return probe
+
+
+def _result(summary):
+    """The headline. It may say 'no difference' only for connections that were actually compared, and says how many were not."""
+    if summary["target_broader"]:
+        return "destination allows connections the source denied"
+    if summary["target_narrower"]:
+        return "destination blocks connections the source allowed"
+    if not summary["compared"]:
+        return (f"nothing could be compared ({summary['not_compared']} of {summary['cases']} sampled connections were undecidable): "
+                "no agreement is claimed")
+    left = f"; {summary['not_compared']} could not be compared" if summary["not_compared"] else ""
+    return f"no difference found on the {summary['compared']} sampled connections that could be compared{left}"
 
 
 def validate_preserve(source_policy, translation, ctx=None, extra_cases=(), max_cases=MAX_CASES):
@@ -265,10 +278,9 @@ def validate_preserve(source_policy, translation, ctx=None, extra_cases=(), max_
         "unexplained_broader": counts["target_broader"] - sum(1 for m in mismatches if m["kind"] == "target_broader" and (
             m["explained_by_known_broader_rule"] or m["explained_by_blocked_rule"] or m["explained_by_source_return_path"])),
         "explained_by_reply_entry": sum(1 for m in mismatches if m["explained_by_reply_entry"]),
-        "result": ("destination allows connections the source denied" if counts["target_broader"] else
-                   "destination blocks connections the source allowed" if counts["target_narrower"] else
-                   "no difference found on the sampled connections"),
+        "compared": counts["same_allow"] + counts["same_deny"] + counts["target_broader"] + counts["target_narrower"],
     }
+    summary["result"] = _result(summary)
     return {"summary": summary, "mismatches": mismatches, "not_compared": skipped, "limits": LIMITS,
             "rendered_for_validation": "Interface names were taken to be the zone names so decisions could be compared; the real "
                                        "interface mapping is yours to supply."}

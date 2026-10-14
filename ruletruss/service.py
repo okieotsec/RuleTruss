@@ -3,6 +3,7 @@ import contextlib
 import ipaddress
 import json
 import os
+import re
 import time
 import urllib.request
 from urllib.parse import urlparse
@@ -24,6 +25,28 @@ class ApiError(ValueError):
     def __init__(self, message, status=400):
         super().__init__(message)
         self.status = status
+
+
+_INTERFACE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:/-]{0,59}")
+
+
+def _interface_name(value):
+    """An interface name the user typed. It ends up inside configuration text, so only the characters device names use are allowed."""
+    value = str(value).strip()
+    if not _INTERFACE_NAME.fullmatch(value):
+        raise ApiError(f"{limits.clip(value, 30)!r} is not an interface name: use letters, digits and . _ : / - "
+                       "(at most 60, starting with a letter or digit)")
+    return value
+
+
+class _Refuse(urllib.request.HTTPRedirectHandler):
+    """The AI endpoint's address was checked once; a redirect would send the request somewhere that was not (another host, ftp:)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_NO_REDIRECTS = urllib.request.build_opener(_Refuse)
 
 
 class Service:
@@ -142,8 +165,9 @@ class Service:
                 "id": c.comm_id, "initiator": c.initiator, "initiator_label": ctx.label(c.initiator),
                 "initiator_subnet": a.label or a.cidr if a else "", "responder": c.responder,
                 "responder_label": ctx.label(c.responder), "responder_subnet": b.label or b.cidr if b else "", "proto": c.proto,
-                "port": c.responder_port, "icmp_type": c.icmp_type, "flows": c.flows, "packets_fwd": c.packets_fwd,
-                "packets_rev": c.packets_rev, "first_ts": c.first_ts, "last_ts": c.last_ts, "replied": c.replied,
+                "port": c.responder_port, "icmp_type": c.icmp_type, "icmp_code": c.icmp_code, "flows": c.flows,
+                "packets_fwd": c.packets_fwd, "packets_rev": c.packets_rev, "first_ts": c.first_ts, "last_ts": c.last_ts,
+                "replied": c.replied,
                 "direction_confidence": c.direction_confidence, "direction_basis": c.direction_basis,
                 "apps": [to_plain(x) for x in c.apps], "notes": c.notes, "explanation": analysis.explain_communication(c, ctx),
                 "explanation_short": analysis.explain_short(c, ctx),
@@ -512,7 +536,7 @@ class Service:
         target = body.get("target")
         if target not in firewall.TARGETS:
             raise ApiError("target must be one of: " + ", ".join(firewall.TARGETS))
-        zone_map = {str(k): limits.clip(str(v), 60) for k, v in (body.get("zone_map") or {}).items()}
+        zone_map = {str(k): _interface_name(v) for k, v in (body.get("zone_map") or {}).items()}
         ctx = self.context(project)
         workflow = body.get("workflow")
         if workflow == "preserve":
@@ -634,7 +658,7 @@ class Service:
         request = urllib.request.Request(self.ai_endpoint, data=payload, headers={"Content-Type": "application/json"}, method="POST")  # noqa: S310  # nosec B310
         try:
             # nosemgrep: dynamic-urllib-use-detected - same check as above; the response is read with a size cap and shown as text
-            with urllib.request.urlopen(request, timeout=60) as response:   # noqa: S310  # nosec B310 - scheme and host checked above
+            with _NO_REDIRECTS.open(request, timeout=60) as response:   # nosec B310 - scheme and host checked above
                 body = response.read(1_000_000)
         except OSError as error:
             raise ApiError(f"the AI endpoint could not be reached: {type(error).__name__}", 502) from error

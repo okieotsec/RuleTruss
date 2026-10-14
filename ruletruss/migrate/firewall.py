@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 
 from .. import limits, netutil
 from ..model import AddrSet, Issue, ServiceSet, SvcEntry
+from ..redact import single_line
 from .directional import _is_reply_rule
 
 MAX_EXPANSION_LINES = 2_000
@@ -350,6 +351,15 @@ def _finish(t, policy, zone_map, identity):
                     _zone_name(z, zone_map, t, identity)
     for rule in t.rules:
         t.issues.extend(rule.warnings)
+    for rule in t.rules:
+        size = expansion_size(rule) if rule.kind != "blocked" else 0
+        if size <= MAX_EXPANSION_LINES:
+            continue
+        reason = f"needs {size:,} access-list lines, more than the {MAX_EXPANSION_LINES:,} written for one rule; it is left out of the text"
+        t.issues.append(_issue("blocker", "rule-too-large", f"{rule.source_ids_text or rule.name} {reason}"))
+        for entry in t.report:
+            if entry.get("status") == "translated" and entry.get("rule_id") in rule.source_rule_ids:
+                entry["status"], entry["disposition"], entry["reason"] = "blocked", "unsupported", reason
     for entry in t.report:
         entry.setdefault("disposition", _disposition_of(entry))
     counts = {d: sum(1 for e in t.report if e.get("disposition") == d) for d in DISPOSITIONS}
@@ -416,13 +426,13 @@ def rules_from_observation(comms, ctx, policy_zone_lookup, include_low_confidenc
             entry.update(status="skipped", reason=f"direction is {c.direction_confidence} confidence; decide it before allowing")
             continue
         if c.proto in ("icmp", "icmp6"):
-            svc = ServiceSet(entries=[SvcEntry(c.proto, icmp_type=c.icmp_type)])
+            svc = ServiceSet(entries=[SvcEntry(c.proto, icmp_type=c.icmp_type, icmp_code=c.icmp_code)])
         elif c.proto in ("tcp", "udp", "sctp") and c.responder_port is not None:
             svc = ServiceSet(entries=[SvcEntry(c.proto, None, [(c.responder_port, c.responder_port)])])
         else:
             entry.update(status="skipped", reason="no port or ICMP type to build a rule from")
             continue
-        key = (c.initiator, c.responder, c.proto, c.responder_port, c.icmp_type)
+        key = (c.initiator, c.responder, c.proto, c.responder_port, c.icmp_type, c.icmp_code)
         if key in seen:
             continue
         seen[key] = True
@@ -466,10 +476,10 @@ def _appendix(t, mark, limit=2000):
         return []
     out = [mark, f"{mark} ---- Source policy dispositions ({len(entries)}): every source policy and what became of it ----"]
     for e in entries[:limit]:
-        name = limits.clip(" ".join(str(e.get("source_rule", "")).split()), 40)
-        where = f" {e['pair']}" if e.get("pair") else ""
-        pid = f"{str(e['policy_id'])[:8]} " if e.get("policy_id") else ""
-        why = limits.clip(" ".join(str(e.get("reason", "")).split()), 120)
+        name = single_line(e.get("source_rule", ""), 40)
+        where = f" {single_line(e['pair'], 80)}" if e.get("pair") else ""
+        pid = f"{single_line(str(e['policy_id'])[:8])} " if e.get("policy_id") else ""
+        why = single_line(e.get("reason", ""), 120)
         out.append(f"{mark} {e['disposition']:<14} {pid}{name}{where}" + (f": {why}" if why else ""))
     if len(entries) > limit:
         out.append(f"{mark} ... {len(entries) - limit} more in the translation report")
@@ -499,8 +509,17 @@ def _proto_word(proto):
     return "icmp" if proto in ("icmp", "icmp6") else proto.split(":", 1)[1] if proto.startswith("proto:") else proto
 
 
+def expansion_size(rule):
+    """How many access-list lines one OutRule needs (the same loops as _cisco_lines, counted instead of built)."""
+    srcs = [None] if rule.src.any else [ipaddress.ip_network(n, strict=False) for n in rule.src.nets]
+    dsts = [None] if rule.dst.any else [ipaddress.ip_network(n, strict=False) for n in rule.dst.nets]
+    entries = [SvcEntry("ip")] if rule.svc.any else rule.svc.entries
+    pairs = sum(1 for s in srcs for d in dsts if s is None or d is None or s.version == d.version)
+    return pairs * sum(len(_port_words(e.sports)) * len(_port_words(e.dports)) for e in entries)
+
+
 def _cisco_lines(rule, flavour):
-    """(text, is_ipv6) lines for one OutRule. Address lists and port ranges are expanded, bounded by MAX_EXPANSION_LINES."""
+    """(text, is_ipv6) lines for one OutRule. Address lists and port ranges are expanded; the caller has checked expansion_size() first."""
     verb = "permit" if rule.action == "allow" else "deny"
     srcs = [None] if rule.src.any else [ipaddress.ip_network(n, strict=False) for n in rule.src.nets]
     dsts = [None] if rule.dst.any else [ipaddress.ip_network(n, strict=False) for n in rule.dst.nets]
@@ -518,9 +537,6 @@ def _cisco_lines(rule, flavour):
                     icmp = f" {entry.icmp_type}" + (f" {entry.icmp_code}" if entry.icmp_code is not None else "")
                 for sp in _port_words(entry.sports):
                     for dp in _port_words(entry.dports):
-                        if len(out) >= MAX_EXPANSION_LINES:
-                            out.append(("! TRUNCATED: this rule expands to too many lines", False))
-                            return out
                         parts = [verb, _proto_word(entry.proto), _cisco_addr(s, flavour), sp, _cisco_addr(d, flavour), dp]
                         text = " ".join(x for x in parts if x) + icmp
                         if entry.established and flavour == "ios":
@@ -551,15 +567,20 @@ def render_cisco(t, flavour, identity=False):
         name = "RT-GLOBAL" if key == "global" else f"RT-{safe_id(key)}-IN"
         if key == "global" and flavour == "ios":
             for rule in rules:
-                why = rule.comment[16:200] if rule.kind == "blocked" else "IOS ACLs need an interface; choose one for this rule"
+                why = (single_line(rule.comment[16:], 200) if rule.kind == "blocked"
+                       else "IOS ACLs need an interface; choose one for this rule")
                 lines.append(f"! NOT PLACED {rule.source_ids_text}: {why}")
             continue
         v4_lines, v6_lines = [], []
         for rule in rules:
             if rule.kind == "blocked":
-                v4_lines.append(("!", f"NOT TRANSLATED {rule.source_ids_text}: {rule.comment[16:200]}"))
+                v4_lines.append(("!", f"NOT TRANSLATED {rule.source_ids_text}: {single_line(rule.comment[16:], 200)}"))
                 continue
-            remark = f"source rule {rule.source_ids_text} ({rule.kind}){': ' + rule.comment if rule.comment else ''}"[:100]
+            remark = single_line(f"source rule {rule.source_ids_text} ({rule.kind}){': ' + rule.comment if rule.comment else ''}", 100)
+            if expansion_size(rule) > MAX_EXPANSION_LINES:
+                v4_lines.append(("!", f"NOT RENDERED {rule.source_ids_text}: needs {expansion_size(rule):,} lines, more than the "
+                                      f"{MAX_EXPANSION_LINES:,} written for one rule; use an object-group on the device"))
+                continue
             produced = _cisco_lines(rule, flavour)
             for lst, wanted in ((v4_lines, False), (v6_lines, True)):
                 chosen = [text for text, v6 in produced if (v6 and flavour == "ios") == wanted]
@@ -669,7 +690,7 @@ def render_fortios(t, identity=False, first_id=1):
     counter = first_id
     for r in t.rules:
         if r.kind == "blocked":
-            lines.append(f"# NOT TRANSLATED {r.source_ids_text}: {r.comment[16:200]}")
+            lines.append(f"# NOT TRANSLATED {r.source_ids_text}: {single_line(r.comment[16:], 200)}")
             continue
         families = [4, 6] if (r.src.any and r.dst.any) else sorted({ipaddress.ip_network(n).version for n in r.src.nets + r.dst.nets})
         for fam in families:

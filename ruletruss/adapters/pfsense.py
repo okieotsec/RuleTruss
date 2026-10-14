@@ -11,7 +11,7 @@ import ipaddress
 
 from .. import limits, netutil
 from ..model import AddrSet, Evidence, NatRule, PolicySet, Rule, ServiceSet, SvcEntry
-from .common import dedupe
+from .common import cap_expansion, dedupe
 from .xmlsafe import parse_xml, snippet, text
 
 ICMP_NAMES = {"echoreq": 8, "echorep": 0, "unreach": 3, "squench": 4, "redir": 5, "althost": 6, "routeradv": 9,
@@ -56,7 +56,7 @@ class _Parser:
                 try:
                     interface = ipaddress.ip_interface(f"{ip}/{prefix}")
                     nets.append(str(interface.network))
-                    host_ips.append(f"{interface.ip}/32")
+                    host_ips.append(f"{interface.ip}/{interface.max_prefixlen}")
                 except ValueError:
                     pass
             self.policy.interfaces[node.tag] = {
@@ -83,6 +83,8 @@ class _Parser:
                 n, u = self.alias_nets(value, depth + 1, (*seen, name))
                 nets += n
                 unresolved += u
+                if cap_expansion(nets, unresolved, name, self.issue):
+                    break
                 continue
             try:
                 nets.append(str(netutil.parse_ip_or_net(value)))
@@ -154,13 +156,15 @@ class _Parser:
         table = ICMP6_NAMES if proto == "icmp6" else ICMP_NAMES
         if not names:
             return [SvcEntry(proto)]
-        entries = []
+        entries, unknown = [], []
         for name in names:
             if name == "any":
                 return [SvcEntry(proto)]
             if name in table:
                 entries.append(SvcEntry(proto, icmp_type=table[name]))
-        return entries or [SvcEntry(proto)]
+            else:
+                unknown.append(name)
+        return (entries or [SvcEntry(proto)]), unknown
 
     def read_rules(self):
         filt = self.root.find("filter")
@@ -190,7 +194,9 @@ class _Parser:
             elif protocol == "tcp/udp":
                 entries = [SvcEntry("tcp", sport, dport), SvcEntry("udp", sport, dport)]
             elif protocol in ("icmp", "icmp6", "ipv6-icmp"):
-                entries = self.icmp_entries("icmp6" if protocol != "icmp" else "icmp", node)
+                entries, unknown = self.icmp_entries("icmp6" if protocol != "icmp" else "icmp", node)
+                for name in unknown:             # an ICMP type nobody here can read must not be taken as every type
+                    unsupported.append(f"ICMP type {limits.clip(name, 30)!r} is not one this tool knows")
             else:
                 proto = netutil.proto_name(protocol)
                 if proto is None:
@@ -216,6 +222,8 @@ class _Parser:
             (floating_quick if floating else interface_rules).append(rule)
         for position, rule in enumerate(floating_quick + interface_rules, start=1):
             rule.position = position
+            if len(self.policy.rules) >= limits.MAX_RULES:
+                raise limits.LimitExceeded(f"more than {limits.MAX_RULES:,} rules")
             self.policy.rules.append(rule)
 
     def read_nat(self):

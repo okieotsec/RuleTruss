@@ -91,6 +91,23 @@ def translate(policy, caps, t, zone_map, identity, confirmed):
 
 # ------------------------------------------------------------------------------------------------ one policy
 
+def _state_only(plan, r, states):
+    """A policy that applies only to packets of connections already known (no NEW). The ASA's stateful inspection covers two of the four
+    combinations; the others cannot be written as an interface ACL, so they are unsupported, not implemented."""
+    names = {str(x).upper() for x in states}
+    if r.action == "allow" and names <= {"ESTABLISHED", "RELATED"}:
+        return plan.set(IMPLEMENTED, "replies and related traffic of permitted connections are accepted by the ASA's stateful inspection; "
+                        "it does not need an entry, and it accepts them whether or not this exact policy exists")
+    if r.action != "allow" and names == {"INVALID"}:
+        return plan.set(IMPLEMENTED, "applies only to packets in state invalid, never to a new connection; the ASA drops packets that do not "
+                        "belong to a connection it tracks, which is similar but not identical to this policy")
+    if r.action == "allow":
+        return plan.set(UNSUPPORTED, f"allows packets in state {', '.join(sorted(names)).lower()}; the ASA drops packets that do not belong to a "
+                        "connection it tracks and cannot be told to allow them")
+    return plan.set(UNSUPPORTED, f"blocks packets in state {', '.join(sorted(names)).lower()}, which are replies or related traffic of connections "
+                    "that were allowed; an ASA always accepts those, so this restriction cannot be written as an interface ACL")
+
+
 def _classify(plan, policy, zones, network_nets, has_networks, user_zones, wan_zone, caps, confirmed, t):
     r = plan.rule
     if not r.enabled:
@@ -98,11 +115,7 @@ def _classify(plan, policy, zones, network_nets, has_networks, user_zones, wan_z
     sz, dz = (r.src_zones or [""])[0], (r.dst_zones or [""])[0]
     states = r.extra.get("states")
     if states and "NEW" not in states:
-        if r.action == "allow":
-            return plan.set(IMPLEMENTED, "replies and related traffic of permitted connections are accepted by the ASA's stateful inspection; "
-                            "it does not need an entry, and it accepts them whether or not this exact policy exists")
-        return plan.set(IMPLEMENTED, f"applies only to packets in state {', '.join(states).lower()}, never to a new connection; the ASA "
-                        "drops packets that do not belong to a connection it tracks, which is similar but not identical to this policy")
+        return _state_only(plan, r, states)
     if sz.lower() == "gateway" and zones.get(sz, {}).get("origin") == "SYSTEM_DEFINED":
         return plan.set(IMPLEMENTED, "traffic the firewall itself starts is not filtered by interface ACLs")
     problems = list(r.unsupported)
@@ -219,13 +232,22 @@ def _bypass(by_pair, plans):
                     f" ({', '.join(later[:2])})" if later else "")
 
 
+def _is_final_default(rule):
+    """The Allow All / Block All policy that ends a zone pair: enabled, last in order, and not limited by state, address or service."""
+    return (rule.enabled and rule.extra.get("default_policy") and not rule.extra.get("states")
+            and rule.src.any and rule.dst.any and rule.svc.any and rule.action in ("allow", "deny"))
+
+
 def _pairs_without_policy(policy, zones, network_nets, has_networks, by_pair, wan_zone, t):
-    for sz in sorted(has_networks):
-        for dz in sorted((has_networks | ({wan_zone} if wan_zone else set())) - {sz}):
-            if (sz, dz) not in by_pair:
-                t.issues.append(_issue("blocker", "pair-without-policy", f"The export lists no policy for {sz} to {dz}. UniFi's behaviour for "
-                                       "that pair is not in the export, and the ASA denies anything no entry permits. Decide what it should "
-                                       "do and add it by hand."))
+    endpoints = has_networks | ({wan_zone} if wan_zone else set())              # External starts pairs as well as ending them
+    for sz in sorted(endpoints):
+        for dz in sorted(endpoints - {sz}):
+            listed = by_pair.get((sz, dz), [])
+            if any(_is_final_default(p.rule) for p in listed):
+                continue
+            what = "lists no policy" if not listed else "lists policies but no enabled final Allow All / Block All"
+            t.issues.append(_issue("blocker", "pair-without-policy", f"The export {what} for {sz} to {dz}. UniFi's behaviour for that pair "
+                                   "is not in the export, and the ASA denies anything no entry permits. Decide what it should do and add it by hand."))
 
 
 def _report(plans, t):

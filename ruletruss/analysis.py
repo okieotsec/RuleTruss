@@ -73,6 +73,7 @@ class Communication:
     proto: str
     responder_port: int = None
     icmp_type: int = None
+    icmp_code: int = None
     flows: int = 0
     packets_fwd: int = 0
     packets_rev: int = 0
@@ -92,11 +93,11 @@ def aggregate(flows):
     """Group flows by (initiator, responder, protocol, responder port). Confidence is the weakest across the flows."""
     groups = {}
     for f in flows:
-        key = (f.initiator, f.responder, f.proto, f.responder_port if f.proto in ("tcp", "udp", "sctp") else f.icmp_type)
+        key = (f.initiator, f.responder, f.proto, f.responder_port if f.proto in ("tcp", "udp", "sctp") else (f.icmp_type, f.icmp_code))
         c = groups.get(key)
         if c is None:
             c = Communication(comm_id=f"k{len(groups) + 1}", initiator=f.initiator, responder=f.responder, proto=f.proto,
-                              responder_port=f.responder_port, icmp_type=f.icmp_type, first_ts=f.first_ts,
+                              responder_port=f.responder_port, icmp_type=f.icmp_type, icmp_code=f.icmp_code, first_ts=f.first_ts,
                               last_ts=f.last_ts, direction_confidence="high")
             groups[key] = c
         c.flows += 1
@@ -134,7 +135,8 @@ def _port_text(c):
         names = ICMP6_TYPE_NAMES if c.proto == "icmp6" else ICMP_TYPE_NAMES
         if c.icmp_type is None:
             return "ICMP messages"
-        return f"{PROTO_LABEL[c.proto]} type {c.icmp_type} ({names.get(c.icmp_type, 'other')})"
+        code = f" code {c.icmp_code}" if c.icmp_code else ""
+        return f"{PROTO_LABEL[c.proto]} type {c.icmp_type} ({names.get(c.icmp_type, 'other')}){code}"
     return f"destination port {c.responder_port}" if c.responder_port is not None else "an unknown port"
 
 
@@ -339,7 +341,7 @@ def probe_for(c, ctx, policy):
     return Probe(src=c.initiator, dst=c.responder, proto=proto,
                  sport=None, dport=c.responder_port if proto in ("tcp", "udp", "sctp") else None,
                  icmp_type=c.icmp_type if proto in ("icmp", "icmp6") else None,
-                 icmp_code=0 if proto in ("icmp", "icmp6") and c.icmp_type is not None else None,
+                 icmp_code=c.icmp_code if proto in ("icmp", "icmp6") else None,
                  src_zone=zone_for(c.initiator, ctx, policy), dst_zone=zone_for(c.responder, ctx, policy))
 
 
@@ -511,6 +513,8 @@ def _overlap_svc(a, b):
             if x.proto not in ("ip", y.proto) and y.proto != "ip":
                 continue
             if x.icmp_type is not None and y.icmp_type is not None and x.icmp_type != y.icmp_type:
+                continue
+            if x.icmp_code is not None and y.icmp_code is not None and x.icmp_code != y.icmp_code:
                 continue
             if x.dports is not None and y.dports is not None and not netutil.ranges_overlap(x.dports, y.dports):
                 continue

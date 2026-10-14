@@ -209,6 +209,7 @@ def iter_packets(path, stats, max_packets=None, on_l2=None, progress=None):
         number = 0
         try:
             for ts, buf in reader:
+                ts = float(ts)                        # dpkt returns a Decimal for nanosecond captures
                 number += 1
                 stats.read = number
                 if progress is not None and number % PROGRESS_EVERY == 0:

@@ -132,10 +132,10 @@ def _first_match(rules, probe, tcp_established):
                             evidence=list(rule.evidence))
         if uncertain:
             decision.uncertain = [r for _, rs in uncertain for r in rs]
-            if uncertain[0][0].action != rule.action:
+            other = next((r for r, _ in uncertain if r.action != rule.action), None)       # any one of them could be the real answer
+            if other is not None:
                 decision.outcome = INDETERMINATE
-                decision.basis += (f", but earlier rule {uncertain[0][0].original_id} ({uncertain[0][0].action}) might "
-                                   "also match and cannot be ruled out")
+                decision.basis += f", but earlier rule {other.original_id} ({other.action}) might also match and cannot be ruled out"
         return decision, uncertain
     return None, uncertain
 

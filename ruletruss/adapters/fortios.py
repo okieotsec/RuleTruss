@@ -14,7 +14,7 @@ import shlex
 
 from .. import limits, netutil
 from ..model import AddrSet, NatRule, PolicySet, Rule, ServiceSet, SvcEntry
-from .common import Lines, dedupe
+from .common import Lines, cap_expansion, dedupe
 
 # FortiOS predefined services. These values are this project's table, not read from the export: check them against your
 # FortiOS version. Anything not listed here is reported as unresolved rather than guessed.
@@ -197,6 +197,8 @@ class _Parser:
                 n, u = self.address_nets(member, depth + 1, (*seen, name))
                 nets += n
                 unresolved += u
+                if cap_expansion(nets, unresolved, name, self.issue):
+                    break
             return nets, unresolved
         if name in self.vips:
             vip = self.vips[name]
@@ -207,7 +209,7 @@ class _Parser:
                     span = ipaddress.summarize_address_range(ipaddress.ip_address(lo), ipaddress.ip_address(hi))
                     return [str(n) for n in span], []
                 return [str(netutil.parse_ip_or_net(ext))], []
-            except (netutil.ParseProblem, ValueError):
+            except (netutil.ParseProblem, ValueError, TypeError):
                 return [], [f"vip {name}"]
         if name in self.addresses:
             kind, entry = self.addresses[name]
@@ -223,7 +225,7 @@ class _Parser:
                     lo = ipaddress.ip_address(entry.sets.get("start-ip", [""])[0])
                     hi = ipaddress.ip_address(entry.sets.get("end-ip", [""])[0])
                     return [str(n) for n in ipaddress.summarize_address_range(lo, hi)], []
-            except (netutil.ParseProblem, ValueError):
+            except (netutil.ParseProblem, ValueError, TypeError):
                 pass
             self.issue("warning", "address-unresolved", f"address {name!r} (type {kind_set}) cannot be resolved to IP "
                        "addresses; rules that use it are reported as undecidable", entry.line)
@@ -282,6 +284,8 @@ class _Parser:
                     return None, []
                 entries += e
                 unresolved += u
+                if cap_expansion(entries, unresolved, name, self.issue):
+                    break
             return entries, unresolved
         if name in PREDEFINED:
             return PREDEFINED[name], []
@@ -356,6 +360,8 @@ class _Parser:
                         evidence=[self.lines.evidence(entry.line, entry.last_line)], extra={"family": family})
                     if "action" not in s:
                         rule.notes.append("No action is set; FortiOS treats a policy without an action as deny.")
+                    if len(self.policy.rules) >= limits.MAX_RULES:
+                        raise limits.LimitExceeded(f"more than {limits.MAX_RULES:,} rules")
                     self.policy.rules.append(rule)
                     if s.get("nat", ["disable"])[0] == "enable":
                         self.policy.nat_rules.append(NatRule(

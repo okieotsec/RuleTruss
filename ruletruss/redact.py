@@ -1,5 +1,6 @@
 """Credential redaction. Configuration exports carry secrets; none of them may reach the screen, a log or an export."""
 import re
+import unicodedata
 
 REDACTED = "<redacted>"
 
@@ -30,3 +31,12 @@ def redact(text):
     for pattern, replacement in _PATTERNS:
         text = pattern.sub(replacement, text)
     return text
+
+
+def single_line(text, limit=None):
+    """Free text from an upload as one line of plain characters: line breaks, control, format (bidi) and separator characters
+    become a space. Anything written into generated configuration text, a file name or a log line goes through this first."""
+    text = "".join(" " if unicodedata.category(c)[0] == "C" or c in "\u2028\u2029\u0085" else c
+                   for c in str(text))
+    text = " ".join(text.split())
+    return text if limit is None or len(text) <= limit else text[: limit - 1] + "\u2026"
