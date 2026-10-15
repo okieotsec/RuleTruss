@@ -49,14 +49,17 @@ ip addr add 10.77.10.10/24 dev eth0 && ip link set eth0 up && ip route add defau
 ip addr add 198.51.100.10/24 dev eth0 && ip link set eth0 up && ip route add default via 198.51.100.1
 ```
 
-   then, on every host: `while true; do nc -l -p 443 > /dev/null; done &`
+   then, on every host: `while true; do echo OPEN | nc -l -p 443 > /dev/null; done &`
 
-6. For each row of the table below, from the host in the **from** column run:
+6. Run the tests. **The quick way:** on each host's console, paste the contents of `samples/cml-test/run-tests-<host>.sh` (for example `run-tests-h-lan.sh` on `h-lan`). Each prints six lines like
+   `h-lan,h-wifi,icmp,DENY`. Copy the lines from all four hosts and send them to me; the ASA's `show access-list` output from step 7 is the other half of the evidence. Wait for each
+   to finish: a blocked connection takes a couple of seconds to time out.
+   **The manual way**, for any single row of the table below, from the host in the **from** column:
    * ping: `ping -c 2 -W 2 <to address>`; **ALLOW** if replies arrive, **DENY** if none do.
-   * TCP 443: `echo hi | nc -w 2 <to address> 443 && echo OPEN || echo CLOSED`; **ALLOW** if OPEN, **DENY** if CLOSED.
+   * TCP 443: `nc -w 2 <to address> 443 </dev/null | grep OPEN`; **ALLOW** if it prints OPEN, **DENY** if it prints nothing. (Every host's listener sends the word OPEN to whoever connects.)
    Addresses: h-lan 10.0.0.10, h-wifi 10.77.20.10, h-cam 10.77.10.10, h-ext 198.51.100.10.
-7. Fill in the **observed** column (the same table is in `samples/cml-test/expected.csv`) and paste it to me. Also paste the output of `show access-list` after the tests,
-   which shows hit counts for each entry.
+7. Also paste the output of `show access-list` from the ASAv after the tests, which shows hit counts for each entry. (If you tested by hand, fill in the **observed** column of the table; the same
+   table is in `samples/cml-test/expected.csv`.)
 
 ## What to expect and what a mismatch means
 

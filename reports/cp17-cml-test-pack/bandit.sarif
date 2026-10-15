@@ -13,13 +13,13 @@
    "invocations": [
     {
      "executionSuccessful": true,
-     "endTimeUtc": "2026-10-15T19:09:31Z"
+     "endTimeUtc": "2026-10-15T19:18:57Z"
     }
    ],
    "properties": {
     "metrics": {
      "_totals": {
-      "loc": 11868,
+      "loc": 11882,
       "nosec": 0,
       "skipped_tests": 18,
       "SEVERITY.UNDEFINED": 0,
@@ -630,7 +630,7 @@
       "CONFIDENCE.HIGH": 0
      },
      "./tools/make_cml_pack.py": {
-      "loc": 195,
+      "loc": 209,
       "nosec": 0,
       "skipped_tests": 0,
       "SEVERITY.UNDEFINED": 0,

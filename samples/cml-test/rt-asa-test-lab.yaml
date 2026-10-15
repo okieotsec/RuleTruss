@@ -55,7 +55,7 @@ nodes:
   - boot_disk_size: null
     configuration:
       - name: "node.cfg"
-        content: "# this is a shell script which will be sourced at boot\nhostname h-lan\n# configurable user account\nUSERNAME=cisco\nPASSWORD=cisco\n# RuleTruss test: address, default route and a listener on TCP 443\nip addr add 10.0.0.10/24 dev eth0\nip link set eth0 up\nip route add default via 10.0.0.1\n(while true; do nc -l -p 443 > /dev/null; done) &\n"
+        content: "# this is a shell script which will be sourced at boot\nhostname h-lan\n# configurable user account\nUSERNAME=cisco\nPASSWORD=cisco\n# RuleTruss test: address, default route and a listener on TCP 443\nip addr add 10.0.0.10/24 dev eth0\nip link set eth0 up\nip route add default via 10.0.0.1\n(while true; do echo OPEN | nc -l -p 443 > /dev/null; done) &\n"
     cpu_limit: null
     cpus: null
     data_volume: null
@@ -98,7 +98,7 @@ nodes:
   - boot_disk_size: null
     configuration:
       - name: "node.cfg"
-        content: "# this is a shell script which will be sourced at boot\nhostname h-wifi\n# configurable user account\nUSERNAME=cisco\nPASSWORD=cisco\n# RuleTruss test: address, default route and a listener on TCP 443\nip addr add 10.77.20.10/24 dev eth0\nip link set eth0 up\nip route add default via 10.77.20.1\n(while true; do nc -l -p 443 > /dev/null; done) &\n"
+        content: "# this is a shell script which will be sourced at boot\nhostname h-wifi\n# configurable user account\nUSERNAME=cisco\nPASSWORD=cisco\n# RuleTruss test: address, default route and a listener on TCP 443\nip addr add 10.77.20.10/24 dev eth0\nip link set eth0 up\nip route add default via 10.77.20.1\n(while true; do echo OPEN | nc -l -p 443 > /dev/null; done) &\n"
     cpu_limit: null
     cpus: null
     data_volume: null
@@ -141,7 +141,7 @@ nodes:
   - boot_disk_size: null
     configuration:
       - name: "node.cfg"
-        content: "# this is a shell script which will be sourced at boot\nhostname h-cam\n# configurable user account\nUSERNAME=cisco\nPASSWORD=cisco\n# RuleTruss test: address, default route and a listener on TCP 443\nip addr add 10.77.10.10/24 dev eth0\nip link set eth0 up\nip route add default via 10.77.10.1\n(while true; do nc -l -p 443 > /dev/null; done) &\n"
+        content: "# this is a shell script which will be sourced at boot\nhostname h-cam\n# configurable user account\nUSERNAME=cisco\nPASSWORD=cisco\n# RuleTruss test: address, default route and a listener on TCP 443\nip addr add 10.77.10.10/24 dev eth0\nip link set eth0 up\nip route add default via 10.77.10.1\n(while true; do echo OPEN | nc -l -p 443 > /dev/null; done) &\n"
     cpu_limit: null
     cpus: null
     data_volume: null
@@ -184,7 +184,7 @@ nodes:
   - boot_disk_size: null
     configuration:
       - name: "node.cfg"
-        content: "# this is a shell script which will be sourced at boot\nhostname h-ext\n# configurable user account\nUSERNAME=cisco\nPASSWORD=cisco\n# RuleTruss test: address, default route and a listener on TCP 443\nip addr add 198.51.100.10/24 dev eth0\nip link set eth0 up\nip route add default via 198.51.100.1\n(while true; do nc -l -p 443 > /dev/null; done) &\n"
+        content: "# this is a shell script which will be sourced at boot\nhostname h-ext\n# configurable user account\nUSERNAME=cisco\nPASSWORD=cisco\n# RuleTruss test: address, default route and a listener on TCP 443\nip addr add 198.51.100.10/24 dev eth0\nip link set eth0 up\nip route add default via 198.51.100.1\n(while true; do echo OPEN | nc -l -p 443 > /dev/null; done) &\n"
     cpu_limit: null
     cpus: null
     data_volume: null
