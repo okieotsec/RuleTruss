@@ -233,7 +233,7 @@ automatically, so only the first packet matters.
 
 * A mismatch where the ASA **allows** what UniFi denies is the serious one: it means the generated configuration is more open than the source.
 * A ping that should be ALLOW but gets no reply: first check that the configuration contains `inspect icmp` (`show running-config policy-map`). An ASA does not
-  track ICMP replies without it; the lines are in the pasted configuration, and RuleTruss's own ASA output now warns that it does not generate them.
+  track ICMP replies without it (confirmed in the first lab run: with the line removed, an allowed ping got no replies); the lines are in the pasted configuration, and RuleTruss's own ASA output warns that it does not generate them.
 * A mismatch where the ASA **denies** what UniFi allows means the configuration is stricter, or a setup problem (a wrong address, an interface that is down).
   Check `show interface ip brief` and that the host's gateway is right before concluding anything.
 * Rows marked UNDECIDED could not be decided from the export; ignore them.
