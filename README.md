@@ -18,7 +18,7 @@ AI model** (Anthropic's Claude, through Claude Code). Quality is therefore argue
 
 * The code was reviewed twice by other AI models, not by the one that wrote it (OpenAI Codex, then GitHub Copilot; see [reports/](reports/): CP15 and CP16), and every confirmed finding that was fixed has a test that fails without the fix. They found different problems, one of them a mistake I had introduced in the first round, which shows what a single review misses.
 * It is checked by static analysis, secret and dependency scanners, a coverage-guided fuzzer (Atheris) and a dynamic web scanner (OWASP ZAP), and its ASA output was compared with an independent parser (Batfish).
-* **No person has reviewed the code**, and no translation has been loaded on a real firewall yet.
+* **No person has reviewed the code.** One small translation (24 test connections) has been tried on a virtual Cisco ASA (an ASAv in Cisco Modeling Labs) and behaved as the UniFi policy says; nothing has been loaded on a physical firewall.
 
 So: treat this as **experimental**, treat every generated configuration as **a proposal for the person who owns that firewall to review**, and do not apply one to a
 production device without that review. Review by people who read Python, or who run these firewalls, is welcome; see [SECURITY.md](SECURITY.md) for how to report what you find.

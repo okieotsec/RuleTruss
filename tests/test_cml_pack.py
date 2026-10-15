@@ -1,4 +1,5 @@
 """The CML test pack: small, deployable, and its expected answers match what the user's own scenario needs (phones reach cameras, not the reverse)."""
+import csv
 import importlib.util
 import re
 import unittest
@@ -80,6 +81,18 @@ class CmlPackTests(unittest.TestCase):
                 self.assertTrue(match, line)
                 seen.add(match.groups())
         self.assertEqual(seen, {(r["from"], r["to"], r["test"]) for r in self.rows}, "the scripts must cover exactly the rows of the table")
+
+    def test_the_recorded_asav_run_still_agrees_with_what_the_tool_expects_today(self):
+        """samples/cml-test/results-*.csv is what an ASAv in CML-Free did on 2026-10-15. If the tool's expectations or the generated configuration change, this fails
+        and the lab run has to be repeated; the record must not be quietly reused for a different configuration."""
+        with open(ROOT / "samples" / "cml-test" / "results-2026-10-15.csv", newline="", encoding="utf-8") as handle:
+            recorded = list(csv.DictReader(handle))
+        self.assertEqual(len(recorded), 24)
+        self.assertEqual({(r["from"], r["to"], r["test"]): r["observed"] for r in recorded},
+                         {(r["from"], r["to"], r["test"]): r["expected"] for r in self.rows})
+        self.assertTrue(all(r["match"] == "yes" for r in recorded))
+        config = (ROOT / "samples" / "cml-test" / "asa-config.txt").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(config, self.config, "the configuration that was tried on the ASAv is not the one the tool generates now")
 
 
 if __name__ == "__main__":
