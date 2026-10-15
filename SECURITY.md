@@ -49,6 +49,19 @@ is not recommended: there are no user accounts.
 * **Device identification** reads MAC addresses and text that devices send about themselves (LLDP, DHCP, SNMP, HTTP, SSH, Modbus, EtherNet/IP) from captures, in the parsing subprocess. That text is cut to printable ASCII of bounded length, is shown only as text, and is neutralised in CSV and escaped in Markdown. It is never trusted as fact and is labelled as self-reported. SNMP community strings are skipped, not stored. The IEEE vendor-name table is not shipped with RuleTruss: it is downloaded on request into the data folder (mode 0600), the downloaded CSV is parsed in the resource-limited process with every row validated and every name cleaned and clipped, and a damaged or oversized table is treated as absent. Without it the application works and simply shows no card-maker names.
 * **Exports** are written by your browser to where you choose. CSV cells that a spreadsheet could run as formulas are neutralised, and text from uploads is escaped in Markdown.
 
+## How to verify a download
+
+A release is built by a GitHub workflow from a version tag (`.github/workflows/release.yml`), not on anyone's computer. Each release carries the source bundle `ruletruss-<version>.tar.gz`, a software bill of
+materials, and a `.sha256` file with their checksums. To check what you downloaded:
+
+```
+sha256sum -c ruletruss-<version>.sha256
+gh attestation verify ruletruss-<version>.tar.gz --repo <owner>/<repository>
+```
+
+The second command asks GitHub whether that exact file was built by this repository's release workflow from the tag it names. It proves where the file came from, not that the code is free of
+bugs: see the review status below. **No release has been built yet**, so this has not been tried; this section will say so until it has.
+
 ## Known limitations
 
 * The access token protects against other local users and web pages, not against someone who already controls your account or can read the terminal output.
