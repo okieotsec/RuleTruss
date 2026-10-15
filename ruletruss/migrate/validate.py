@@ -15,6 +15,7 @@ from .. import analysis
 from ..adapters.registry import parse_config
 from ..evaluate import ALLOW, DENY, INDETERMINATE, Probe, evaluate_connection
 from . import firewall as fw
+from . import zonepairs
 
 LIMITS = [
     "Only the sampled connections listed below were compared; other traffic may behave differently.",
@@ -129,7 +130,7 @@ def _iface_for(ip, translation):
     for key, nets in translation.iface_nets.items():
         if any(addr.version == ipaddress.ip_network(n).version and addr in ipaddress.ip_network(n) for n in nets):
             return key
-    return next((k for k, nets in translation.iface_nets.items() if not nets), None)
+    return next((k for k, nets in translation.iface_nets.items() if not nets and k.startswith(zonepairs.WAN_PREFIX)), None)
 
 
 def _target_probe(probe, translation):
@@ -145,6 +146,7 @@ def zone_pair_cases(policy, translation):
     you wrote."""
     zone_nets = {z: [ipaddress.ip_network(n) for nets in info.get("network_nets", {}).values() for n in nets]
                  for z, info in policy.interfaces.items() if info.get("network_nets")}
+    zone_nets = {z: nets for z, nets in zone_nets.items() if nets}                   # no subnet, no address to test
     wan = next((z for z in policy.interfaces if z.lower() == "external" and policy.interfaces[z].get("origin") == "SYSTEM_DEFINED"), None)
     services = [("tcp", 40000, 443, None, None), ("udp", 40000, 53, None, None), ("icmp", None, None, 8, 0)]
     cases = []

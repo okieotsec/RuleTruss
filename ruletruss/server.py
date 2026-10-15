@@ -344,6 +344,8 @@ def upload(h, app, q, pid):
     background = q.get("async") == "1"
     if background and not app.jobs.has_room():
         raise ApiError(f"{MAX_RUNNING_IMPORTS} imports are already running; wait for one to finish", 429)
+    if q.get("format") and q["format"] not in SOURCE_FORMATS:
+        raise ApiError(f"unknown format {limits.clip(q['format'], 30)!r}")                 # before the body is read and stored
     path = h.stream_upload(pid)
     filename = os.path.basename(q.get("name", "upload"))[:120] or "upload"
     observation_point, fmt = q.get("observation_point", ""), q.get("format") or None

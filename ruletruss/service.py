@@ -83,6 +83,13 @@ class Service:
 
     # ------------------------------------------------------------ import
     def import_upload(self, project_id, upload_path, filename, observation_point="", fmt=None, job=None):
+        try:
+            return self._import_upload(project_id, upload_path, filename, observation_point, fmt, job)
+        except BaseException:
+            self.store.discard_upload(upload_path)             # an upload that was refused, for whatever reason, must not stay on disk
+            raise
+
+    def _import_upload(self, project_id, upload_path, filename, observation_point="", fmt=None, job=None):
         self.project(project_id)
         if fmt is not None and fmt not in SOURCE_FORMATS:
             raise ApiError(f"unknown format {fmt!r}")

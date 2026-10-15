@@ -155,11 +155,11 @@ class _Parser:
         names = [n for n in text(node, "icmptype").split(",") if n]
         table = ICMP6_NAMES if proto == "icmp6" else ICMP_NAMES
         if not names:
-            return [SvcEntry(proto)]
+            return [SvcEntry(proto)], []
         entries, unknown = [], []
         for name in names:
             if name == "any":
-                return [SvcEntry(proto)]
+                return [SvcEntry(proto)], []
             if name in table:
                 entries.append(SvcEntry(proto, icmp_type=table[name]))
             else:

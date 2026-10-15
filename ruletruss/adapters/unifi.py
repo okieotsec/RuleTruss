@@ -380,6 +380,8 @@ class _Parser:
         protocols, punres = self.protocols(scope, rule, predefined=bool(origin) and origin != "USER_DEFINED")
         rule.src, rule.dst = src, dst
         rule.svc = self.service(protocols, sports, dports, punres + sunres + dunres)
+        if rule.svc.entries and rule.svc.unresolved:     # protocol AND ports: a part nobody can read leaves the whole condition open
+            rule.unsupported.append("service condition not fully known: " + "; ".join(rule.svc.unresolved[:3]))
         states = [str(s).upper() for s in _list(item.get("connectionStateFilter"))]
         if states:
             rule.extra["states"] = states               # the evaluator matches a connection's state (NEW for a first packet) against these
