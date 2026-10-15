@@ -1,57 +1,42 @@
-# Checkpoint 19: the first run on GitHub
+# Checkpoint 19: what the first GitHub run found
 
-Commit: the one that adds this report. The repository was pushed on 2026-10-15 and its workflows ran for the first time. Nothing had run there before, so this is what the local checks could not show.
+Commit pushed and checked: `624ff4d`. The repository went public with that push. The fixes below are committed after this report and have not run on GitHub yet.
 
-## What ran
+## Workflow results of the first push
 
-| Workflow | Result | Notes |
+| Workflow | Result | Why |
 |---|---|---|
-| Security (CodeQL, OSV dependency scan, zizmor, Scorecard) | passed | CodeQL found nothing in the application code. Scorecard and CodeQL together raised 11 code-scanning alerts; see below. |
-| CI (tests on Python 3.12 and 3.14, lint, secret scan) | **failed**: one test in each of the two test jobs | Lint, bandit, semgrep, pip-audit and gitleaks passed. |
-| Dependabot (pip, GitHub Actions) | passed, no pull requests | |
-
-## CI failures
-
-| ID | Job | Failure | Cause | Fix |
-|---|---|---|---|---|
-| CP19-01 | Python 3.14 | `test_deeply_nested_json_is_a_clean_error`: a UniFi file nested 100,000 deep was read without any error | The code already turns Python's own recursion error into a clean error (and so do the other JSON readers). Whether Python's JSON reader raises at that depth depends on the Python build: this machine's 3.14.7 does, the runner's 3.14 does not. My test required one outcome. | The test now accepts a clean `ValueError` or a normal result and rejects any other exception, which is the actual requirement. No change to the code. |
-| CP19-02 | Python 3.12 | The headless browser test said "browser did not start" after 20 s (the same test passed in the 3.14 job) | A slow start of Chromium on a loaded shared runner. | The start-up wait is 90 s. If it recurs I will look at the runner's own log, not widen it further. |
+| Security (CodeQL, OSV scan, workflow audit, Scorecard) | passed | Dependency review is skipped on pushes by design (it needs a pull request). |
+| CI: lint and static analysis, secret scan | passed | |
+| CI: tests on Python 3.14 | **failed** | One test, `test_deeply_nested_json_is_a_clean_error`, expected an error for a JSON file nested 100,000 levels. This runner's Python reads such a file without error; the local one raises `RecursionError`. The code was right (every JSON reader accepts either outcome); the test demanded one. It now accepts a clean `ValueError` or a normal result and rejects any other exception. |
+| CI: tests on Python 3.12 | **failed** | The headless-browser test: "browser did not start" within its 20 seconds (the same test passed on the 3.14 job, and the browser is started with `--no-sandbox`, so this is a slow start on a shared runner). The wait is now 90 seconds. |
+| Dependabot (pip, github_actions) | passed | No pull requests opened. |
 
 ## The 11 code-scanning alerts
 
-| Alert | What | Decision |
+| Alert | What it is | Decision |
 |---|---|---|
-| 3, 4, 5, 6 Pinned-Dependencies (medium) | `pip install` of the test library (CI and release), the lint and audit tools, and zizmor was not pinned by hash. | **Fixed.** `requirements-test.txt`, `-lint.txt` and `-workflow.txt` are generated with `pip-compile --generate-hashes` and installed with `--require-hashes`; each was installed that way in a clean environment. CI's pip-audit now covers all four requirement files. |
-| 11 `py/insecure-protocol` (high) | A test's throwaway local TLS server did not set a minimum protocol version. | **Fixed:** `minimum_version = TLSv1_2`. |
-| 2 Security-Policy (medium) | `SECURITY.md` has "no linked content". | **Fixed:** it now links GitHub's private vulnerability reporting page and says what to do if that is not enabled. (Reporting must be switched on in the repository settings: owner checklist.) |
-| 1 Branch-Protection (high) | No rules on `main`. | **Owner action:** a branch ruleset (settings). Listed in the owner checklist. |
-| 8 Code-Review (high) | Changes were not reviewed by another person. | **Not fixable by this project.** One maintainer; the README says no person has reviewed the code. To be dismissed with that reason, by the owner. |
-| 9 Maintained (high) | The repository is less than 90 days old. | Time. Closes by itself. |
-| 7 Fuzzing (medium) | No continuous fuzzing service is integrated. | Open. The parsers were fuzzed by hand (CP13); integrating a continuous service is a later option. |
-| 10 CII-Best-Practices (low) | No best-practices badge. | Optional self-assessment; owner's choice. |
+| 3, 4, 5, 6 (Pinned-Dependencies, medium) | `pip install` lines in the workflows not pinned by hash (the test library, the lint and audit tools, the workflow auditor). | **Fixed.** `requirements-test.txt`, `requirements-lint.txt` and `requirements-workflow.txt` (from `.in` files, via pip-compile with hashes) and every workflow installs with `--require-hashes`. Each file was installed in a clean environment with hash checking to prove it works. |
+| 11 (py/insecure-protocol, high) | A test's throwaway local TLS server set no minimum TLS version. | **Fixed:** the minimum is TLS 1.2. Test code only. |
+| 2 (Security-Policy, medium) | `SECURITY.md` had "no linked content". | **Fixed:** it now links GitHub's private vulnerability reporting page and says what to do if that is not enabled. The owner must enable private vulnerability reporting in the repository settings for the link to work. |
+| 1 (Branch-Protection, high) | No branch rules on `main`. | **Owner setting** (checklist in `docs/SECURITY_FRAMEWORKS.md`). |
+| 8 (Code-Review, high) | No change has been reviewed on GitHub; the project has one maintainer. | **Accepted.** A second reviewer does not exist. Not dismissed in GitHub; the README says no person has reviewed the code. |
+| 9 (Maintained, high) | The repository is less than 90 days old. | Passes with time. |
+| 7 (Fuzzing, medium) | No continuous fuzzing service (such as ClusterFuzzLite). | **Open, optional.** The parsers were fuzzed by hand (CP13); a continuous service is a later decision. |
+| 10 (CII-Best-Practices, low) | No OpenSSF Best Practices badge. | **Optional** self-assessment, the owner's choice. |
 
-## A vulnerable package in the new lint list, accepted on purpose
+## A known vulnerability accepted on purpose
 
-Hash-pinning the lint tools made their whole dependency tree visible to the audit, and `pip-audit` flagged `mcp` 1.29.0 (GHSA-84m7-p3x7-pcfv, memory growth in its stateful HTTP server transport).
-It is not RuleTruss's dependency: it comes in only through `semgrep`, which pins it to exactly 1.29.0 (the newest `semgrep`, 1.181.0, still does). The flaw is in running an MCP server over HTTP; CI runs `semgrep scan`
-once and never starts one. CI's audit therefore carries one named exception, with this reason written next to it in `ci.yml`, to be removed when `semgrep` allows `mcp` 1.30.0 or later. It does not touch the runtime
-dependency, which is audited with no exceptions.
+Auditing the new hash-pinned lists found `mcp` 1.29.0 with GHSA-84m7-p3x7-pcfv (memory grows without limit in the stateful Streamable HTTP server transport, fixed in 1.30.0). `mcp` is a requirement of
+`semgrep` only, pinned there to exactly 1.29.0 (semgrep 1.181.0 requires the same). CI runs `semgrep scan` once and never starts an MCP server, so the vulnerable code is not reached. The CI audit step
+names this one vulnerability as an exception, with the reason next to it. Remove the exception when semgrep allows `mcp` 1.30.0 or later.
 
-## Tests and tools on the final tree
+## Tests and tools
 
-* Full suite: 567 tests, all passing locally. ruff clean. zizmor (strictest setting) reports nothing. `tools/security_checks.py` output is beside this report.
-* Not yet seen: the CI run on the fixed code. That needs the owner to push.
+* Full suite: 567 tests passing locally; ruff clean; zizmor (strictest setting) no findings; `tools/security_checks.py` output beside this report.
+* Not yet seen on GitHub: the fixes above. The first run after pushing them is the real test, particularly the hash-pinned installs of about 90 packages in the lint job.
 
-## Suppressions added / removed, SSDF practices touched
+## Root causes
 
-None added or removed in code (the single audit exception is a CI option, recorded above). PS.1, PW.7, PW.8, RV.1.
-
-## Root causes and what keeps them from coming back
-
-* **A test that pinned an interpreter detail** (CP19-01): it demanded one specific outcome from behaviour that varies by Python build. Prevention: test the requirement (no other exception), not the implementation; CI runs two Python versions for exactly this reason.
-* **Unpinned installs in workflows** (alerts 3-6): the runtime dependency was pinned and the tools were not. Prevention: every `pip install` in a workflow reads a hashed file; Scorecard will flag a new unpinned one.
-
-## Limits
-
-* The Scorecard alerts about process (branch rules, review, age, fuzzing, badge) describe the repository as it is; most are settings or time, not code.
-* A first run catches what a local rehearsal misses, but the release workflow has still never run. It will run for the first time on the first version tag.
+* A test that fixed one Python's behaviour instead of the property that matters. Prevention: test the property (a clean error or a normal result).
+* Installing tools without hashes while the policy said everything is pinned. Prevention: every `pip install` in the workflows now uses a hash file.
