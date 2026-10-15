@@ -48,13 +48,25 @@ class CmlPackTests(unittest.TestCase):
             return set(re.findall(r"^\s*(?:- )?([A-Za-z_][A-Za-z0-9_]*):", text, re.M))
 
         real = (ROOT / "tests" / "fixtures" / "cml-lab-export-0.3.1.yaml").read_text(encoding="utf-8")
-        self.assertEqual(keys(generated), keys(real), "the lab file must use CML's own format, with nothing added or missing")
+        self.assertEqual(keys(tool.lab_file(with_host_config=False)), keys(real), "the lab file must use CML's own format, with nothing added or missing")
+        self.assertEqual(keys(generated) - keys(real), {"name", "content"}, "the only addition is the node.cfg entry of a node")
         self.assertEqual(len(re.findall(r"^  - boot_disk_size:", generated, re.M)), 5)
         self.assertEqual(len(re.findall(r"^  - id: \"l\d\"", generated, re.M)), 4)
         for info in tool.LAB.values():                                    # each host is linked to the ASA port its address is configured on
             index = ["GigabitEthernet0/0", "GigabitEthernet0/1", "GigabitEthernet0/2", "GigabitEthernet0/3"].index(info["port"]) + 1
             self.assertIn(f'label: "rtasa-{info["port"]}<->{info["host"]}-eth0"', generated)
             self.assertRegex(generated, rf'i1: "i{index}"\n    i2: "i0"\n    conditioning: {{}}\n    label: "rtasa-{info["port"]}')
+
+    def test_each_host_boot_script_sets_its_own_address_gateway_and_listener(self):
+        tool = load_tool()
+        generated = tool.lab_file()
+        for info in tool.LAB.values():
+            script = tool.host_script(info)
+            self.assertIn(f"hostname {info['host']}", script)
+            self.assertIn(f"ip addr add {info['ip']}/24 dev eth0", script)
+            self.assertIn(f"ip route add default via {info['asa']}", script)
+            self.assertIn("nc -l -p 443", script)
+            self.assertIn(f"ip addr add {info['ip']}/24 dev eth0", generated.replace("\\n", "\n"))
 
 
 if __name__ == "__main__":

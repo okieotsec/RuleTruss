@@ -28,13 +28,15 @@ The lab file follows the format a CML 2.10 server exported for the author; the o
 
 ## Steps
 
-1. In CML, **import** `samples/cml-test/rt-asa-test-lab.yaml` (on the Dashboard, the import option; it asks for a file). It creates the five nodes already linked:
+1. In CML, **import** `samples/cml-test/rt-asa-test-lab.yaml` (if CML refuses it, try `rt-asa-test-lab-topology-only.yaml`, the same lab without the host boot scripts, and tell me the error) (on the Dashboard, the import option; it asks for a file). It creates the five nodes already linked:
    the ASAv is `rtasa` and the four Alpine hosts are `h-lan`, `h-wifi`, `h-cam`, `h-ext`. The lab file is in the format your own CML 2.10 exports (version 0.3.1).
    Start the lab. Wait until the ASAv has finished booting.
 2. Open the ASAv console. Enter privileged mode (`enable`; on a fresh ASAv the password is empty, press Enter) and then `configure terminal`.
 3. Paste the contents of `samples/cml-test/asa-config.txt`. Some ASAv versions print warnings while pasting; copy any error line into your report.
 4. Check: `show running-config access-list` should list the `RT-...-IN` lists, and `show running-config access-group` should show one `in interface` line for each of `lan`, `wifi`, `cameras`, `outside`.
-5. On each Alpine host, open the console and set its address, then start a listener on port 443 (so that an allowed connection is answered):
+5. The imported lab already gives each Alpine host its address, gateway and a TCP 443 listener through its `node.cfg` boot script. Check one: open `h-lan`'s console
+   (login `cisco`, password `cisco`, the node's own default, for this isolated lab only) and run `ip addr show eth0` and `ip route`. If the address and default route are not there
+   (for example if you imported `rt-asa-test-lab-topology-only.yaml` instead), set them by hand on each host:
 
 ```
 # h-lan

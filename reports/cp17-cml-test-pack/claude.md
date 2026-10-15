@@ -16,8 +16,10 @@ Commit: the one that adds this report. No review finding is being fixed here; th
 
 The owner built one ASAv and one Alpine node in their own CML 2.10 server and sent the exported lab file (schema version 0.3.1). It is kept as `tests/fixtures/cml-lab-export-0.3.1.yaml`.
 `tools/make_cml_pack.py` now also writes `samples/cml-test/rt-asa-test-lab.yaml`: one ASAv (`rtasa`) and four Alpine hosts linked to `GigabitEthernet0/0` to `0/3`, in the same format, so it can be imported
-instead of built by hand. A test checks that its keys are exactly the keys of the real export and that each host is linked to the ASA port its address is configured on. The file has not been imported
-into CML yet, and no YAML library was available to parse it independently; its format follows the real export.
+instead of built by hand. A test checks that its keys are exactly the keys of the real export and that each host is linked to the ASA port its address is configured on. The owner also showed the Config tab of an Alpine node: a boot script, `node.cfg`, that CML sources at boot (it holds the hostname and the default login). The lab file now
+carries one per host, setting its name, address, default route and a TCP 443 listener, in CML's `configuration: [name, content]` form; a second file, `rt-asa-test-lab-topology-only.yaml`,
+has the same lab without them, as a fallback if CML refuses the first. Neither has been imported into CML yet, and no YAML library was available to parse them independently. The ASAv's own
+configuration file name is not known yet (the owner can read it from the ASAv's Config tab), so the ASA configuration is still pasted into its console.
 
 ## Two points about CML-Free from Cisco's page (seen by the owner)
 
