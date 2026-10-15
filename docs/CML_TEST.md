@@ -9,7 +9,7 @@ for something else. The ASAv was unlicensed, which Cisco limits to 100 Kbps of t
 VPN, traffic to the firewall itself, other configurations, or a physical ASA, and the expected column is this tool's own evaluation of the source policy, not an independent oracle. The earlier checks
 (CP12) used this project's evaluator and the independent parser Batfish.
 
-The lab file follows the format a CML 2.10 server exported for the author; the other CML steps below are from general knowledge and may differ from your screen. Where they do, trust the screen and tell me.
+The lab file follows the layout of the lab files CML 2.10 writes (lab file version 0.3.1); the other CML steps below are from general knowledge and may differ from your screen. Where they do, trust the screen and tell me.
 
 ## The lab (5 nodes, which is the CML-Free limit)
 
