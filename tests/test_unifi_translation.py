@@ -343,6 +343,10 @@ class ReviewFindingTests(unittest.TestCase):
         probe = Probe("10.0.250.5", "198.51.100.5", "tcp", 40000, 443, src_zone="Isolation", dst_zone="External")
         self.assertNotEqual(evaluate(parsed, probe).outcome, ALLOW, "the rule excludes TCP, so it cannot be what allows this TCP connection")
 
+    def test_the_asa_translation_warns_that_icmp_replies_need_inspection(self):
+        result = self.run_translation(self.doc())
+        self.assertTrue(any(i["code"] == "icmp-inspection" and "inspect icmp" in i["message"] for i in result["issues"]))
+
     def test_the_validation_headline_never_claims_agreement_without_comparing_anything(self):
         from ruletruss.migrate import validate
         base = {"target_broader": 0, "target_narrower": 0, "cases": 10, "compared": 0, "not_compared": 10}
