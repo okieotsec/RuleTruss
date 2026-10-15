@@ -30,6 +30,20 @@ configuration file name is not known yet (the owner can read it from the ASAv's 
 
 * Full suite: 559 tests, all passing. ruff clean. `tools/security_checks.py`: all six scanners 0 findings; suppression gate 0 findings (70, all in the baseline). No suppression added.
 
+## Result of the first run (2026-10-15)
+
+The owner built the lab in their own Proxmox and CML-Free 2.10.1 (imported the OVA and the reference images, then the lab file from this checkpoint), pasted `samples/cml-test/asa-config.txt`
+into the ASAv, ran the per-host test scripts on the four Alpine hosts, and sent screenshots. **All 24 connections behaved as the UniFi policy says: 24 of 24 matched** (recorded in
+`samples/cml-test/results-2026-10-15.csv`). That includes the owner's own scenario: the phones' network reaches the cameras' network (ping and TCP 443) and the cameras cannot reach the phones' network,
+nothing from outside reaches the inside, and the inside reaches out. The ASAv's `show access-list` hit counts agree with the test results (hits on the expected deny and permit lines, none on the lines
+that should not have been hit).
+
+Along the way: one host's test script was pasted on the wrong host (the output was labelled with the other host's name); the results were re-collected from the right hosts, and a test now ties
+the recorded results to the configuration that was tried. The first listener design depended on the exit status of Alpine's `nc`; it was changed to a banner the listener sends, which does not.
+
+Not yet done: the ASAv's software version was not recorded, and the ICMP-inspection question (does the ASAv drop ping replies without `inspect icmp`, as the new warning says) has not been tested in the lab.
+The warning stays, but is unconfirmed, until it is.
+
 ## Limits
 
 * Nothing has been run on an ASA yet. The CML steps in the pack are from general knowledge and may differ on screen. A pass covers 24 connections of one small example and does not cover NAT, routing, VPN, traffic to the
