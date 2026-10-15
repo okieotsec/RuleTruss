@@ -15,7 +15,7 @@ const proc = spawn(chromium, ["--headless=new", "--disable-gpu", "--no-sandbox",
   "--window-size=1300,1000", "about:blank"], { env, stdio: ["ignore", "ignore", "pipe"] });
 
 const wsUrl = await new Promise((resolve, reject) => {
-  let buf = ""; const t = setTimeout(() => reject(new Error("browser did not start")), 20000);
+  let buf = ""; const t = setTimeout(() => reject(new Error("browser did not start")), 90000);   // a shared build machine can be slow to start a browser
   proc.stderr.on("data", (d) => { buf += d; const m = buf.match(/DevTools listening on (ws:\/\/\S+)/); if (m) { clearTimeout(t); resolve(m[1]); } });
 });
 const port = new URL(wsUrl).port;

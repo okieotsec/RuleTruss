@@ -8,7 +8,7 @@
 
 ## Reporting a vulnerability
 
-Please report suspected vulnerabilities **privately**, not in a public issue. Use the repository's private vulnerability reporting once it is published. Include the version
+Please report suspected vulnerabilities **privately**, not in a public issue. Use GitHub's private vulnerability reporting for this repository: <https://github.com/okieotsec/RuleTruss/security/advisories/new> (the "Report a vulnerability" button on the Security tab). If that is not available, open an issue that says only that you have a security report and ask for a private way to send it; put no details in the issue. Include the version
 (`python -m ruletruss --version`), what you did, what you expected and what happened. A synthetic sample file that triggers the problem is the most useful thing to
 send. **Never send real captures or real configuration exports.**
 
