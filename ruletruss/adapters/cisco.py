@@ -13,7 +13,7 @@ import re
 
 from .. import limits, netutil
 from ..model import AddrSet, NatRule, PolicySet, Rule, ServiceSet, SvcEntry
-from .common import Lines, Resolver, cap_expansion, dedupe
+from .common import Lines, Resolver, cap_expansion, dedupe, spend_visit
 
 ICMP_TYPES = {"echo-reply": (0, None), "unreachable": (3, None), "net-unreachable": (3, 0), "host-unreachable": (3, 1),
               "protocol-unreachable": (3, 2), "port-unreachable": (3, 3), "packet-too-big": (3, 4),
@@ -206,10 +206,14 @@ class _Parser:
             return [(lo, hi)], i + 3
         if op == "gt":
             p = netutil.port_number(tokens[i + 1])
-            return ([(p + 1, 65535)] if p < 65535 else []), i + 2
+            if p >= 65535:
+                raise netutil.ParseProblem("no port is greater than 65535")        # an empty list would read as 'any port'
+            return [(p + 1, 65535)], i + 2
         if op == "lt":
             p = netutil.port_number(tokens[i + 1])
-            return ([(0, p - 1)] if p > 0 else []), i + 2
+            if p <= 0:
+                raise netutil.ParseProblem("no port is less than 0")
+            return [(0, p - 1)], i + 2
         if op == "neq":
             p = netutil.port_number(tokens[i + 1])
             out = ([(0, p - 1)] if p > 0 else []) + ([(p + 1, 65535)] if p < 65535 else [])
@@ -218,6 +222,8 @@ class _Parser:
 
     def service_entries(self, name, depth=0, seen=()):
         """Resolve an object-group service / object service to SvcEntry list. Returns (entries, unresolved)."""
+        if not spend_visit(self, depth, name, self.issue):
+            return [], [name]
         if name in seen or depth > limits.MAX_OBJECT_DEPTH:
             self.issue("warning", "group-cycle", f"service group {name} is nested too deeply or contains itself")
             return [], [name]
@@ -371,8 +377,11 @@ class _Parser:
             return
         inz, outz, kind, rest = m.groups()
         mapped = rest.split()[0] if rest else ""
-        translated = AddrSet(nets=[str(netutil.parse_ip_or_net(mapped))], refs=[mapped]) if re.fullmatch(
-            r"[\d.]+", mapped) else AddrSet(unresolved=[rest], refs=[rest])
+        try:
+            translated = AddrSet(nets=[str(netutil.parse_ip_or_net(mapped))], refs=[mapped]) if re.fullmatch(
+                r"[\d.]+", mapped) else AddrSet(unresolved=[rest], refs=[rest])
+        except netutil.ParseProblem:                      # '1.2.3' is made of digits and dots but is not an address
+            translated = AddrSet(unresolved=[rest], refs=[rest])
         self.policy.nat_rules.append(NatRule(
             nat_id=f"{self.source_id}#nat{len(self.policy.nat_rules) + 1}", kind=kind,
             original_src=AddrSet(nets=list(own_nets), refs=[obj_name], unresolved=[] if own_nets else [f"object {obj_name}"]),

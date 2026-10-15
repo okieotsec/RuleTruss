@@ -47,7 +47,7 @@ def _iter_records(path, stats):
             if len(line) > MAX_LINE:
                 stats.errors += 1
                 continue
-            line = line.rstrip("\n")
+            line = line.rstrip("\r\n")
             if not line:
                 continue
             if kind == "json":
@@ -124,8 +124,10 @@ def parse_conn_log(path, capture_id, source_id, filename, observation_point=""):
         stats.read += 1
         try:
             ts = float(rec["ts"])
-            if not math.isfinite(ts):
-                raise ValueError("timestamp is not a finite number")
+            if not math.isfinite(ts) or not 0 < ts < 4_102_444_800:          # year 2100: later exports turn it into a date
+                raise ValueError("timestamp is not a plausible time")
+            if not isinstance(rec["orig_h"], str) or not isinstance(rec["resp_h"], str):          # JSON 1 and true are not addresses
+                raise ValueError("address is not text")
             src, dst = str(ipaddress.ip_address(rec["orig_h"])), str(ipaddress.ip_address(rec["resp_h"]))
             sport, dport = _port(rec["orig_p"]), _port(rec["resp_p"])
             duration = _duration(rec["duration"])
@@ -141,8 +143,8 @@ def parse_conn_log(path, capture_id, source_id, filename, observation_point=""):
             break
         v6 = ":" in src
         flow_proto = "icmp6" if proto == "icmp" and v6 else proto
-        history = rec["history"] or ""
-        state = rec["conn_state"] or ""
+        history = limits.clip(rec["history"] or "", 40)
+        state = limits.clip(rec["conn_state"] or "", 40)
         notes = ["Direction is Zeek's own inference (conn.log originator), not re-derived from packets."]
         if proto == "tcp":
             if "S" in history and "h" in history:
@@ -161,7 +163,7 @@ def parse_conn_log(path, capture_id, source_id, filename, observation_point=""):
         else:
             conf, basis = ("high", ["ICMP echo request"]) if sport in (8, 128) else ("unknown", ["ICMP message"])
         apps = []
-        for name in (rec["service"] or "").split(","):
+        for name in (rec["service"] or "").split(",")[:8]:               # a few analyzer names are real; thousands are not
             if name:
                 apps.append(AppGuess(limits.clip(name, 40), "probable", "reported by Zeek's protocol analyzer "
                                      "(conn.log service column); not independently decoded here"))

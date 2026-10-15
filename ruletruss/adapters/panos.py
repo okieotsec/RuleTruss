@@ -12,7 +12,7 @@ import ipaddress
 
 from .. import limits, netutil
 from ..model import AddrSet, Evidence, NatRule, PolicySet, Rule, ServiceSet, SvcEntry
-from .common import cap_expansion, dedupe
+from .common import cap_expansion, dedupe, spend_visit
 from .xmlsafe import members, parse_xml, snippet, text
 
 # Built-in services documented by Palo Alto Networks. Anything else with application-default is undecidable here.
@@ -34,6 +34,7 @@ class _Parser:
                                 default_action="deny", default_basis="interzone-default deny / intrazone-default allow",
                                 address_context="original-packet")
         self.addresses, self.groups, self.services, self.service_groups = {}, {}, {}, {}
+        self.unreadable_services = set()
         self.seen = set()
 
     def issue(self, severity, code, message, name=None):
@@ -74,12 +75,15 @@ class _Parser:
                         entries.append(SvcEntry(proto, sports, dports))
                     except netutil.ParseProblem:
                         self.issue("warning", "service-parse", f"service {name!r} has a port list that could not be read")
+                        self.unreadable_services.add(name)
             self.services[name] = entries
         for entry in scope.findall("service-group/entry"):
             self.service_groups[entry.get("name", "")] = members(entry, "members")
 
     def address_nets(self, name, depth=0, seen=()):
         """Resolve an address object or group. Returns (nets, unresolved)."""
+        if not spend_visit(self, depth, name, self.issue):
+            return [], [name]
         if name in seen or depth > limits.MAX_OBJECT_DEPTH:
             self.issue("warning", "group-cycle", f"address group {name!r} is nested too deeply or contains itself")
             return [], [name]
@@ -128,12 +132,14 @@ class _Parser:
         return AddrSet(nets=dedupe(nets), unresolved=dedupe(unresolved), negate=negate, refs=list(names))
 
     def service_entries(self, name, depth=0, seen=()):
+        if not spend_visit(self, depth, name, self.issue):
+            return [], [name]
         if name in seen or depth > limits.MAX_OBJECT_DEPTH:
             return [], [name]
         if name in BUILTIN_SERVICES:
             return list(BUILTIN_SERVICES[name]), []
         if name in self.services:
-            return list(self.services[name]), []
+            return list(self.services[name]), ([f"service {name} (unreadable port list)"] if name in self.unreadable_services else [])
         if name in self.service_groups:
             entries, unresolved = [], []
             for member in self.service_groups[name]:

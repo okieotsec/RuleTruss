@@ -355,5 +355,161 @@ class IcmpCodeTests(unittest.TestCase):
         self.assertEqual(sorted(probe_for(c, build_context(), policy).icmp_code for c in comms), [1, 3])
 
 
+class CopilotParserTests(unittest.TestCase):
+    """Defects a Copilot review found in the parsers (CP16), each reduced to a small input."""
+
+    def small_budget(self):
+        saved = getattr(limits, "MAX_VISITS", None)
+        limits.MAX_VISITS = 1000
+        self.addCleanup(lambda: setattr(limits, "MAX_VISITS", saved) if saved is not None else delattr(limits, "MAX_VISITS"))
+
+    def test_groups_that_list_each_other_many_times_stop_at_a_lookup_budget(self):
+        self.small_budget()
+        cisco = ["hostname r", "object-group network G0", " network-object host 10.0.0.1"]
+        for i in range(1, 7):
+            cisco += [f"object-group network G{i}"] + [f" group-object G{i - 1}"] * 6
+        cisco.append("access-list A extended permit ip object-group G6 any")
+        forti = ("config firewall address\n edit A0\n  set subnet 10.0.0.1 255.255.255.255\n next\nend\nconfig firewall addrgrp\n"
+                 + "".join(f" edit G{i}\n  set member {' '.join([f'G{i - 1}' if i > 1 else 'A0'] * 6)}\n next\n" for i in range(1, 7))
+                 + "end\nconfig firewall policy\n edit 1\n  set srcintf lan\n  set dstintf wan\n  set srcaddr G6\n  set dstaddr all\n"
+                   "  set action accept\n  set service ALL\n next\nend\n")
+        panos_groups = "".join(f'<entry name="G{i}"><static>' + (f"<member>{'A0' if i == 1 else f'G{i - 1}'}</member>" * 6) + "</static></entry>"
+                               for i in range(1, 7))
+        panos = ('<config><devices><entry name="localhost.localdomain"><vsys><entry name="vsys1">'
+                 '<address><entry name="A0"><ip-netmask>10.0.0.1</ip-netmask></entry></address>'
+                 f"<address-group>{panos_groups}</address-group>"
+                 '<rulebase><security><rules><entry name="r"><from><member>any</member></from><to><member>any</member></to>'
+                 '<source><member>G6</member></source><destination><member>any</member></destination>'
+                 '<application><member>any</member></application><service><member>any</member></service><action>allow</action></entry>'
+                 "</rules></security></rulebase></entry></vsys></entry></devices></config>")
+        aliases = '<alias><name>A0</name><type>host</type><address>10.0.0.1</address></alias>' + "".join(
+            f"<alias><name>A{i}</name><type>network</type><address>{' '.join([f'A{i - 1}'] * 6)}</address></alias>" for i in range(1, 7))
+        pf = ("<pfsense><interfaces><lan><if>em0</if><ipaddr>10.0.0.1</ipaddr><subnet>24</subnet></lan></interfaces>"
+              f"<aliases>{aliases}</aliases><filter><rule><type>pass</type><interface>lan</interface><ipprotocol>inet</ipprotocol>"
+              "<protocol>any</protocol><source><address>A6</address></source><destination><any/></destination><tracker>1</tracker></rule>"
+              "</filter></pfsense>")
+        for text, fmt in (("\n".join(cisco) + "\n", "cisco-asa"), (forti, "fortios"), (panos, "panos"), (pf, "pfsense")):
+            with self.subTest(fmt):
+                self.assertIn("group-too-large", codes(parse(text, fmt)))
+
+    def test_a_port_alias_that_lists_itself_is_a_cycle_not_a_deep_recursion(self):
+        text = ("<pfsense><interfaces><lan><if>em0</if><ipaddr>10.0.0.1</ipaddr><subnet>24</subnet></lan></interfaces>"
+                "<aliases><alias><name>P</name><type>port</type><address>P P P P</address></alias></aliases><filter><rule><type>pass</type>"
+                "<interface>lan</interface><ipprotocol>inet</ipprotocol><protocol>tcp</protocol><source><any/></source>"
+                "<destination><any/><port>P</port></destination><tracker>1</tracker></rule></filter></pfsense>")
+        saved = limits.MAX_OBJECT_DEPTH
+        limits.MAX_OBJECT_DEPTH = 6
+        self.addCleanup(setattr, limits, "MAX_OBJECT_DEPTH", saved)
+        self.assertIn("group-cycle", codes(parse(text, "pfsense")))
+
+    def test_a_service_whose_ports_cannot_be_read_is_unresolved_not_a_service_that_matches_nothing(self):
+        forti = ("config firewall service custom\n edit S1\n  set tcp-portrange 80x\n next\n edit S2\n  set protocol weird\n next\nend\n"
+                 "config firewall policy\n edit 1\n  set srcintf lan\n  set dstintf wan\n  set srcaddr all\n  set dstaddr all\n"
+                 "  set action accept\n  set service S1 S2\n next\nend\n")
+        rule = parse(forti, "fortios").rules[0]
+        self.assertTrue(any("S1" in u for u in rule.svc.unresolved) and any("S2" in u for u in rule.svc.unresolved), rule.svc.unresolved)
+        panos = ('<config><devices><entry name="localhost.localdomain"><vsys><entry name="vsys1">'
+                 '<service><entry name="S1"><protocol><tcp><port>80x</port></tcp></protocol></entry></service>'
+                 '<rulebase><security><rules><entry name="r"><from><member>any</member></from><to><member>any</member></to>'
+                 '<source><member>any</member></source><destination><member>any</member></destination>'
+                 '<application><member>any</member></application><service><member>S1</member></service><action>allow</action></entry>'
+                 "</rules></security></rulebase></entry></vsys></entry></devices></config>")
+        self.assertTrue(any("S1" in u for u in parse(panos, "panos").rules[0].svc.unresolved))
+
+    def test_a_port_test_that_matches_no_port_is_not_read_as_any_port(self):
+        for tail in ("gt 65535", "lt 0"):
+            with self.subTest(tail):
+                text = f"hostname r\naccess-list A extended permit tcp any any {tail}\n"
+                rules = parse(text, "cisco-asa").rules
+                self.assertTrue(all(r.unsupported for r in rules), "an unreadable port test makes the rule undecidable")
+
+    def test_unifi_port_filters_that_exclude_everything_or_contain_odd_items_are_not_read_as_any_port(self):
+        base = json.loads(unifi_zones.text(False))
+        template = next(p for p in base["policies"] if p["name"] == "Isolated internet")
+        cases = {
+            "excludes every port": {"type": "PORTS", "matchOpposite": True, "items": [{"type": "PORT_NUMBER_RANGE", "start": 1, "stop": 65535}]},
+            "a port outside the range": {"type": "PORTS", "matchOpposite": False, "items": [{"type": "PORT_NUMBER", "value": 443},
+                                                                                           {"type": "PORT_NUMBER", "value": 70000}]},
+        }
+        for label, port_filter in cases.items():
+            with self.subTest(label):
+                doc = json.loads(json.dumps(base))
+                policy = next(p for p in doc["policies"] if p["id"] == template["id"])
+                policy["destination"]["trafficFilter"] = {"type": "PORT", "portFilter": port_filter}
+                rule = next(r for r in parse(json.dumps(doc), "unifi").rules if r.original_id == "Isolated internet")
+                self.assertTrue(rule.unsupported or rule.svc.unresolved, "the rule must not read as 'any port'")
+
+    def test_a_json_infinity_is_a_bad_port_not_a_crash(self):
+        base = json.loads(unifi_zones.text(False))
+        policy = next(p for p in base["policies"] if p["name"] == "Isolated internet")
+        policy["destination"]["trafficFilter"]["portFilter"]["items"][0]["value"] = "__INF__"
+        text = json.dumps(base).replace('"__INF__"', "Infinity")
+        self.assertTrue(parse(text, "unifi").rules)
+
+    def test_unbalanced_fortios_nesting_is_refused_not_a_recursion_error(self):
+        with self.assertRaises(ValueError):
+            parse("config firewall policy\nend\n" + "end\n" * 1500 + "config x\n" * 1500, "fortios")
+
+    def test_appending_to_a_fortios_list_is_not_quadratic(self):
+        import time
+
+        from ruletruss.adapters import fortios
+        from ruletruss.adapters.common import Lines
+        text = "config firewall addrgrp\n edit G\n  set member a\n" + "  append member x\n" * 100_000 + " next\nend\n"
+        start = time.monotonic()
+        tree = fortios.build_tree(Lines(text, "x"))
+        self.assertLess(time.monotonic() - start, 5)
+        group = tree.sections[0].entries[0]
+        self.assertEqual(len(group.sets["member"]), 100_001)
+
+    def test_cisco_nat_with_a_malformed_address_is_a_warning_not_a_failed_import(self):
+        text = "hostname r\nobject network X\n host 10.0.0.1\n nat (inside,outside) static 1.2.3\n"
+        parse(text, "cisco-asa")
+
+    def test_zeek_rows_with_implausible_times_or_non_text_addresses_are_errors_and_crlf_files_read(self):
+        head = ("#separator \\x09\r\n#fields\tts\tuid\tid.orig_h\tid.orig_p\tid.resp_h\tid.resp_p\tproto\tservice\tduration\torig_bytes\tresp_bytes"
+                "\tconn_state\thistory\torig_pkts\tresp_pkts\r\n")
+        rows = ("1e300\tC1\t10.0.0.1\t1000\t10.0.0.2\t80\ttcp\t-\t1.0\t1\t1\tSF\tShADadFf\t1\t1\r\n"
+                "1700000000.0\tC2\t10.0.0.1\t1000\t10.0.0.2\t443\ttcp\t" + ",".join(f"svc{i}" for i in range(500))
+                + "\t1.5\t1\t1\tSF\tShADadFf\t1\t1\r\n")
+        handle, path = tempfile.mkstemp(suffix=".log")
+        with os.fdopen(handle, "w", newline="") as out:
+            out.write(head + rows)
+        self.addCleanup(os.unlink, path)
+        _, flows = zeek.parse_conn_log(path, "z", "s", "conn.log")
+        self.assertEqual([f.responder_port for f in flows], [443])
+        self.assertLessEqual(len(flows[0].apps), 8)
+        handle, path2 = tempfile.mkstemp(suffix=".log")
+        with os.fdopen(handle, "w") as out:
+            out.write('{"ts":1700000000.0,"uid":"C1","id.orig_h":1,"id.orig_p":1000,"id.resp_h":"10.0.0.2","id.resp_p":80,"proto":"tcp"}\n')
+        self.addCleanup(os.unlink, path2)
+        self.assertEqual(zeek.parse_conn_log(path2, "z", "s", "conn.log")[1], [])
+
+    def test_a_huge_unifi_address_list_stops_at_the_expansion_limit(self):
+        saved = limits.MAX_EXPANSION
+        limits.MAX_EXPANSION = 100
+        self.addCleanup(setattr, limits, "MAX_EXPANSION", saved)
+        base = json.loads(unifi_zones.text(False))
+        items = [{"type": "IP_ADDRESS_RANGE", "start": f"10.{i}.0.1", "stop": f"10.{i}.200.250"} for i in range(50)]
+        base["traffic_matching_lists"] = [{"id": "aaaaaaaa-0000-4000-8000-000000000001", "name": "big", "type": "IPV4_ADDRESSES", "items": items}]
+        policy = next(p for p in base["policies"] if p["name"] == "Isolated internet")
+        policy["source"]["trafficFilter"] = {"type": "IP_ADDRESS", "ipAddressFilter": {"type": "TRAFFIC_MATCHING_LIST", "matchOpposite": False,
+                                                                                     "trafficMatchingListId": "aaaaaaaa-0000-4000-8000-000000000001"}}
+        parsed = parse(json.dumps(base), "unifi")
+        self.assertIn("group-too-large", codes(parsed))
+
+    def test_two_zones_whose_names_clean_to_the_same_text_keep_separate_access_lists(self):
+        def entry(name, zone, action):
+            return (f'<entry name="{name}"><from><member>{zone}</member></from><to><member>any</member></to><source><member>any</member></source>'
+                    f'<destination><member>any</member></destination><application><member>any</member></application>'
+                    f'<service><member>any</member></service><action>{action}</action></entry>')
+        text = ('<config><devices><entry name="localhost.localdomain"><vsys><entry name="vsys1"><rulebase><security><rules>'
+                + entry("web-allow", "DMZ Web", "allow") + entry("web2-deny", "DMZ_Web", "deny")
+                + "</rules></security></rulebase></entry></vsys></entry></devices></config>")
+        out = render(translate_policy(parse(text, "panos"), "cisco-asa", zone_map={}), "cisco-asa")
+        names = {m for m in re.findall(r"access-list (RT-\S+) ", out) if m != "RT-GLOBAL"}
+        self.assertEqual(len(names), 2, names)
+
+
 if __name__ == "__main__":
     unittest.main()
