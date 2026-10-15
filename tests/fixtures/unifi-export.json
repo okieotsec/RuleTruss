@@ -1,0 +1,1092 @@
+{
+ "ruletruss_unifi_export": 1,
+ "exported_at": "2026-10-13T12:00:00Z",
+ "application_version": "10.3.58",
+ "site": {
+  "id": "00000000-0000-4000-8000-000000000900",
+  "name": "Default",
+  "internalReference": "default"
+ },
+ "zones": [
+  {
+   "id": "00000000-0000-4000-8000-000000000001",
+   "name": "Internal",
+   "networkIds": [
+    "00000000-0000-4000-8000-000000000101",
+    "00000000-0000-4000-8000-000000000102",
+    "00000000-0000-4000-8000-000000000106"
+   ],
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000002",
+   "name": "External",
+   "networkIds": [],
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000003",
+   "name": "Gateway",
+   "networkIds": [],
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000004",
+   "name": "Vpn",
+   "networkIds": [],
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000005",
+   "name": "Hotspot",
+   "networkIds": [],
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000006",
+   "name": "DMZ",
+   "networkIds": [
+    "00000000-0000-4000-8000-000000000104"
+   ],
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000007",
+   "name": "IoT",
+   "networkIds": [
+    "00000000-0000-4000-8000-000000000103"
+   ],
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  }
+ ],
+ "policies": [
+  {
+   "id": "00000000-0000-4000-8000-000000001001",
+   "name": "Allow All Traffic",
+   "description": "",
+   "enabled": true,
+   "index": 2147483647,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": true
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000002"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001002",
+   "name": "Block All Traffic",
+   "description": "",
+   "enabled": true,
+   "index": 2147483647,
+   "loggingEnabled": false,
+   "action": {
+    "type": "BLOCK"
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000002"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001003",
+   "name": "Allow Return Traffic",
+   "description": "",
+   "enabled": true,
+   "index": 9000,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000002"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "DERIVED"
+   },
+   "connectionStateFilter": [
+    "ESTABLISHED",
+    "RELATED"
+   ]
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001004",
+   "name": "Allow All Traffic",
+   "description": "",
+   "enabled": true,
+   "index": 2147483647,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001005",
+   "name": "IoT to NAS web",
+   "description": "",
+   "enabled": true,
+   "index": 1,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000007"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000001",
+    "trafficFilter": {
+     "type": "IP_ADDRESS",
+     "ipAddressFilter": {
+      "type": "IP_ADDRESSES",
+      "matchOpposite": false,
+      "items": [
+       {
+        "type": "IP_ADDRESS",
+        "value": "10.10.10.5"
+       }
+      ]
+     },
+     "portFilter": {
+      "type": "TRAFFIC_MATCHING_LIST",
+      "trafficMatchingListId": "00000000-0000-4000-8000-000000000201",
+      "matchOpposite": false
+     }
+    }
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6",
+    "protocolFilter": {
+     "type": "NAMED_PROTOCOL",
+     "matchOpposite": false,
+     "protocol": {
+      "name": "TCP"
+     }
+    }
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001006",
+   "name": "Block IoT to LAN",
+   "description": "",
+   "enabled": true,
+   "index": 2,
+   "loggingEnabled": false,
+   "action": {
+    "type": "BLOCK"
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000007"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001007",
+   "name": "Admins to IoT",
+   "description": "",
+   "enabled": true,
+   "index": 1,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001",
+    "trafficFilter": {
+     "type": "IP_ADDRESS",
+     "ipAddressFilter": {
+      "type": "TRAFFIC_MATCHING_LIST",
+      "trafficMatchingListId": "00000000-0000-4000-8000-000000000202",
+      "matchOpposite": false
+     }
+    }
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000007"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001008",
+   "name": "IoT vendor cloud",
+   "description": "",
+   "enabled": true,
+   "index": 0,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000007"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000002",
+    "trafficFilter": {
+     "type": "DOMAIN",
+     "domainFilter": {
+      "type": "DOMAINS",
+      "domains": [
+       "cloud.camera-vendor.example"
+      ]
+     },
+     "portFilter": {
+      "type": "PORTS",
+      "matchOpposite": false,
+      "items": [
+       {
+        "type": "PORT_NUMBER",
+        "value": 443
+       }
+      ]
+     }
+    }
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6",
+    "protocolFilter": {
+     "type": "NAMED_PROTOCOL",
+     "matchOpposite": false,
+     "protocol": {
+      "name": "TCP"
+     }
+    }
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001009",
+   "name": "IoT DNS only",
+   "description": "",
+   "enabled": true,
+   "index": 1,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000007"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000002",
+    "trafficFilter": {
+     "type": "PORT",
+     "portFilter": {
+      "type": "PORTS",
+      "matchOpposite": false,
+      "items": [
+       {
+        "type": "PORT_NUMBER",
+        "value": 53
+       }
+      ]
+     }
+    }
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6",
+    "protocolFilter": {
+     "type": "PRESET",
+     "preset": "TCP_UDP"
+    }
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001010",
+   "name": "IoT block the rest",
+   "description": "",
+   "enabled": true,
+   "index": 2,
+   "loggingEnabled": false,
+   "action": {
+    "type": "BLOCK"
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000007"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000002"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001011",
+   "name": "Web to DMZ",
+   "description": "",
+   "enabled": true,
+   "index": 1,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000006",
+    "trafficFilter": {
+     "type": "NETWORK",
+     "networkFilter": {
+      "networkIds": [
+       "00000000-0000-4000-8000-000000000104"
+      ],
+      "matchOpposite": false
+     },
+     "portFilter": {
+      "type": "PORTS",
+      "matchOpposite": false,
+      "items": [
+       {
+        "type": "PORT_NUMBER",
+        "value": 443
+       }
+      ]
+     }
+    }
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6",
+    "protocolFilter": {
+     "type": "NAMED_PROTOCOL",
+     "matchOpposite": false,
+     "protocol": {
+      "name": "TCP"
+     }
+    }
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001012",
+   "name": "DMZ out of hours",
+   "description": "",
+   "enabled": true,
+   "index": 1,
+   "loggingEnabled": false,
+   "action": {
+    "type": "BLOCK"
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000006"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   },
+   "schedule": {
+    "mode": "EVERY_DAY",
+    "timeFilter": {
+     "startTime": "20:00",
+     "stopTime": "06:00"
+    }
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001013",
+   "name": "VPN to servers",
+   "description": "",
+   "enabled": true,
+   "index": 1,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000004",
+    "trafficFilter": {
+     "type": "VPN_SERVER",
+     "vpnServerFilter": {
+      "vpnServerIds": [
+       "00000000-0000-4000-8000-000000000301"
+      ],
+      "matchOpposite": false
+     }
+    }
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000001",
+    "trafficFilter": {
+     "type": "NETWORK",
+     "networkFilter": {
+      "networkIds": [
+       "00000000-0000-4000-8000-000000000102"
+      ],
+      "matchOpposite": false
+     }
+    }
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001014",
+   "name": "Region allow",
+   "description": "",
+   "enabled": true,
+   "index": 1,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000002",
+    "trafficFilter": {
+     "type": "REGION",
+     "regionFilter": {
+      "regions": [
+       "NL"
+      ]
+     }
+    }
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000006",
+    "trafficFilter": {
+     "type": "PORT",
+     "portFilter": {
+      "type": "PORTS",
+      "matchOpposite": false,
+      "items": [
+       {
+        "type": "PORT_NUMBER",
+        "value": 443
+       }
+      ]
+     }
+    }
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6",
+    "protocolFilter": {
+     "type": "NAMED_PROTOCOL",
+     "matchOpposite": false,
+     "protocol": {
+      "name": "TCP"
+     }
+    }
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001015",
+   "name": "Old rule (off)",
+   "description": "",
+   "enabled": false,
+   "index": 1,
+   "loggingEnabled": false,
+   "action": {
+    "type": "BLOCK"
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000002"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001016",
+   "name": "Reject telnet",
+   "description": "",
+   "enabled": true,
+   "index": 2,
+   "loggingEnabled": false,
+   "action": {
+    "type": "REJECT"
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000002",
+    "trafficFilter": {
+     "type": "PORT",
+     "portFilter": {
+      "type": "PORTS",
+      "matchOpposite": false,
+      "items": [
+       {
+        "type": "PORT_NUMBER",
+        "value": 23
+       }
+      ]
+     }
+    }
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6",
+    "protocolFilter": {
+     "type": "NAMED_PROTOCOL",
+     "matchOpposite": false,
+     "protocol": {
+      "name": "TCP"
+     }
+    }
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001017",
+   "name": "Streaming app",
+   "description": "",
+   "enabled": true,
+   "index": 3,
+   "loggingEnabled": false,
+   "action": {
+    "type": "BLOCK"
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000002",
+    "trafficFilter": {
+     "type": "APPLICATION",
+     "applicationFilter": {
+      "applicationIds": [
+       123
+      ]
+     }
+    }
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001018",
+   "name": "Not the lab range",
+   "description": "",
+   "enabled": true,
+   "index": 4,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000002",
+    "trafficFilter": {
+     "type": "IP_ADDRESS",
+     "ipAddressFilter": {
+      "type": "IP_ADDRESSES",
+      "matchOpposite": true,
+      "items": [
+       {
+        "type": "SUBNET",
+        "value": "203.0.113.0/24"
+       }
+      ]
+     },
+     "portFilter": {
+      "type": "PORTS",
+      "matchOpposite": true,
+      "items": [
+       {
+        "type": "PORT_NUMBER",
+        "value": 25
+       }
+      ]
+     }
+    }
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6",
+    "protocolFilter": {
+     "type": "NAMED_PROTOCOL",
+     "matchOpposite": false,
+     "protocol": {
+      "name": "TCP"
+     }
+    }
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001019",
+   "name": "Ping the gateway",
+   "description": "",
+   "enabled": true,
+   "index": 1,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000003"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV6",
+    "protocolFilter": {
+     "type": "NAMED_PROTOCOL",
+     "matchOpposite": false,
+     "protocol": {
+      "name": "ICMPV6",
+      "typenameFilter": "ECHO_REQUEST"
+     }
+    }
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001020",
+   "name": "Admin MAC to gateway",
+   "description": "",
+   "enabled": true,
+   "index": 2,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001",
+    "trafficFilter": {
+     "type": "MAC_ADDRESS",
+     "macAddressFilter": {
+      "macAddresses": [
+       "aa:bb:cc:00:00:01"
+      ]
+     }
+    }
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000003"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001021",
+   "name": "Strange protocol",
+   "description": "",
+   "enabled": true,
+   "index": 5,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000002"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6",
+    "protocolFilter": {
+     "type": "NAMED_PROTOCOL",
+     "matchOpposite": false,
+     "protocol": {
+      "name": "SOMETHING_NEW"
+     }
+    }
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001099",
+   "name": "Block Invalid Traffic",
+   "description": "",
+   "enabled": true,
+   "index": 8000,
+   "loggingEnabled": false,
+   "action": {
+    "type": "BLOCK"
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000002"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000001"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "connectionStateFilter": [
+    "INVALID"
+   ],
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001201",
+   "name": "Block Servers to LAN",
+   "description": "",
+   "enabled": true,
+   "index": 5,
+   "loggingEnabled": false,
+   "action": {
+    "type": "BLOCK"
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000001",
+    "trafficFilter": {
+     "type": "NETWORK",
+     "networkFilter": {
+      "networkIds": [
+       "00000000-0000-4000-8000-000000000102"
+      ],
+      "matchOpposite": false
+     }
+    }
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000001",
+    "trafficFilter": {
+     "type": "NETWORK",
+     "networkFilter": {
+      "networkIds": [
+       "00000000-0000-4000-8000-000000000101"
+      ],
+      "matchOpposite": false
+     }
+    }
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV4_AND_IPV6"
+   },
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001202",
+   "name": "Allow Neighbor Solicitations",
+   "description": "",
+   "enabled": true,
+   "index": 30002,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000002"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000003"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV6",
+    "protocolFilter": {
+     "type": "NAMED_PROTOCOL",
+     "matchOpposite": false,
+     "protocol": {
+      "name": "ICMPV6"
+     }
+    }
+   },
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000001203",
+   "name": "Allow Router Advertisements",
+   "description": "",
+   "enabled": true,
+   "index": 30003,
+   "loggingEnabled": false,
+   "action": {
+    "type": "ALLOW",
+    "allowReturnTraffic": false
+   },
+   "source": {
+    "zoneId": "00000000-0000-4000-8000-000000000002"
+   },
+   "destination": {
+    "zoneId": "00000000-0000-4000-8000-000000000003"
+   },
+   "ipProtocolScope": {
+    "ipVersion": "IPV6",
+    "protocolFilter": {
+     "type": "NAMED_PROTOCOL",
+     "matchOpposite": false,
+     "protocol": {
+      "name": "ICMPV6"
+     }
+    }
+   },
+   "metadata": {
+    "origin": "SYSTEM_DEFINED"
+   }
+  }
+ ],
+ "networks": [
+  {
+   "id": "00000000-0000-4000-8000-000000000101",
+   "name": "Default",
+   "enabled": true,
+   "management": "GATEWAY",
+   "vlanId": 1,
+   "default": true,
+   "metadata": {
+    "origin": "USER_DEFINED"
+   },
+   "ipv4Configuration": {
+    "autoScaleEnabled": false,
+    "hostIpAddress": "192.168.1.1",
+    "prefixLength": 24
+   },
+   "internetAccessEnabled": true,
+   "isolationEnabled": false,
+   "mdnsForwardingEnabled": false,
+   "cellularBackupEnabled": false,
+   "zoneId": null
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000102",
+   "name": "Servers",
+   "enabled": true,
+   "management": "GATEWAY",
+   "vlanId": 10,
+   "default": false,
+   "metadata": {
+    "origin": "USER_DEFINED"
+   },
+   "ipv4Configuration": {
+    "autoScaleEnabled": false,
+    "hostIpAddress": "10.10.10.1",
+    "prefixLength": 24
+   },
+   "internetAccessEnabled": true,
+   "isolationEnabled": false,
+   "mdnsForwardingEnabled": false,
+   "cellularBackupEnabled": false,
+   "zoneId": null
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000103",
+   "name": "IoT",
+   "enabled": true,
+   "management": "GATEWAY",
+   "vlanId": 20,
+   "default": false,
+   "metadata": {
+    "origin": "USER_DEFINED"
+   },
+   "ipv4Configuration": {
+    "autoScaleEnabled": false,
+    "hostIpAddress": "192.168.20.1",
+    "prefixLength": 24
+   },
+   "internetAccessEnabled": true,
+   "isolationEnabled": false,
+   "mdnsForwardingEnabled": false,
+   "cellularBackupEnabled": false,
+   "zoneId": null
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000104",
+   "name": "DMZ",
+   "enabled": true,
+   "management": "GATEWAY",
+   "vlanId": 50,
+   "default": false,
+   "metadata": {
+    "origin": "USER_DEFINED"
+   },
+   "ipv4Configuration": {
+    "autoScaleEnabled": false,
+    "hostIpAddress": "172.16.50.1",
+    "prefixLength": 24
+   },
+   "internetAccessEnabled": true,
+   "isolationEnabled": false,
+   "mdnsForwardingEnabled": false,
+   "cellularBackupEnabled": false,
+   "zoneId": null
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000106",
+   "name": "Lab (VLAN only)",
+   "enabled": true,
+   "management": "UNMANAGED",
+   "vlanId": 60,
+   "default": false,
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  }
+ ],
+ "traffic_matching_lists": [
+  {
+   "id": "00000000-0000-4000-8000-000000000201",
+   "name": "Web ports",
+   "type": "PORTS",
+   "items": [
+    {
+     "type": "PORT_NUMBER",
+     "value": 80
+    },
+    {
+     "type": "PORT_NUMBER",
+     "value": 443
+    },
+    {
+     "type": "PORT_NUMBER_RANGE",
+     "start": 8080,
+     "stop": 8090
+    }
+   ]
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000202",
+   "name": "Admin PCs",
+   "type": "IPV4_ADDRESSES",
+   "items": [
+    {
+     "type": "IP_ADDRESS",
+     "value": "192.168.1.10"
+    },
+    {
+     "type": "IP_ADDRESS_RANGE",
+     "start": "192.168.1.20",
+     "stop": "192.168.1.23"
+    }
+   ]
+  }
+ ],
+ "acl_rules": [
+  {
+   "id": "00000000-0000-4000-8000-000000000950",
+   "name": "Block guests on switch",
+   "type": "IPV4",
+   "action": "BLOCK",
+   "enabled": true,
+   "index": 0,
+   "metadata": {
+    "origin": "USER_DEFINED"
+   }
+  }
+ ]
+}

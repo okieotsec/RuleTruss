@@ -15,3 +15,4 @@ unifi-export*.json
 *.unifi
 saf-cli.log
 !samples/unifi/unifi-export.json
+!tests/fixtures/unifi-export.json
