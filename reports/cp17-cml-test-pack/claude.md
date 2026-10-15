@@ -12,16 +12,16 @@ Commit: the one that adds this report. No review finding is being fixed here; th
 * A new warning on every ASA translation from a zone-pair source: **an ASA does not track ICMP by default**, so the replies to an allowed ping need `inspect icmp` and `inspect icmp error` in
   the global policy, which the translation does not generate. Found while writing the pack, from general knowledge of ASA behaviour; the lab will confirm or correct it. Documented in `docs/EXPORT_UNIFI.md`.
 
-## The lab file (added after the owner's first CML export)
+## The lab file
 
-The owner built one ASAv and one Alpine node in their own CML 2.10 server and sent the exported lab file (schema version 0.3.1). It is kept as `tests/fixtures/cml-lab-export-0.3.1.yaml`.
-`tools/make_cml_pack.py` now also writes `samples/cml-test/rt-asa-test-lab.yaml`: one ASAv (`rtasa`) and four Alpine hosts linked to `GigabitEthernet0/0` to `0/3`, in the same format, so it can be imported
-instead of built by hand. A test checks that its keys are exactly the keys of the real export and that each host is linked to the ASA port its address is configured on. The owner also showed the Config tab of an Alpine node: a boot script, `node.cfg`, that CML sources at boot (it holds the hostname and the default login). The lab file now
-carries one per host, setting its name, address, default route and a TCP 443 listener, in CML's `configuration: [name, content]` form; a second file, `rt-asa-test-lab-topology-only.yaml`,
-has the same lab without them, as a fallback if CML refuses the first. Neither has been imported into CML yet, and no YAML library was available to parse them independently. The ASAv's own
-configuration file name is not known yet (the owner can read it from the ASAv's Config tab), so the ASA configuration is still pasted into its console.
+CML 2.10 lab files (schema version 0.3.1) have a fixed layout. A neutral two-node example of that layout, with no content of anyone's lab, is kept as `tests/fixtures/cml-lab-layout-0.3.1.yaml`.
+`tools/make_cml_pack.py` writes `samples/cml-test/rt-asa-test-lab.yaml`: one ASAv (`rtasa`) and four Alpine hosts linked to `GigabitEthernet0/0` to `0/3`, in that layout, so it can be imported
+instead of built by hand. A test checks that its keys are exactly the keys of the layout fixture and that each host is linked to the ASA port its address is configured on. An Alpine node in CML takes
+a boot script, `node.cfg`, that CML sources at boot (it holds the hostname and the node's default login); the lab file carries one per host, setting its name, address, default route and a TCP 443
+listener, in CML's `configuration: [name, content]` form. A second file, `rt-asa-test-lab-topology-only.yaml`, has the same lab without them, as a fallback if CML refuses the first. The first file
+imported into CML 2.10.1 without problems and was used for the run below; the fallback was not needed. The ASAv's own configuration file name is not known, so the ASA configuration is pasted into its console.
 
-## Two points about CML-Free from Cisco's page (seen by the owner)
+## Two points about CML-Free, from Cisco's CML-Free page
 
 * The free reference image includes ASAv. A Cisco account with a complete profile (company details, address) is needed to download; the telemetry of a CML-Free instance (feature lists and counts of nodes, node types,
   interfaces and links, not configurations or traffic, according to Cisco) is always on and cannot be switched off without a paid licence.

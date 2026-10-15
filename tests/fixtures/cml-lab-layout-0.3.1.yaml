@@ -69,7 +69,7 @@ links:
 lab:
   description: ''
   notes: ''
-  title: Lab at Thu 17:48 PM
+  title: Layout example
   node_staging:
     enabled: false
     start_remaining: true

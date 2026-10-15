@@ -48,7 +48,7 @@ class CmlPackTests(unittest.TestCase):
         def keys(text):
             return set(re.findall(r"^\s*(?:- )?([A-Za-z_][A-Za-z0-9_]*):", text, re.M))
 
-        real = (ROOT / "tests" / "fixtures" / "cml-lab-export-0.3.1.yaml").read_text(encoding="utf-8")
+        real = (ROOT / "tests" / "fixtures" / "cml-lab-layout-0.3.1.yaml").read_text(encoding="utf-8")
         self.assertEqual(keys(tool.lab_file(with_host_config=False)), keys(real), "the lab file must use CML's own format, with nothing added or missing")
         self.assertEqual(keys(generated) - keys(real), {"name", "content"}, "the only addition is the node.cfg entry of a node")
         self.assertEqual(len(re.findall(r"^  - boot_disk_size:", generated, re.M)), 5)
