@@ -68,3 +68,17 @@ Fuzzing shows that these inputs, mutations and run lengths found nothing more; i
 seed sets and one Python version, and the time each of the six configuration formats received was not measured. Not covered: the local web server (no
 ZAP scan yet), the PCAPNG options and link-layer decoders beyond the sample seeds' reach, and the translation code on hostile inputs other than the mutated UniFi export.
 The Atheris run must be repeated on the release candidate.
+
+## Re-run after the CP15 fixes (2026-10-14)
+
+The CP15 review changed the parsers a good deal (line and list limits, bounded groups, strict Zeek values, float timestamps, mixed-version ranges), so the four targets were run again
+for 15 minutes each on commit `697f046`, in the same throwaway environment, with the same harness.
+
+| Target | Executions | Crashes |
+|---|---|---|
+| config | about 82,000 | 0 |
+| unifi | about 25,000 | 0 |
+| capture | about 585,000 | 0 |
+| zeek | about 1,473,000 | 0 |
+
+Same limits as above: short runs, small seed sets, one Python version; no crash is evidence, not proof. The run must be repeated on any release candidate.
