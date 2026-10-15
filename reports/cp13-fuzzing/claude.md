@@ -82,3 +82,16 @@ for 15 minutes each on commit `697f046`, in the same throwaway environment, with
 | zeek | about 1,473,000 | 0 |
 
 Same limits as above: short runs, small seed sets, one Python version; no crash is evidence, not proof. The run must be repeated on any release candidate.
+
+## Second re-run, after the CP16 fixes (2026-10-14)
+
+The Copilot review (CP16) changed the parsers again (lookup budgets, unreadable services, Zeek checks, FortiOS tree handling), so each target was run once more, 10 minutes each, on commit `0b73b17`.
+
+| Target | Executions | Crashes |
+|---|---|---|
+| config | about 25,000 | 0 |
+| unifi | about 14,000 | 0 |
+| capture | about 177,000 | 0 |
+| zeek | about 360,000 | 0 |
+
+Shorter than the earlier runs and with fewer executions (the machine was also running other work); the same limits apply. No crash is evidence, not proof.

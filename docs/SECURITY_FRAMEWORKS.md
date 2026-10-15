@@ -7,7 +7,7 @@ How RuleTruss's security practice lines up with two public frameworks, what evid
 
 **This is the developer's own assessment of a small, pre-release project, written with AI assistance. It is not an audit, and nothing here is a certification or a claim of compliance.** Every status points at a file you can read. Where the repository cannot show something (a setting on GitHub, for example), the table says so. SSDF 1.2 is an initial public draft (December 2025) with no final version yet; this page follows 1.1 and will be re-mapped when 1.2 is final.
 
-Last reviewed: 2026-10-14, checkpoints [CP9](../reports/cp9-security-framework/claude.md), [CP13](../reports/cp13-fuzzing/claude.md), [CP14](../reports/cp14-zap-scan/claude.md) and [CP15](../reports/cp15-codex-review/claude.md).
+Last reviewed: 2026-10-14, checkpoints [CP9](../reports/cp9-security-framework/claude.md), [CP13](../reports/cp13-fuzzing/claude.md), [CP14](../reports/cp14-zap-scan/claude.md), [CP15](../reports/cp15-codex-review/claude.md) and [CP16](../reports/cp16-copilot-review/claude.md).
 
 ## How to read the status column
 
@@ -117,7 +117,7 @@ These are GitHub settings, to be done when the repository is published. Until th
 
 ## Open items, in order
 
-1. A review by a person who reads the code or operates these firewalls (PO.2, PW.2, PW.7). Not available now; the release gate accepts that for an experimental 0.x release if the README and `SECURITY.md` say so, and requires it before any production or 1.0 claim. CP15 (another AI model) found 17 issues, all fixed; that is evidence, not a substitute.
+1. A review by a person who reads the code or operates these firewalls (PO.2, PW.2, PW.7). Not available now; the release gate accepts that for an experimental 0.x release if the README and `SECURITY.md` say so, and requires it before any production or 1.0 claim. CP15 (Codex) and CP16 (Copilot) found 17 and about 18 issues, all but a few low ones fixed (the rest are listed in the report); that is evidence, not a substitute.
 2. Review the local history before publishing anything (PS.1).
 3. Repeat the ZAP scan of the local web server for the release candidate (PW.8). Done once at CP14 ([reports/cp14-zap-scan](../reports/cp14-zap-scan/claude.md)); the API requests were seeded from a scripted walk, so routes not in that walk were not attacked.
 4. Repeat Atheris on the capture and configuration parsers for the release candidate (PW.8). Done once at CP13 ([reports/cp13-fuzzing](../reports/cp13-fuzzing/claude.md)); a new run is needed after any parser change.

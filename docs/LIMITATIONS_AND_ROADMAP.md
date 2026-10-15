@@ -19,7 +19,7 @@ See [EXPORT_UNIFI.md](EXPORT_UNIFI.md).
 
 A configuration line longer than 20,000 characters, a UniFi list of more than 100,000 items, more than 100,000 rules, or a group that expands past
 50,000 entries is not cut short: the line, list or rule count is refused with a message, and a group that is too large leaves the rules that use it
-undecidable. A single rule that needs more than 2,000 access-list lines is not written and makes the translation non-deployable.
+undecidable. A single rule that needs more than 2,000 access-list lines is not written and makes the translation non-deployable. Resolving one group may do at most 200,000 lookups (groups that list each other many times stop there and leave the rule undecidable); a service whose ports or protocol cannot be read is unresolved, not empty. Not yet handled: a warning when an address's host bits are cleared, and the CPU cost of group suggestions on very large captures.
 
 ## UniFi to Cisco ASA
 
