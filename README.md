@@ -10,6 +10,19 @@ It reads packet captures, flow logs and firewall / router / switch exports; expl
 
 > Status: version 0.1.0, pre-release. The adapters are tested against synthetic fixtures, not against real exports from every software version (see [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md)). Nothing here is endorsed by or certified with any vendor.
 
+## How this project was made, and what has and has not been reviewed
+
+RuleTruss is directed by an OT security practitioner (OkieOTSec), who decides what it must do, supplies the network and security domain knowledge,
+and judges its output from that point of view. The practitioner is not a programmer and does not read the code line by line. **The code was written by an
+AI model** (Anthropic's Claude, through Claude Code). Quality is therefore argued from evidence, not from who wrote it:
+
+* The code was reviewed by other AI models, not by the one that wrote it (see [reports/](reports/): CP15 and later), and every confirmed finding was fixed with a test that fails without the fix.
+* It is checked by static analysis, secret and dependency scanners, a coverage-guided fuzzer (Atheris) and a dynamic web scanner (OWASP ZAP), and its ASA output was compared with an independent parser (Batfish).
+* **No person has reviewed the code**, and no translation has been loaded on a real firewall yet.
+
+So: treat this as **experimental**, treat every generated configuration as **a proposal for the person who owns that firewall to review**, and do not apply one to a
+production device without that review. Review by people who read Python, or who run these firewalls, is welcome; see [SECURITY.md](SECURITY.md) for how to report what you find.
+
 ## What it does
 
 * **Shows it, and lets you dig in.** A graph you can resize, zoom and drag; click a circle, a subnet or an arrow to see who it talks to, what services it offers and uses, and a small sample of the traffic with how sure each statement is. Tabs that are not ready yet say so and tell you what to do.
