@@ -307,7 +307,7 @@ async function importInBackground(project, f, point, holder) {
 }
 function sourcesCard(project) {
   const rows = project.sources.map((src) => ({ cells: [
-    kindChip(src.kind === "policy" ? "CONFIGURED" : "OBSERVED"), src.filename, src.format || "",
+    kindChip(src.kind === "policy" ? "CONFIGURED" : "OBSERVED"), src.stale ? h("span", {}, src.filename, h("br"), h("small", { class: "muted", text: src.kind === "policy" ? "Analysed by an older version and could not be re-read; delete it and add it again." : "Analysed by an older version: delete it and add it again to refresh the analysis." })) : src.filename, src.format || "",
     src.kind === "policy" ? `${src.vendor}${src.hostname ? " / " + src.hostname : ""}: ${src.rules} rules` : `${src.flows} flows`,
     src.observation_point || "-", h("button", { type: "button", class: "danger", onclick: async () => { if (confirm(`Delete ${src.filename} and its analysis from this computer?`)) { await guarded(() => api(`/api/projects/${project.id}/sources/${src.id}`, { method: "DELETE" })); await loadProjects(); render(); } } }, "Delete")] }));
   return h("section", { class: "card" }, h("h2", { text: "Files" }),
