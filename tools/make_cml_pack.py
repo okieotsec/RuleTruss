@@ -116,7 +116,7 @@ def host_script(info):
             "# configurable user account\nUSERNAME=cisco\nPASSWORD=cisco\n"
             "# RuleTruss test: address, default route and a listener on TCP 443\n"
             f"ip addr add {info['ip']}/24 dev eth0\nip link set eth0 up\nip route add default via {info['asa']}\n"
-            "(while true; do nc -l -p 443 > /dev/null; done) &\n")
+            "(while true; do echo OPEN | nc -l -p 443 > /dev/null; done) &\n")
 
 
 def lab_file(with_host_config=True):
@@ -145,12 +145,25 @@ def lab_file(with_host_config=True):
     return _yaml({"annotations": [], "smart_annotations": [], "nodes": nodes, "links": links, "lab": lab}) + "\n"
 
 
+def test_script(src):
+    """One paste for one host: its six tests (ping and TCP 443 to the other three hosts), printed as 'from,to,test,observed' lines."""
+    lines = []
+    for dst in LAB.values():
+        if dst is src:
+            continue
+        lines += [f"if ping -c 2 -W 2 {dst['ip']} >/dev/null 2>&1; then r=ALLOW; else r=DENY; fi; echo {src['host']},{dst['host']},icmp,$r",
+                  f"if nc -w 2 {dst['ip']} 443 </dev/null 2>/dev/null | grep -q OPEN; then r=ALLOW; else r=DENY; fi; echo {src['host']},{dst['host']},tcp443,$r"]
+    return "\n".join(lines) + "\n"
+
+
 def write(config, rows, translation):
     pack = ROOT / "samples" / "cml-test"
     pack.mkdir(parents=True, exist_ok=True)
     (pack / "asa-config.txt").write_text("\n".join(config) + "\n", encoding="utf-8")
     (pack / "rt-asa-test-lab.yaml").write_text(lab_file(), encoding="utf-8")
     (pack / "rt-asa-test-lab-topology-only.yaml").write_text(lab_file(with_host_config=False), encoding="utf-8")
+    for info in LAB.values():
+        (pack / f"run-tests-{info['host']}.sh").write_text(test_script(info), encoding="utf-8")
     with open(pack / "expected.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=["from", "to", "test", "expected", "observed"])
         writer.writeheader()
@@ -199,14 +212,17 @@ The lab file follows the format a CML 2.10 server exported for the author; the o
 {commands}
 ```
 
-   then, on every host: `while true; do nc -l -p 443 > /dev/null; done &`
+   then, on every host: `while true; do echo OPEN | nc -l -p 443 > /dev/null; done &`
 
-6. For each row of the table below, from the host in the **from** column run:
+6. Run the tests. **The quick way:** on each host's console, paste the contents of `samples/cml-test/run-tests-<host>.sh` (for example `run-tests-h-lan.sh` on `h-lan`). Each prints six lines like
+   `h-lan,h-wifi,icmp,DENY`. Copy the lines from all four hosts and send them to me; the ASA's `show access-list` output from step 7 is the other half of the evidence. Wait for each
+   to finish: a blocked connection takes a couple of seconds to time out.
+   **The manual way**, for any single row of the table below, from the host in the **from** column:
    * ping: `ping -c 2 -W 2 <to address>`; **ALLOW** if replies arrive, **DENY** if none do.
-   * TCP 443: `echo hi | nc -w 2 <to address> 443 && echo OPEN || echo CLOSED`; **ALLOW** if OPEN, **DENY** if CLOSED.
+   * TCP 443: `nc -w 2 <to address> 443 </dev/null | grep OPEN`; **ALLOW** if it prints OPEN, **DENY** if it prints nothing. (Every host's listener sends the word OPEN to whoever connects.)
    Addresses: h-lan {LAB['Default']['ip']}, h-wifi {LAB['WIRELESS_DEVICES']['ip']}, h-cam {LAB['IP_CAMERAS']['ip']}, h-ext {LAB['zone-External']['ip']}.
-7. Fill in the **observed** column (the same table is in `samples/cml-test/expected.csv`) and paste it to me. Also paste the output of `show access-list` after the tests,
-   which shows hit counts for each entry.
+7. Also paste the output of `show access-list` from the ASAv after the tests, which shows hit counts for each entry. (If you tested by hand, fill in the **observed** column of the table; the same
+   table is in `samples/cml-test/expected.csv`.)
 
 ## What to expect and what a mismatch means
 

@@ -68,6 +68,19 @@ class CmlPackTests(unittest.TestCase):
             self.assertIn("nc -l -p 443", script)
             self.assertIn(f"ip addr add {info['ip']}/24 dev eth0", generated.replace("\\n", "\n"))
 
+    def test_each_host_script_runs_six_tests_that_match_the_expected_rows(self):
+        tool = load_tool()
+        seen = set()
+        for info in tool.LAB.values():
+            script = tool.test_script(info)
+            self.assertEqual(script.count("ping -c 2"), 3)
+            self.assertEqual(script.count("nc -w 2"), 3)
+            for line in script.splitlines():
+                match = re.search(r"echo (h-[a-z]+),(h-[a-z]+),(icmp|tcp443),\$r", line)
+                self.assertTrue(match, line)
+                seen.add(match.groups())
+        self.assertEqual(seen, {(r["from"], r["to"], r["test"]) for r in self.rows}, "the scripts must cover exactly the rows of the table")
+
 
 if __name__ == "__main__":
     unittest.main()
