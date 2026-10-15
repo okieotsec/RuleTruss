@@ -38,7 +38,7 @@ jobs:
       - name: Install the runtime dependency (hash-checked) and the test library
         run: |
           python -m pip install --require-hashes -r requirements.txt
-          python -m pip install hypothesis==6.169.0
+          python -m pip install --require-hashes -r requirements-test.txt
       - name: Run the tests
         run: python -u -X dev -W error::ResourceWarning tools/ci_run_tests.py 1500
       - name: Build the bundle

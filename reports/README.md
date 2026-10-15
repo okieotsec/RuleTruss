@@ -19,3 +19,4 @@ The `cp0`, `cp1` and `cp2` folders are kept exactly as they were produced, so fi
 `cp16-copilot-review` covers a second read-only AI review (GitHub Copilot), a regression of mine that it found, and the fixes.
 `cp17-cml-test-pack` covers the test pack for trying the ASA output on an ASAv in Cisco Modeling Labs.
 `cp18-release-preparation` covers the first-release checks: a stale-analysis defect, a missing test fixture found by running the committed bundle on its own, and the release workflow.
+`cp19-first-github-run` covers the first run of the workflows on GitHub: two test failures, eleven scanning alerts and how each was handled.
