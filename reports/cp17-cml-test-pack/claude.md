@@ -12,6 +12,13 @@ Commit: the one that adds this report. No review finding is being fixed here; th
 * A new warning on every ASA translation from a zone-pair source: **an ASA does not track ICMP by default**, so the replies to an allowed ping need `inspect icmp` and `inspect icmp error` in
   the global policy, which the translation does not generate. Found while writing the pack, from general knowledge of ASA behaviour; the lab will confirm or correct it. Documented in `docs/EXPORT_UNIFI.md`.
 
+## The lab file (added after the owner's first CML export)
+
+The owner built one ASAv and one Alpine node in their own CML 2.10 server and sent the exported lab file (schema version 0.3.1). It is kept as `tests/fixtures/cml-lab-export-0.3.1.yaml`.
+`tools/make_cml_pack.py` now also writes `samples/cml-test/rt-asa-test-lab.yaml`: one ASAv (`rtasa`) and four Alpine hosts linked to `GigabitEthernet0/0` to `0/3`, in the same format, so it can be imported
+instead of built by hand. A test checks that its keys are exactly the keys of the real export and that each host is linked to the ASA port its address is configured on. The file has not been imported
+into CML yet, and no YAML library was available to parse it independently; its format follows the real export.
+
 ## Two points about CML-Free from Cisco's page (seen by the owner)
 
 * The free reference image includes ASAv. A Cisco account with a complete profile (company details, address) is needed to download; the telemetry of a CML-Free instance (feature lists and counts of nodes, node types,

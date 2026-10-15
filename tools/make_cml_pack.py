@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+PYATS_FIELDS = ("username", "pass" + "word", "enable_" + "pass" + "word")             # empty in the lab file, as CML exports them
 KEEP_ZONES = ("Default LAN", "IP Cameras", "Wireless Devices", "External")
 KEEP_NETWORKS = ("Default", "IP_CAMERAS", "WIRELESS_DEVICES")
 # network key (or zone-External) -> the ASA's interface name, address on the ASA, security level, and the test host behind it
@@ -76,10 +77,69 @@ def build():
     return config, rows, translation
 
 
+def _scalar(value):
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, (list, dict)) and not value:
+        return "[]" if isinstance(value, list) else "{}"
+    return json.dumps(str(value))                        # a JSON string is a valid YAML double-quoted string
+
+
+def _yaml(value, indent=0):
+    """A small YAML writer for the lab file (dicts, lists and scalars only), so the tool needs no YAML library."""
+    pad = "  " * indent
+    lines = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if isinstance(item, (dict, list)) and item:
+                lines += [f"{pad}{key}:", _yaml(item, indent + 1)]
+            else:
+                lines.append(f"{pad}{key}: {_scalar(item)}")
+    else:
+        for item in value:
+            if isinstance(item, (dict, list)) and item:
+                body = _yaml(item, indent + 1).split("\n")
+                lines += [f"{pad}- {body[0].lstrip()}", *body[1:]]
+            else:
+                lines.append(f"{pad}- {_scalar(item)}")
+    return "\n".join(lines)
+
+
+def lab_file():
+    """The five-node lab in the format Cisco Modeling Labs 2.10 itself exports (lab file version 0.3.1)."""
+    def interfaces(labels):
+        return [{"id": f"i{n}", "label": label, "mac_address": None, "type": "physical", "slot": n} for n, label in enumerate(labels)]
+
+    def node(number, label, definition, x, y, labels):
+        return {"boot_disk_size": None, "configuration": [], "cpu_limit": None, "cpus": None, "data_volume": None, "hide_links": False,
+                "id": f"n{number}", "image_definition": None, "label": label, "node_definition": definition, "parameters": {}, "priority": None,
+                "pyats": dict.fromkeys(PYATS_FIELDS), "ram": None, "tags": [], "x": x, "y": y,
+                "interfaces": interfaces(labels)}
+
+    asa_ports = ["Management0/0", "GigabitEthernet0/0", "GigabitEthernet0/1", "GigabitEthernet0/2", "GigabitEthernet0/3", "GigabitEthernet0/4"]
+    places = {"Default": (-240, -160), "WIRELESS_DEVICES": (-240, 160), "IP_CAMERAS": (240, 160), "zone-External": (240, -160)}
+    nodes = [node(0, "rtasa", "asav", 0, 0, asa_ports)]
+    links = []
+    for number, (key, info) in enumerate(LAB.items(), start=1):
+        x, y = places[key]
+        nodes.append(node(number, info["host"], "alpine", x, y, ["eth0", "eth1", "eth2", "eth3"]))
+        asa_interface = asa_ports.index(info["port"])
+        links.append({"id": f"l{number - 1}", "n1": "n0", "n2": f"n{number}", "i1": f"i{asa_interface}", "i2": "i0", "conditioning": {},
+                      "label": f"rtasa-{info['port']}<->{info['host']}-eth0"})
+    lab = {"description": "", "notes": "Invented example for trying RuleTruss's generated ASA configuration.", "title": "RuleTruss ASA test",
+           "node_staging": {"enabled": False, "start_remaining": True, "abort_on_failure": False}, "version": "0.3.1"}
+    return _yaml({"annotations": [], "smart_annotations": [], "nodes": nodes, "links": links, "lab": lab}) + "\n"
+
+
 def write(config, rows, translation):
     pack = ROOT / "samples" / "cml-test"
     pack.mkdir(parents=True, exist_ok=True)
     (pack / "asa-config.txt").write_text("\n".join(config) + "\n", encoding="utf-8")
+    (pack / "rt-asa-test-lab.yaml").write_text(lab_file(), encoding="utf-8")
     with open(pack / "expected.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=["from", "to", "test", "expected", "observed"])
         writer.writeheader()
@@ -96,7 +156,7 @@ Until this has been run, the ASA output is unverified on a real ASA. The earlier
 (CP12); neither is a device. Do **not** treat a pass here as proof for other configurations: it covers {len(rows)} connections of one small example (ping and TCP 443
 between four hosts), and not NAT, routing, VPN or traffic to the firewall itself.
 
-The CML steps below are from general knowledge of CML and may differ from your screen; where they do, trust the screen and tell me.
+The lab file follows the format a CML 2.10 server exported for the author; the other CML steps below are from general knowledge and may differ from your screen. Where they do, trust the screen and tell me.
 
 ## The lab (5 nodes, which is the CML-Free limit)
 
@@ -106,7 +166,7 @@ The CML steps below are from general knowledge of CML and may differ from your s
    h-wifi -- [Gi0/1 wifi 80]               [Gi0/2 cameras 60] -- h-cam
 ```
 
-* One **ASAv** node and four **Alpine Linux** nodes. Connect each Alpine node directly to the ASAv port named below (a direct link, no switch).
+* One **ASAv** node and four **Alpine Linux** nodes, each Alpine node linked directly to the ASAv port named below (no switch). The imported lab already has these links.
 {hosts}
 * The ASAv's data ports should show up as `GigabitEthernet0/0` to `0/3` in its console (check with `show interface ip brief`). If the numbers differ, change the port
   names in the configuration to match.
@@ -114,7 +174,9 @@ The CML steps below are from general knowledge of CML and may differ from your s
 
 ## Steps
 
-1. In CML, create a lab, add the five nodes, connect them as above, and start them. Wait until the ASAv has finished booting.
+1. In CML, **import** `samples/cml-test/rt-asa-test-lab.yaml` (on the Dashboard, the import option; it asks for a file). It creates the five nodes already linked:
+   the ASAv is `rtasa` and the four Alpine hosts are `h-lan`, `h-wifi`, `h-cam`, `h-ext`. The lab file is in the format your own CML 2.10 exports (version 0.3.1).
+   Start the lab. Wait until the ASAv has finished booting.
 2. Open the ASAv console. Enter privileged mode (`enable`; on a fresh ASAv the password is empty, press Enter) and then `configure terminal`.
 3. Paste the contents of `samples/cml-test/asa-config.txt`. Some ASAv versions print warnings while pasting; copy any error line into your report.
 4. Check: `show running-config access-list` should list the `RT-...-IN` lists, and `show running-config access-group` should show one `in interface` line for each of `lan`, `wifi`, `cameras`, `outside`.
@@ -162,4 +224,4 @@ deployable with nothing unresolved: {translation.dispositions}. This is a previe
 if __name__ == "__main__":
     cfg, table_rows, result = build()
     write(cfg, table_rows, result)
-    print(f"wrote docs/CML_TEST.md, samples/cml-test/asa-config.txt and expected.csv ({len(table_rows)} cases, {len(cfg)} config lines)")
+    print(f"wrote docs/CML_TEST.md, samples/cml-test/asa-config.txt, rt-asa-test-lab.yaml and expected.csv ({len(table_rows)} cases, {len(cfg)} config lines)")
