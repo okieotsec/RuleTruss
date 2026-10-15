@@ -22,6 +22,9 @@ ID_RE = re.compile(r"^[0-9a-f]{16}$")
 MAX_JSON_BYTES = limits.MAX_RESULT_BYTES         # a stored analysis may be as large as the worker may return
 MAX_PROJECTS = 500
 MAX_SOURCES_PER_PROJECT = 100
+# The version of what is stored for an analysed file. Raise it whenever a parser or the analysis starts storing something new or means
+# something different: files analysed under an older number are re-read (configurations) or flagged (captures), never silently used.
+PARSE_FORMAT = 5
 
 
 class StoreError(ValueError):
@@ -251,8 +254,25 @@ class Store:
         os.replace(upload_path, os.path.join(folder, "original.bin"))
         os.chmod(os.path.join(folder, "original.bin"), 0o600)
         self._write_json(os.path.join(folder, "parsed.json"), parsed)
-        entry = {"id": sid, "kind": kind, "filename": limits.clip(filename, 120), "added": time.time(), **meta}
+        entry = {"id": sid, "kind": kind, "filename": limits.clip(filename, 120), "added": time.time(), "parse_format": PARSE_FORMAT,
+                 **meta}
         project["sources"].append(entry)
+        self.save_project(project)
+        self._cache.clear()
+        return entry
+
+    def original_path(self, project_id, source_id):
+        return os.path.join(self.source_dir(project_id, source_id), "original.bin")
+
+    @_locked
+    def replace_parsed(self, project_id, source_id, parsed, meta):
+        """Store a fresh parse of a file already in the project (the original is kept as it is), and update the file's summary."""
+        project = self.get_project(project_id)
+        entry = next((s for s in project["sources"] if s["id"] == source_id), None)
+        if entry is None:
+            raise StoreError("file not found in this project")
+        self._write_json(os.path.join(self.source_dir(project_id, source_id), "parsed.json"), parsed)
+        entry.update(meta, parse_format=PARSE_FORMAT)
         self.save_project(project)
         self._cache.clear()
         return entry

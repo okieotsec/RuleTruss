@@ -115,9 +115,12 @@ class Service:
     # ------------------------------------------------------------ loading
     def project(self, project_id):
         try:
-            return self.store.get_project(project_id)
+            project = self.store.get_project(project_id)
         except StoreError as error:
             raise ApiError(str(error), 404) from error
+        for source in project.get("sources", []):             # a file analysed by an older version is marked, never read as current
+            source["stale"] = source.get("parse_format", 0) != store.PARSE_FORMAT
+        return project
 
     def context(self, project):
         return analysis.build_context(project.get("labels", {}), [Subnet(**s) for s in project.get("subnets", [])])
@@ -148,7 +151,24 @@ class Service:
         entry = next((s for s in project["sources"] if s["id"] == source_id and s["kind"] == "policy"), None)
         if entry is None:
             raise ApiError("that file is not a configuration in this project", 404)
+        if entry.get("stale"):
+            self._refresh_policy(project, entry)
         return entry, from_plain(PolicySet, self.store.load_parsed(project["id"], source_id)["policy"])
+
+    def _refresh_policy(self, project, entry):
+        """Read a stored configuration again with the current code, in the same isolated worker as an import. A configuration is small and
+        its original is kept. If it cannot be read now, the old analysis stays and the file stays marked."""
+        try:
+            result = isolate.parse_file(self.store.original_path(project["id"], entry["id"]), entry["id"], entry["filename"],
+                                        entry.get("observation_point", ""), entry.get("format"))
+            policy = result["policy"]
+            meta = {"format": result["format"], "vendor": policy["vendor"], "hostname": policy["hostname"], "rules": len(policy["rules"]),
+                    "issues": len(policy["issues"])}
+            entry.update(self.store.replace_parsed(project["id"], entry["id"], result, meta))
+            entry["stale"] = False
+            self._comm_cache = None
+        except (isolate.ParseFailure, OSError, KeyError, StoreError):
+            entry["stale"] = True
 
     # ------------------------------------------------------------ observed
     def comm_rows(self, project):
