@@ -16,7 +16,7 @@ RuleTruss is directed by an OT security practitioner (OkieOTSec), who decides wh
 and judges its output from that point of view. The practitioner is not a programmer and does not read the code line by line. **The code was written by an
 AI model** (Anthropic's Claude, through Claude Code). Quality is therefore argued from evidence, not from who wrote it:
 
-* The code was reviewed by other AI models, not by the one that wrote it (see [reports/](reports/): CP15 and later), and every confirmed finding was fixed with a test that fails without the fix.
+* The code was reviewed twice by other AI models, not by the one that wrote it (OpenAI Codex, then GitHub Copilot; see [reports/](reports/): CP15 and CP16), and every confirmed finding that was fixed has a test that fails without the fix. They found different problems, one of them a mistake I had introduced in the first round, which shows what a single review misses.
 * It is checked by static analysis, secret and dependency scanners, a coverage-guided fuzzer (Atheris) and a dynamic web scanner (OWASP ZAP), and its ASA output was compared with an independent parser (Batfish).
 * **No person has reviewed the code**, and no translation has been loaded on a real firewall yet.
 

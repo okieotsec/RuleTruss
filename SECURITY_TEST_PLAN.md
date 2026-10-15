@@ -1,7 +1,7 @@
 # Security Test Plan: RuleTruss
 
 **Owner:** okieotsec (project lead, final approver)
-**Reviewers:** Claude Code (developer and reviewer). Different AI models review the code read-only at each release checkpoint (OpenAI Codex at CP15; see the reports for others). A review by a person has **not** been done, and the project has no one who can do it; section 9 says what that changes.
+**Reviewers:** Claude Code (developer and reviewer). Different AI models review the code read-only at each release checkpoint (OpenAI Codex at CP15, GitHub Copilot at CP16; an attempt with Gemini produced no review). A review by a person has **not** been done, and the project has no one who can do it; section 9 says what that changes.
 **Frameworks:** the plan follows the NIST Secure Software Development Framework (SSDF, SP 800-218 version 1.1) and organises its automation along MITRE's Security Automation Framework (SAF). [docs/SECURITY_FRAMEWORKS.md](docs/SECURITY_FRAMEWORKS.md) maps each practice to its evidence and lists what is still open.
 **Applies to:** every checkpoint below. The method follows the sibling project's plan (OT Triage); the threat model is new because this application reads untrusted
 packet captures and configuration exports and serves a local web page.
