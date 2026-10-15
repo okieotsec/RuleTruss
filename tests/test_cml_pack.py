@@ -1,5 +1,6 @@
 """The CML test pack: small, deployable, and its expected answers match what the user's own scenario needs (phones reach cameras, not the reverse)."""
 import importlib.util
+import re
 import unittest
 from pathlib import Path
 
@@ -38,6 +39,22 @@ class CmlPackTests(unittest.TestCase):
         levels = [line.split()[-1] for line in self.config if line.startswith(" security-level")]
         self.assertEqual(len(set(levels)), len(levels), "equal levels would block traffic between interfaces whatever the lists say")
         self.assertIn("  inspect icmp", self.config)
+
+    def test_the_lab_file_has_exactly_the_keys_cml_itself_exported_and_links_the_right_ports(self):
+        tool = load_tool()
+        generated = tool.lab_file()
+
+        def keys(text):
+            return set(re.findall(r"^\s*(?:- )?([A-Za-z_][A-Za-z0-9_]*):", text, re.M))
+
+        real = (ROOT / "tests" / "fixtures" / "cml-lab-export-0.3.1.yaml").read_text(encoding="utf-8")
+        self.assertEqual(keys(generated), keys(real), "the lab file must use CML's own format, with nothing added or missing")
+        self.assertEqual(len(re.findall(r"^  - boot_disk_size:", generated, re.M)), 5)
+        self.assertEqual(len(re.findall(r"^  - id: \"l\d\"", generated, re.M)), 4)
+        for info in tool.LAB.values():                                    # each host is linked to the ASA port its address is configured on
+            index = ["GigabitEthernet0/0", "GigabitEthernet0/1", "GigabitEthernet0/2", "GigabitEthernet0/3"].index(info["port"]) + 1
+            self.assertIn(f'label: "rtasa-{info["port"]}<->{info["host"]}-eth0"', generated)
+            self.assertRegex(generated, rf'i1: "i{index}"\n    i2: "i0"\n    conditioning: {{}}\n    label: "rtasa-{info["port"]}')
 
 
 if __name__ == "__main__":

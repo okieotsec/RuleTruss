@@ -7,7 +7,7 @@ Until this has been run, the ASA output is unverified on a real ASA. The earlier
 (CP12); neither is a device. Do **not** treat a pass here as proof for other configurations: it covers 24 connections of one small example (ping and TCP 443
 between four hosts), and not NAT, routing, VPN or traffic to the firewall itself.
 
-The CML steps below are from general knowledge of CML and may differ from your screen; where they do, trust the screen and tell me.
+The lab file follows the format a CML 2.10 server exported for the author; the other CML steps below are from general knowledge and may differ from your screen. Where they do, trust the screen and tell me.
 
 ## The lab (5 nodes, which is the CML-Free limit)
 
@@ -17,7 +17,7 @@ The CML steps below are from general knowledge of CML and may differ from your s
    h-wifi -- [Gi0/1 wifi 80]               [Gi0/2 cameras 60] -- h-cam
 ```
 
-* One **ASAv** node and four **Alpine Linux** nodes. Connect each Alpine node directly to the ASAv port named below (a direct link, no switch).
+* One **ASAv** node and four **Alpine Linux** nodes, each Alpine node linked directly to the ASAv port named below (no switch). The imported lab already has these links.
 * **h-lan** (Default LAN): address 10.0.0.10, gateway 10.0.0.1, ASA port `GigabitEthernet0/0`
 * **h-wifi** (Wireless Devices): address 10.77.20.10, gateway 10.77.20.1, ASA port `GigabitEthernet0/1`
 * **h-cam** (IP Cameras): address 10.77.10.10, gateway 10.77.10.1, ASA port `GigabitEthernet0/2`
@@ -28,7 +28,9 @@ The CML steps below are from general knowledge of CML and may differ from your s
 
 ## Steps
 
-1. In CML, create a lab, add the five nodes, connect them as above, and start them. Wait until the ASAv has finished booting.
+1. In CML, **import** `samples/cml-test/rt-asa-test-lab.yaml` (on the Dashboard, the import option; it asks for a file). It creates the five nodes already linked:
+   the ASAv is `rtasa` and the four Alpine hosts are `h-lan`, `h-wifi`, `h-cam`, `h-ext`. The lab file is in the format your own CML 2.10 exports (version 0.3.1).
+   Start the lab. Wait until the ASAv has finished booting.
 2. Open the ASAv console. Enter privileged mode (`enable`; on a fresh ASAv the password is empty, press Enter) and then `configure terminal`.
 3. Paste the contents of `samples/cml-test/asa-config.txt`. Some ASAv versions print warnings while pasting; copy any error line into your report.
 4. Check: `show running-config access-list` should list the `RT-...-IN` lists, and `show running-config access-group` should show one `in interface` line for each of `lan`, `wifi`, `cameras`, `outside`.
