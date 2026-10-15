@@ -17,3 +17,4 @@ The `cp0`, `cp1` and `cp2` folders are kept exactly as they were produced, so fi
 `cp14-zap-scan` covers the OWASP ZAP scan of the local web server in a networkless pod and the one gap it found.
 `cp15-codex-review` covers a read-only review of the code by a different AI model (Codex): 17 findings, all confirmed by a failing test first and then fixed.
 `cp16-copilot-review` covers a second read-only AI review (GitHub Copilot), a regression of mine that it found, and the fixes.
+`cp17-cml-test-pack` covers the test pack for trying the ASA output on an ASAv in Cisco Modeling Labs.

@@ -307,6 +307,10 @@ def _issues(plans, policy, caps, t, confirmed, zone_map):
                            "for the zones. IPv6-only policies are listed as unresolved."))
     t.issues.append(_issue("warning", "states-by-target", "Connection-state policies (Return Traffic, Invalid) are implemented by the ASA's stateful "
                            "inspection, not by individual entries. UniFi's all-states blocks can also drop replies, which the ASA does not do."))
+    if t.target == "cisco-asa":
+        t.issues.append(_issue("warning", "icmp-inspection", "An ASA does not track ICMP by default, so the replies to an allowed ping (and ICMP errors) "
+                               "come back through a lower-security interface only if ICMP inspection is on (`inspect icmp` and `inspect icmp error` in "
+                               "the global policy). This translation does not generate them. TCP and UDP replies need nothing extra."))
     t.issues.append(_issue("info", "order-by-pair", "Each interface ACL lists the zone pairs of its source zone one after another: pairs with known "
                            "destination networks first, External last, each pair in UniFi's index order and ending in its own default."))
     t.dispositions = count
