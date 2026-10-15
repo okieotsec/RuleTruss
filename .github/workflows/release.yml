@@ -1,0 +1,66 @@
+name: Release bundle
+
+# Runs when a version tag is pushed. It builds the bundle, attests where it came from, and uploads it as a workflow artifact.
+# It does NOT create or publish a GitHub release: the owner does that by hand, after reading the result.
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false      # a second run of the same tag waits; it never cancels a build that is being attested
+
+jobs:
+  build:
+    name: Test, bundle and attest
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read           # read the code
+      id-token: write          # sign the attestation with this workflow's identity
+      attestations: write      # store the attestation
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: The tag must be the version in the code
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(python -c "from ruletruss.version import __version__; print(__version__)")
+          echo "code says $version, tag says $TAG"
+          test "$TAG" = "v$version"
+      - name: Install the runtime dependency (hash-checked) and the test library
+        run: |
+          python -m pip install --require-hashes -r requirements.txt
+          python -m pip install hypothesis==6.169.0
+      - name: Run the tests
+        run: python -u -X dev -W error::ResourceWarning tools/ci_run_tests.py 1500
+      - name: Build the bundle
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          mkdir dist
+          git archive --format=tar.gz --prefix="ruletruss-${version}/" -o "dist/ruletruss-${version}.tar.gz" "$GITHUB_SHA"
+          cp sbom/sbom.cdx.json "dist/ruletruss-${version}.sbom.cdx.json"
+          (cd dist && sha256sum "ruletruss-${version}.tar.gz" "ruletruss-${version}.sbom.cdx.json" > "ruletruss-${version}.sha256")
+          cat "dist/ruletruss-${version}.sha256"
+      - name: Attest where the bundle came from
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: |
+            dist/ruletruss-*.tar.gz
+            dist/ruletruss-*.sbom.cdx.json
+      - name: Keep the bundle for the owner to review
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: release-bundle
+          path: dist/
+          if-no-files-found: error
+          retention-days: 90
