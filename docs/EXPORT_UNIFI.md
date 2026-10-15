@@ -91,7 +91,7 @@ destination zone, so RuleTruss combines the pairs on purpose rather than flatten
 * **Preview, not deployable.** While anything is unsupported, unresolved or still a placeholder the output carries a banner, its file name says
   `PREVIEW-NOT-DEPLOYABLE`, and exporting it needs your acknowledgement. IPv4 only: the export has no IPv6 prefixes for the zones. IOS (stateless) is
   also a preview because return paths are not generated for zone-pair sources. For an ASA, replies to an allowed ping come back only if ICMP inspection
-  (`inspect icmp`, `inspect icmp error`) is on; RuleTruss warns about it and does not write it. TCP and UDP replies need nothing extra.
+  (`inspect icmp`, `inspect icmp error`) is on (confirmed on an ASAv, software 9.24(1): without it an allowed ping got no replies); RuleTruss warns about it and does not write it. TCP and UDP replies need nothing extra.
 
 Validation compares sampled connections (every source network to every destination zone, and the inside of each policy you wrote) on both sides with
 this tool's evaluator. The headline says how many were actually compared and how many could not be ("nothing could be compared" means no

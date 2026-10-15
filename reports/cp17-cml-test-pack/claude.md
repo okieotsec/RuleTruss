@@ -44,8 +44,8 @@ the recorded results to the configuration that was tried. The first listener des
 The ASAv ran Cisco ASA software 9.24(1) (SSP operating system 2.18(0.520), 2048 MB RAM, unlicensed: throughput limited to 100 Kbps, which should not affect permit and deny decisions
 but means no performance claim can be made). The device's serial number and MAC addresses were in the output the owner sent and are deliberately not recorded here.
 
-Not yet done: the ICMP-inspection question (does the ASAv drop ping replies without `inspect icmp`, as the new warning says) has not been tested in the lab.
-The warning stays, but is unconfirmed, until it is.
+**The ICMP-inspection warning is confirmed.** With `inspect icmp` removed from the global policy, `h-lan` pinging `h-ext` (a ping its access list allows) got 0 of 2 replies; with `inspect icmp`
+restored, 2 of 2 (about 4 ms). So on this ASAv an allowed ping fails without ICMP inspection, as the warning on every ASA translation says. One host, one ping each way, on ASA software 9.24(1).
 
 ## Limits
 
