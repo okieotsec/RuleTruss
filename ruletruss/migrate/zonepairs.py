@@ -65,6 +65,11 @@ def translate(policy, caps, t, zone_map, identity, confirmed):
     if wan_zone:
         t.iface_nets[WAN_PREFIX + wan_zone] = []
         t.iface_zone[WAN_PREFIX + wan_zone] = wan_zone
+    incomplete = {z: sorted(key for key, nets in n.items() if not nets) for z, n in network_nets.items() if any(not nets for nets in n.values())}
+    if incomplete:
+        t.issues.append(_issue("blocker", "network-without-subnet", "These networks have no subnet in the export, so their zones cannot be written "
+                               "completely and every policy that names those zones is unresolved: "
+                               + "; ".join(f"{z}: {', '.join(keys[:3])}" for z, keys in sorted(incomplete.items())[:4]) + "."))
     plans = [_Plan(r) for r in policy.rules]
     by_pair = {}
     for plan in plans:
@@ -116,6 +121,9 @@ def _classify(plan, policy, zones, network_nets, has_networks, user_zones, wan_z
     states = r.extra.get("states")
     if states and "NEW" not in states:
         return _state_only(plan, r, states)
+    for zone in (sz, dz):
+        if zone in network_nets and any(not nets for nets in network_nets[zone].values()):
+            return plan.set(UNRESOLVED, f"zone {zone} has a network with no subnet in the export, so its addresses cannot be written completely")
     if sz.lower() == "gateway" and zones.get(sz, {}).get("origin") == "SYSTEM_DEFINED":
         return plan.set(IMPLEMENTED, "traffic the firewall itself starts is not filtered by interface ACLs")
     problems = list(r.unsupported)
@@ -155,7 +163,7 @@ def _classify(plan, policy, zones, network_nets, has_networks, user_zones, wan_z
             return plan.set(UNRESOLVED, f"destination zone {dz} has no networks in the export, so its addresses are unknown (a stale zone "
                             "assignment or an incomplete export)")
         return plan.set(NOT_APPLICABLE, f"zone {dz} has no networks in the export, so nothing is attached to it")
-    if r.extra.get("ip_version") == "IPV6" and dz != wan_zone:
+    if r.extra.get("ip_version") == "IPV6":
         return plan.set(UNRESOLVED, "an IPv6 policy, and the export has no IPv6 prefixes for the zones, so its scope cannot be written")
     # source interfaces and their source addresses
     sources = []

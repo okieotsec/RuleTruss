@@ -123,6 +123,24 @@ class GroupExpansionTests(unittest.TestCase):
         self.assertIn("group-too-large", codes(parse(text, "pfsense")))
 
 
+class PfsenseIcmpTests(unittest.TestCase):
+    TEMPLATE = ("<pfsense><interfaces><lan><if>em0</if><ipaddr>10.0.0.1</ipaddr><subnet>24</subnet></lan></interfaces><filter>"
+                "<rule><type>pass</type><interface>lan</interface><ipprotocol>inet</ipprotocol><protocol>icmp</protocol>{type}"
+                "<source><any/></source><destination><any/></destination><tracker>1</tracker></rule></filter></pfsense>")
+
+    def test_an_icmp_rule_with_no_type_or_with_any_is_every_icmp_message_not_an_import_failure(self):
+        for extra in ("", "<icmptype>any</icmptype>"):
+            with self.subTest(extra=extra):
+                rule = parse(self.TEMPLATE.format(type=extra), "pfsense").rules[0]
+                self.assertEqual([e.proto for e in rule.svc.entries], ["icmp"])
+                self.assertFalse(rule.unsupported)
+
+    def test_a_named_type_is_kept_and_an_unknown_one_makes_the_rule_undecidable(self):
+        rule = parse(self.TEMPLATE.format(type="<icmptype>echoreq</icmptype>"), "pfsense").rules[0]
+        self.assertEqual([e.icmp_type for e in rule.svc.entries], [8])
+        self.assertTrue(parse(self.TEMPLATE.format(type="<icmptype>NOT_A_TYPE</icmptype>"), "pfsense").rules[0].unsupported)
+
+
 class MalformedValueTests(unittest.TestCase):
     def survives(self, text, fmt):
         """Parsing may succeed or refuse with a user-safe message, but must not raise anything else."""
@@ -234,6 +252,16 @@ class OutputInjectionTests(unittest.TestCase):
         policy = parse_config(text, "s", "cisco-asa")
         self.assertNotIn("COMMENTSECRET123", json.dumps(to_plain(policy)))
         self.assertNotIn("COMMENTSECRET123", render(translate_policy(policy, "cisco-asa", zone_map={"outside": "Gi0/0"}), "cisco-asa"))
+
+
+class QuotedSecretTests(unittest.TestCase):
+    def test_a_quoted_secret_with_a_space_is_removed_whole(self):
+        from ruletruss.redact import redact
+        for text in ('set password "first secret-tail"', 'set psksecret ENC "alpha beta gamma"', 'password: "two words"', "token='x y z'"):
+            with self.subTest(text):
+                out = redact(text)
+                for leak in ("secret-tail", "beta", "gamma", "two words", "words", "x y z", "y z"):
+                    self.assertNotIn(leak, out)
 
 
 class OversizedRuleTests(unittest.TestCase):

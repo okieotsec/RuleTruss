@@ -414,6 +414,22 @@ class WorkflowTests(ServerCase):
 
 
 class UploadAndDeletionTests(ServerCase):
+    def leftovers(self, pid):
+        folder = os.path.join(self.srv.app.store.project_dir(pid), "incoming")
+        return sorted(os.listdir(folder)) if os.path.isdir(folder) else []
+
+    def test_an_upload_that_is_refused_leaves_no_file_behind(self):
+        pid = self.new_project("refused")
+        good = (b"ASA Version 9.16(1)\nhostname r\ninterface GigabitEthernet0/0\n nameif inside\n security-level 100\n"
+                b" ip address 10.0.0.1 255.255.255.0\naccess-list A extended permit ip any any\naccess-group A in interface inside\n")
+        status, _ = self.upload(pid, good, "x.cfg", "")
+        self.assertEqual(status, 201)                                               # the control: a good upload leaves nothing in incoming
+        before = self.leftovers(pid)
+        status, _ = self.request("POST", f"/api/projects/{pid}/sources?name=x.cfg&format=not-a-format", good,
+                                 {"Content-Type": "application/octet-stream"})
+        self.assertEqual(status, 400)
+        self.assertEqual(self.leftovers(pid), before)
+
     def test_pcap_and_pcapng_upload_then_delete_leaves_nothing_behind(self):
         pid = self.new_project("del")
         for fmt in ("pcap", "pcapng"):

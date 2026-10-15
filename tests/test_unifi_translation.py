@@ -303,6 +303,46 @@ class ReviewFindingTests(unittest.TestCase):
         self.assertFalse(result["deployable"])
         self.assertTrue(any(i["code"] == "pair-without-policy" and "External to" in i["message"] for i in result["issues"]))
 
+    def test_a_network_with_no_subnet_in_the_export_blocks_deployment_and_is_not_covered_by_a_later_catch_all(self):
+        doc = self.doc()
+        for network in doc["networks"]:
+            if network["name"] == "SANDBOX":
+                network.pop("ipv4Configuration")
+        result = self.run_translation(doc)
+        self.assertFalse(result["deployable"], "Default LAN to Sandbox is a block; with no subnet to write it, 'permit to any' must not stand in for it")
+        self.assertTrue(any("SANDBOX" in i["message"] or "Sandbox" in i["message"] for i in result["issues"]))
+
+    def test_an_ipv6_only_policy_to_external_is_unresolved_not_turned_into_an_ipv4_permit(self):
+        doc = self.doc()
+        for policy in self.pair(doc, "Default LAN", "External"):
+            if policy["name"] == "Allow All Traffic":
+                policy["action"] = {"type": "BLOCK"}
+        template = next(p for p in self.pair(doc, "Isolation", "External") if p["name"] == "Isolated internet")
+        policy = json.loads(json.dumps(template))
+        policy.update(id="ffffffff-0000-4000-8000-000000000002", name="IPv6 only", index=9999,
+                      ipProtocolScope={"ipVersion": "IPV6"})
+        default_network = next(n["id"] for n in doc["networks"] if n["name"] == "Default")
+        policy["source"] = {"zoneId": next(z["id"] for z in doc["zones"] if z["name"] == "Default LAN"),
+                            "trafficFilter": {"type": "NETWORK", "networkFilter": {"networkIds": [default_network], "matchOpposite": False}}}
+        policy["destination"] = {"zoneId": next(z["id"] for z in doc["zones"] if z["name"] == "External")}
+        doc["policies"].append(policy)
+        result = self.run_translation(doc)
+        entry = next(e for e in result["report"] if e["source_rule"] == "IPv6 only")
+        self.assertEqual(entry["disposition"], "unresolved")
+        self.assertFalse(result["deployable"])
+
+    def test_a_negated_protocol_filter_keeps_the_decision_open_instead_of_matching_the_excluded_protocol(self):
+        doc = self.doc()
+        for policy in self.pair(doc, "Isolation", "External"):
+            if policy["name"] == "Allow All Traffic":
+                policy["action"] = {"type": "BLOCK"}
+            if policy["name"] == "Isolated internet":
+                policy["ipProtocolScope"] = {"ipVersion": "IPV4", "protocolFilter": {"type": "NAMED_PROTOCOL", "matchOpposite": True,
+                                                                                    "protocol": {"name": "TCP"}}}
+        parsed = registry.parse_config(json.dumps(doc), "s", "unifi")
+        probe = Probe("10.0.250.5", "198.51.100.5", "tcp", 40000, 443, src_zone="Isolation", dst_zone="External")
+        self.assertNotEqual(evaluate(parsed, probe).outcome, ALLOW, "the rule excludes TCP, so it cannot be what allows this TCP connection")
+
     def test_the_validation_headline_never_claims_agreement_without_comparing_anything(self):
         from ruletruss.migrate import validate
         base = {"target_broader": 0, "target_narrower": 0, "cases": 10, "compared": 0, "not_compared": 10}
