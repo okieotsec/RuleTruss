@@ -41,7 +41,10 @@ that should not have been hit).
 Along the way: one host's test script was pasted on the wrong host (the output was labelled with the other host's name); the results were re-collected from the right hosts, and a test now ties
 the recorded results to the configuration that was tried. The first listener design depended on the exit status of Alpine's `nc`; it was changed to a banner the listener sends, which does not.
 
-Not yet done: the ASAv's software version was not recorded, and the ICMP-inspection question (does the ASAv drop ping replies without `inspect icmp`, as the new warning says) has not been tested in the lab.
+The ASAv ran Cisco ASA software 9.24(1) (SSP operating system 2.18(0.520), 2048 MB RAM, unlicensed: throughput limited to 100 Kbps, which should not affect permit and deny decisions
+but means no performance claim can be made). The device's serial number and MAC addresses were in the output the owner sent and are deliberately not recorded here.
+
+Not yet done: the ICMP-inspection question (does the ASAv drop ping replies without `inspect icmp`, as the new warning says) has not been tested in the lab.
 The warning stays, but is unconfirmed, until it is.
 
 ## Limits
