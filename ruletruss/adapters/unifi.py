@@ -184,6 +184,12 @@ class _Parser:
                     unresolved.append(f"unrecognised address item {_s(kind, 40)}")
             except (KeyError, ValueError, TypeError):
                 unresolved.append(f"unreadable address item {_s(kind, 40)}")
+            if len(nets) > limits.MAX_EXPANSION:                          # ranges multiply: one item can be 250 networks
+                self.issue("warning", "group-too-large", f"an address list expands to more than {limits.MAX_EXPANSION:,} entries; the rest "
+                           "were not read")
+                del nets[limits.MAX_EXPANSION:]
+                unresolved.append("address list too large to read completely")
+                break
         return nets, unresolved
 
     def address(self, flt, rule_unsupported):
@@ -230,14 +236,19 @@ class _Parser:
                     ranges.append((int(entry["start"]), int(entry["stop"])))
                 else:
                     unresolved.append(f"unrecognised port item {_s(entry.get('type', ''), 40)}")
-            except (KeyError, ValueError, TypeError):
+            except (KeyError, ValueError, TypeError, ArithmeticError):        # ArithmeticError: int(Infinity), which json accepts
                 unresolved.append("unreadable port item")
-        ranges = [(lo, hi) for lo, hi in ranges if 1 <= lo <= hi <= 65535]
+        valid = [(lo, hi) for lo, hi in ranges if 1 <= lo <= hi <= 65535]
+        if len(valid) != len(ranges):
+            unresolved.append("a port outside 1-65535")                 # dropping it silently would leave the rest as the whole condition
+        ranges = valid
         if not ranges and not unresolved:
             unresolved.append("port filter with no valid ports")
             rule_unsupported.append("a port filter with no valid ports in it")
         if flt.get("matchOpposite") and ranges and not unresolved:
             ranges = _ranges_complement(ranges)
+            if not ranges:
+                unresolved.append("a port filter that excludes every port")      # an empty list would read as 'any port'
         elif flt.get("matchOpposite"):
             unresolved.append("ports other than those listed")
         return ranges or None, unresolved

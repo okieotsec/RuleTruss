@@ -97,7 +97,8 @@ class FortiosTests(unittest.TestCase):
     def test_unbalanced_and_hostile_input_does_not_crash(self):
         fortios.parse("config firewall policy\n edit 1\n set name 'unterminated\n", "x")
         fortios.parse("config firewall policy\n" + " edit 1\n set srcintf a\n next\n" * 2000 + "end\n", "x")
-        fortios.parse("end\nend\nnext\nconfig firewall policy\n", "x")
+        with self.assertRaises(ValueError):                       # an 'end' with no 'config': refused, not tolerated with a depth count that goes wrong
+            fortios.parse("end\nend\nnext\nconfig firewall policy\n", "x")
 
     def test_a_set_line_with_no_value_is_ignored_not_a_crash(self):
         # found by fuzzing: "set logtraffic" alone left an empty list that the policy reader indexed

@@ -8,6 +8,7 @@ MAX_LINE_CHARS = 20_000
 MAX_XML_DEPTH = 64
 MAX_RULES = 100_000
 MAX_OBJECT_DEPTH = 16                         # nesting of groups inside groups
+MAX_VISITS = 200_000                           # group lookups while resolving one name (groups that list each other many times)
 MAX_EXPANSION = 50_000                        # addresses or services one group may expand to
 MAX_PACKETS = 5_000_000
 MAX_FLOWS = 200_000

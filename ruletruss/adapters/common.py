@@ -39,6 +39,8 @@ class Resolver:
 
     def resolve(self, name, _depth=0, _seen=None):
         """Return (results, unresolved_names)."""
+        if not spend_visit(self, _depth, name, lambda sev, code, msg: self.on_problem(sev, code, msg)):
+            return [], [name]
         seen = set(_seen or ())
         if name in seen:
             self.on_problem("warning", "group-cycle", f"group {name} contains itself; the loop was ignored")
@@ -68,6 +70,20 @@ class Resolver:
                 unresolved.append(f"{name} (too large to resolve)")
                 return out[: limits.MAX_EXPANSION], unresolved
         return out, unresolved
+
+
+def spend_visit(owner, depth, name, issue):
+    """Count one group lookup while resolving one name (depth 0 starts a new count). False once the budget is used up, so groups that list
+    each other many times, with nothing at the bottom to count, cannot run for ever."""
+    if depth == 0:
+        owner.visits_left = limits.MAX_VISITS
+    owner.visits_left -= 1
+    if owner.visits_left < 0:
+        if owner.visits_left == -1:
+            issue("warning", "group-too-large",
+                  f"resolving {name} needs more than {limits.MAX_VISITS:,} group lookups; the rest were not resolved")
+        return False
+    return True
 
 
 def cap_expansion(items, unresolved, name, issue):

@@ -11,6 +11,7 @@ Rules of the translation:
     invalid until replaced.
 Destinations implemented: Cisco ASA, Cisco IOS / IOS-XE (extended ACLs), Fortinet FortiOS.
 """
+import hashlib
 import ipaddress
 import re
 from dataclasses import dataclass, field
@@ -68,6 +69,7 @@ class Translation:
     iface_nets: dict = field(default_factory=dict)   # zone-pair sources: target interface key -> networks behind it
     iface_zone: dict = field(default_factory=dict)   # zone-pair sources: target interface key -> the source zone it belongs to
     confirmed: list = field(default_factory=list)    # things the user said they handle themselves ("gateway", "vpn")
+    ids: dict = field(default_factory=dict)         # source name -> the id written into the text (names that clean alike stay apart)
 
 
 def _issue(sev, code, msg, ev=None):
@@ -78,6 +80,18 @@ def safe_id(text):
     return re.sub(r"[^A-Za-z0-9._:-]", "_", str(text))[:60]
 
 
+def unique_id(translation, text):
+    """safe_id, except that two different names which clean to the same text get different ids ('DMZ Web' and 'DMZ_Web')."""
+    text = str(text)
+    if text in translation.ids:
+        return translation.ids[text]
+    found = safe_id(text)
+    if found in translation.ids.values():
+        found = f"{found[:52]}-{hashlib.sha256(text.encode('utf-8', 'replace')).hexdigest()[:6]}"
+    translation.ids[text] = found
+    return found
+
+
 def _zone_name(zone, zone_map, translation, identity):
     if zone is None:
         return None
@@ -85,7 +99,7 @@ def _zone_name(zone, zone_map, translation, identity):
         return zone_map[zone]
     if identity:
         return zone
-    placeholder = f"<TARGET-IF:{safe_id(zone)}>"
+    placeholder = f"<TARGET-IF:{unique_id(translation, zone)}>"
     if placeholder not in translation.placeholders:
         translation.placeholders.append(placeholder)
     return placeholder
@@ -564,7 +578,7 @@ def render_cisco(t, flavour, identity=False):
         acls[key].sort(key=lambda r: r.kind != "return-path")
     bindings, v6_present = [], set()
     for key, rules in acls.items():
-        name = "RT-GLOBAL" if key == "global" else f"RT-{safe_id(key)}-IN"
+        name = "RT-GLOBAL" if key == "global" else f"RT-{unique_id(t, key)}-IN"
         if key == "global" and flavour == "ios":
             for rule in rules:
                 why = (single_line(rule.comment[16:], 200) if rule.kind == "blocked"

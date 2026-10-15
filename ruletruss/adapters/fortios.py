@@ -14,7 +14,7 @@ import shlex
 
 from .. import limits, netutil
 from ..model import AddrSet, NatRule, PolicySet, Rule, ServiceSet, SvcEntry
-from .common import Lines, cap_expansion, dedupe
+from .common import Lines, cap_expansion, dedupe, spend_visit
 
 # FortiOS predefined services. These values are this project's table, not read from the export: check them against your
 # FortiOS version. Anything not listed here is reported as unresolved rather than guessed.
@@ -82,7 +82,7 @@ def build_tree(lines):
             depth += 1
         elif head in ("set", "append") and len(words) > 1:
             if head == "append" and words[1] in current.sets:
-                current.sets[words[1]] = current.sets[words[1]] + words[2:]
+                current.sets[words[1]].extend(words[2:])
             elif len(words) > 2:
                 current.sets[words[1]] = words[2:]
             elif head == "set":
@@ -96,6 +96,8 @@ def build_tree(lines):
             current = current.parent
             depth -= 1
         elif head == "end" and isinstance(current, _Section):
+            if current is root:
+                raise ValueError(f"line {number}: an 'end' with no matching 'config'")
             current = current.parent or root
             depth -= 1
         if depth > limits.MAX_XML_DEPTH:
@@ -186,6 +188,8 @@ class _Parser:
                 self.service_groups[entry.key] = entry.sets.get("member", [])
 
     def address_nets(self, name, depth=0, seen=()):
+        if not spend_visit(self, depth, name, self.issue):
+            return [], [name]
         if name in seen or depth > limits.MAX_OBJECT_DEPTH:
             self.issue("warning", "group-cycle", f"address group {name!r} is nested too deeply or contains itself")
             return [], [name]
@@ -247,7 +251,8 @@ class _Parser:
         return AddrSet(nets=dedupe(nets), unresolved=dedupe(unresolved), negate=negate, refs=list(names))
 
     def custom_service(self, name, entry):
-        entries = []
+        """(entries, unresolved). A service that cannot be read is unresolved, never an empty set that matches nothing."""
+        entries, unresolved = [], []
         proto = entry.sets.get("protocol", ["TCP/UDP/SCTP"])[0].upper()
         if proto in ("TCP/UDP/SCTP", "TCP/UDP"):
             for key, p in (("tcp-portrange", "tcp"), ("udp-portrange", "udp"), ("sctp-portrange", "sctp")):
@@ -259,6 +264,7 @@ class _Parser:
                     except netutil.ParseProblem:
                         self.issue("warning", "service-parse", f"service {name!r} has a port range that could not be read",
                                    entry.line)
+                        unresolved.append(f"service {name} (unreadable port range)")
         elif proto in ("ICMP", "ICMP6"):
             icmp_type = entry.sets.get("icmptype", [None])[0]
             icmp_code = entry.sets.get("icmpcode", [None])[0]
@@ -268,14 +274,20 @@ class _Parser:
         elif proto == "IP":
             number = entry.sets.get("protocol-number", ["0"])[0]
             entries.append(SvcEntry(netutil.proto_name(number) or f"proto:{number}"))
-        return entries
+        else:
+            self.issue("warning", "service-parse",
+                       f"service {name!r} has protocol {limits.clip(proto, 30)!r}, which this tool does not read", entry.line)
+            unresolved.append(f"service {name} (protocol {limits.clip(proto, 30)})")
+        return entries, unresolved
 
     def service_entries(self, name, depth=0, seen=()):
         """Returns (entries or None for any, unresolved)."""
+        if not spend_visit(self, depth, name, self.issue):
+            return [], [name]
         if name in seen or depth > limits.MAX_OBJECT_DEPTH:
             return [], [name]
         if name in self.services:
-            return self.custom_service(name, self.services[name]), []
+            return self.custom_service(name, self.services[name])
         if name in self.service_groups:
             entries, unresolved = [], []
             for member in self.service_groups[name]:

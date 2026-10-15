@@ -11,7 +11,7 @@ import ipaddress
 
 from .. import limits, netutil
 from ..model import AddrSet, Evidence, NatRule, PolicySet, Rule, ServiceSet, SvcEntry
-from .common import cap_expansion, dedupe
+from .common import cap_expansion, dedupe, spend_visit
 from .xmlsafe import parse_xml, snippet, text
 
 ICMP_NAMES = {"echoreq": 8, "echorep": 0, "unreach": 3, "squench": 4, "redir": 5, "althost": 6, "routeradv": 9,
@@ -70,6 +70,8 @@ class _Parser:
                 self.aliases[name] = (text(node, "type"), text(node, "address").split())
 
     def alias_nets(self, name, depth=0, seen=()):
+        if not spend_visit(self, depth, name, self.issue):
+            return [], [name]
         kind, values = self.aliases[name]
         if name in seen or depth > limits.MAX_OBJECT_DEPTH:
             self.issue("warning", "group-cycle", f"alias {name!r} is nested too deeply or contains itself")
@@ -94,18 +96,23 @@ class _Parser:
                            "resolved and rules using it are undecidable")
         return nets, unresolved
 
-    def port_ranges(self, name_or_ports, depth=0):
+    def port_ranges(self, name_or_ports, depth=0, seen=()):
         """Ports from a literal or a port alias. Returns (ranges or None, unresolved)."""
         value = name_or_ports.strip()
         if not value:
             return None, []
         if value in self.aliases:
+            if not spend_visit(self, depth, value, self.issue):
+                return None, [f"port alias {value}"]
             kind, values = self.aliases[value]
+            if value in seen:
+                self.issue("warning", "group-cycle", f"port alias {value!r} contains itself")
+                return None, [f"port alias {value}"]
             if depth > limits.MAX_OBJECT_DEPTH or kind not in ("port",):
                 return None, [f"{kind} alias {value}"]
             ranges, unresolved = [], []
             for item in values:
-                r, u = self.port_ranges(item, depth + 1)
+                r, u = self.port_ranges(item, depth + 1, (*seen, value))
                 ranges += r or []
                 unresolved += u
             return netutil.merge_ranges(ranges), unresolved
