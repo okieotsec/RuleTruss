@@ -109,13 +109,23 @@ def _yaml(value, indent=0):
     return "\n".join(lines)
 
 
-def lab_file():
+def host_script(info):
+    """The boot script of an Alpine host (CML sources node.cfg at boot): its name, address, default route and a TCP 443 listener."""
+    return ("# this is a shell script which will be sourced at boot\n"
+            f"hostname {info['host']}\n"
+            "# configurable user account\nUSERNAME=cisco\nPASSWORD=cisco\n"
+            "# RuleTruss test: address, default route and a listener on TCP 443\n"
+            f"ip addr add {info['ip']}/24 dev eth0\nip link set eth0 up\nip route add default via {info['asa']}\n"
+            "(while true; do nc -l -p 443 > /dev/null; done) &\n")
+
+
+def lab_file(with_host_config=True):
     """The five-node lab in the format Cisco Modeling Labs 2.10 itself exports (lab file version 0.3.1)."""
     def interfaces(labels):
         return [{"id": f"i{n}", "label": label, "mac_address": None, "type": "physical", "slot": n} for n, label in enumerate(labels)]
 
-    def node(number, label, definition, x, y, labels):
-        return {"boot_disk_size": None, "configuration": [], "cpu_limit": None, "cpus": None, "data_volume": None, "hide_links": False,
+    def node(number, label, definition, x, y, labels, config=None):
+        return {"boot_disk_size": None, "configuration": [{"name": "node.cfg", "content": config}] if config else [], "cpu_limit": None, "cpus": None, "data_volume": None, "hide_links": False,
                 "id": f"n{number}", "image_definition": None, "label": label, "node_definition": definition, "parameters": {}, "priority": None,
                 "pyats": dict.fromkeys(PYATS_FIELDS), "ram": None, "tags": [], "x": x, "y": y,
                 "interfaces": interfaces(labels)}
@@ -126,7 +136,7 @@ def lab_file():
     links = []
     for number, (key, info) in enumerate(LAB.items(), start=1):
         x, y = places[key]
-        nodes.append(node(number, info["host"], "alpine", x, y, ["eth0", "eth1", "eth2", "eth3"]))
+        nodes.append(node(number, info["host"], "alpine", x, y, ["eth0", "eth1", "eth2", "eth3"], host_script(info) if with_host_config else None))
         asa_interface = asa_ports.index(info["port"])
         links.append({"id": f"l{number - 1}", "n1": "n0", "n2": f"n{number}", "i1": f"i{asa_interface}", "i2": "i0", "conditioning": {},
                       "label": f"rtasa-{info['port']}<->{info['host']}-eth0"})
@@ -140,6 +150,7 @@ def write(config, rows, translation):
     pack.mkdir(parents=True, exist_ok=True)
     (pack / "asa-config.txt").write_text("\n".join(config) + "\n", encoding="utf-8")
     (pack / "rt-asa-test-lab.yaml").write_text(lab_file(), encoding="utf-8")
+    (pack / "rt-asa-test-lab-topology-only.yaml").write_text(lab_file(with_host_config=False), encoding="utf-8")
     with open(pack / "expected.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=["from", "to", "test", "expected", "observed"])
         writer.writeheader()
@@ -174,13 +185,15 @@ The lab file follows the format a CML 2.10 server exported for the author; the o
 
 ## Steps
 
-1. In CML, **import** `samples/cml-test/rt-asa-test-lab.yaml` (on the Dashboard, the import option; it asks for a file). It creates the five nodes already linked:
+1. In CML, **import** `samples/cml-test/rt-asa-test-lab.yaml` (if CML refuses it, try `rt-asa-test-lab-topology-only.yaml`, the same lab without the host boot scripts, and tell me the error) (on the Dashboard, the import option; it asks for a file). It creates the five nodes already linked:
    the ASAv is `rtasa` and the four Alpine hosts are `h-lan`, `h-wifi`, `h-cam`, `h-ext`. The lab file is in the format your own CML 2.10 exports (version 0.3.1).
    Start the lab. Wait until the ASAv has finished booting.
 2. Open the ASAv console. Enter privileged mode (`enable`; on a fresh ASAv the password is empty, press Enter) and then `configure terminal`.
 3. Paste the contents of `samples/cml-test/asa-config.txt`. Some ASAv versions print warnings while pasting; copy any error line into your report.
 4. Check: `show running-config access-list` should list the `RT-...-IN` lists, and `show running-config access-group` should show one `in interface` line for each of `lan`, `wifi`, `cameras`, `outside`.
-5. On each Alpine host, open the console and set its address, then start a listener on port 443 (so that an allowed connection is answered):
+5. The imported lab already gives each Alpine host its address, gateway and a TCP 443 listener through its `node.cfg` boot script. Check one: open `h-lan`'s console
+   (login `cisco`, password `cisco`, the node's own default, for this isolated lab only) and run `ip addr show eth0` and `ip route`. If the address and default route are not there
+   (for example if you imported `rt-asa-test-lab-topology-only.yaml` instead), set them by hand on each host:
 
 ```
 {commands}
