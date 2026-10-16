@@ -24,7 +24,7 @@ MAX_PROJECTS = 500
 MAX_SOURCES_PER_PROJECT = 100
 # The version of what is stored for an analysed file. Raise it whenever a parser or the analysis starts storing something new or means
 # something different: files analysed under an older number are re-read (configurations) or flagged (captures), never silently used.
-PARSE_FORMAT = 5
+PARSE_FORMAT = 6
 
 
 class StoreError(ValueError):

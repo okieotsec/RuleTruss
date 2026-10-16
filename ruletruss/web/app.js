@@ -574,7 +574,7 @@ VIEWS.migrate = async () => {
     mig.workflow === "preserve" ? h("p", { class: "small muted", text: "Translates the configured rules one by one. Every place it widens or narrows is reported." })
       : [h("p", { class: "small muted", text: "Built only from what was seen. Not proof of need; every proposal needs review." }),
         h("label", { class: "small" }, h("input", { type: "checkbox", checked: mig.low, onchange: (e) => { mig.low = e.target.checked; } }), " Include flows with uncertain direction (not recommended)")],
-    mig.workflow === "preserve" ? (policies.length ? h("div", { class: "row" }, h("label", { class: "field" }, "Source configuration", (() => { const sel = h("select", {}, policies.map((p) => h("option", { value: p.id, selected: p.id === mig.policy }, `${p.filename} (${p.vendor})`))); sel.addEventListener("change", () => { mig.policy = sel.value; state.translation = null; render(); }); return sel; })())) : notice("Import a configuration first.", "bad")) : null)];
+    mig.workflow === "preserve" ? (policies.length ? h("div", { class: "row" }, h("label", { class: "field" }, "Source configuration", (() => { const sel = h("select", {}, policies.map((p) => h("option", { value: p.id, selected: p.id === mig.policy }, `${p.filename} (${p.vendor})`))); sel.addEventListener("change", () => { mig.policy = sel.value; state.translation = null; state.macMap = {}; state.keepOpen = []; render(); }); return sel; })())) : notice("Import a configuration first.", "bad")) : null)];
   out.push(directionalCard(mig));
   out.push(firewallCard(mig, project, policies));
   return out;
@@ -661,7 +661,7 @@ function confirmBoxes(policies, mig) {
   return h("div", { class: "row" }, box("gateway", "I handle the other local services (DHCP, DNS, mDNS, IPv6) of the firewall itself separately"), box("vpn", "I handle VPN traffic that is not translated separately"));
 }
 // What a UniFi export cannot say and you can: the VPN client pool, and the IP address of each device named by a MAC filter.
-function supplied() { return { vpn_networks: state.vpn || [], mac_map: state.macMap || {} }; }
+function supplied() { return { vpn_networks: state.vpn || [], mac_map: state.macMap || {}, keep_open: state.keepOpen || [] }; }
 function vpnField(policies, mig, input) {
   const source = policies.find((p) => p.id === mig.policy);
   if (mig.workflow !== "preserve" || !source || source.vendor !== "unifi") return null;
@@ -683,6 +683,18 @@ function macTable(t, again) {
     h("button", { type: "button", onclick: apply }, "Translate again with these addresses"));
 }
 const DISPOSITION_CHIP = { translated: "allow", implemented: "medium", unsupported: "blocked", unresolved: "blocked", "not-applicable": "neutral", blocked: "blocked", skipped: "medium" };
+// Routed interfaces a switch left with no inbound ACL: the switch permitted everything there, a firewall will not unless you say so.
+function openTable(t, again) {
+  const rows = (t.inputs && t.inputs.open_interfaces) || [];
+  if (!rows.length) return null;
+  const boxes = rows.map((r) => ({ r, box: h("input", { type: "checkbox", checked: !!r.kept, "aria-label": `Keep ${r.interface} open` }) }));
+  const apply = () => { state.keepOpen = boxes.filter((b) => b.box.checked).map((b) => b.r.interface); again(); };
+  return more(`Interfaces the switch left open (${rows.length}): decide each one`, { __open: true },
+    h("p", { class: "small", text: "A routed interface with no inbound ACL permits everything that enters it. A firewall denies whatever no rule permits, so that traffic stops. Tick an interface to keep it open for now (IPv4 only, written as one broad permit that you should replace with specific rules), or leave it unticked and add rules; the narrowing workflow can propose them from a capture." }),
+    h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["Keep open", "Interface", "Networks"].map((x) => h("th", { text: x })))),
+      h("tbody", {}, boxes.map((b) => h("tr", {}, h("td", {}, b.box), h("td", {}, h("code", { text: b.r.interface })), h("td", { text: b.r.networks.join(", ") })))))),
+    h("button", { type: "button", onclick: apply }, "Translate again with these choices"));
+}
 function showTranslation(t, again) {
   const out = [];
   const s_ = t.summary;
@@ -697,6 +709,8 @@ function showTranslation(t, again) {
   if (t.issues.length) out.push(more(`Issues (${t.issues.length})`, warnList(t.issues)));
   const macs = again ? macTable(t, again) : null;
   if (macs) out.push(macs);
+  const open = again ? openTable(t, again) : null;
+  if (open) out.push(open);
   const v = t.validation, rows = (v.mismatches || v.problems || []);
   out.push(h("h3", { text: "Validation on sampled connections" }), h("div", { class: "row" }, chip(rows.length ? "differences found" : "no difference", rows.length ? "medium" : "allow"), h("span", { class: "small", text: v.summary.result })),
     h("div", { class: "grid" }, Object.entries(v.summary).filter(([k]) => k !== "result").map(([k, x]) => stat(k.replace(/_/g, " "), x))));

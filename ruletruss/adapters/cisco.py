@@ -310,7 +310,14 @@ class _Parser:
         name = tokens[1] if len(tokens) > 1 else ""
         info = {"nets": [], "host_ips": [], "zone": name, "line": number}
         nameif = None
+        addressed, switchport = False, False
         for _, ctokens in children:
+            if ctokens[:2] in (["ip", "address"], ["ipv6", "address"]):
+                addressed = True
+            elif ctokens == ["switchport"] or ctokens[:2] == ["switchport", "mode"]:
+                switchport = True
+            elif ctokens == ["no", "switchport"]:
+                switchport = False
             if ctokens[0] == "nameif" and len(ctokens) > 1:
                 nameif = ctokens[1]
             elif ctokens[0] == "security-level" and len(ctokens) > 1 and netutil.is_uint(ctokens[1]):
@@ -332,6 +339,9 @@ class _Parser:
         key = nameif if self.flavour == "asa" else name
         if self.flavour == "asa" and not nameif:
             return                                   # a physical interface with no name is not in the data path
+        # routed: the device makes a layer 3 decision here (an addressed interface that is not a switch port). A switch port filters
+        # at layer 2, inside a VLAN as well, which a firewall that routes between VLANs never sees.
+        info["routed"] = self.flavour == "asa" or (addressed and not switchport)
         info["zone"] = key
         info["physical"] = name
         self.policy.interfaces[key] = info
@@ -663,6 +673,7 @@ class _Parser:
                            "which is not defined in this export", line)
                 policy.interfaces.setdefault(interface, {"nets": [], "host_ips": [], "zone": interface})[
                     f"acl_{stage}{family}"] = acl
+        self.layer2_findings(by_acl)
         position = 0
         for acl, records in self.acls.items():
             bindings = by_acl.get(acl) or [("unbound", "", 0)]
@@ -682,6 +693,10 @@ class _Parser:
                         unsupported=list(record.get("unsupported", [])),
                         evidence=[self.lines.evidence(record["line"])] + ([self.lines.evidence(bind_line)] if bind_line else []),
                         extra={"stage": stage, "bind": interface, "acl": acl, "kind": record["kind"]})
+                    if stage in ("in", "out") and policy.interfaces.get(interface, {}).get("routed") is False:
+                        rule.extra["layer2"] = True
+                        rule.notes.append(f"Applied to {interface}, a switch port: a port ACL filters at layer 2, also inside one VLAN. "
+                                          "It stays on the switch; a firewall that routes between VLANs does not replace it.")
                     if stage == "unbound":
                         rule.notes.append("The ACL is not applied to an interface in this export, so it filters nothing here.")
                     if stage == "global":
@@ -700,6 +715,28 @@ class _Parser:
         else:
             policy.issue("info", "asa-order", "ASA evaluates the interface ACL, then the global ACL, then the implicit "
                          "deny; with no ACL on the ingress interface, security levels decide (higher to lower is allowed).")
+
+    def layer2_findings(self, by_acl):
+        """What a layer 3 switch does that a VLAN interface ACL does not show: VLAN access maps, port ACLs, routing that may be off."""
+        if self.flavour != "ios":
+            return
+        raw = self.lines.raw
+        maps = sorted({m.group(1) for r in raw for m in [re.match(r"^vlan access-map (\S+)", r.strip())] if m})
+        if maps:
+            self.issue("warning", "vlan-access-map", f"VLAN access map(s) {', '.join(maps[:5])} are configured. They filter traffic inside "
+                       "and between VLANs at layer 2 (what a VLAN ACL, VACL, matches), are not modelled, and stay on the switch.")
+        interfaces = self.policy.interfaces
+        ports = sorted({f"{iface} ({acl})" for acl, bound in by_acl.items() for stage, iface, _line in bound
+                        if stage in ("in", "out") and interfaces.get(iface, {}).get("routed") is False})
+        if ports:
+            self.issue("warning", "port-acl", f"ACLs are applied to switch ports, not routed interfaces: {', '.join(ports[:5])}. A port "
+                       "ACL filters traffic entering that port, also inside one VLAN; it is not modelled as a routed filter and stays on "
+                       "the switch.")
+        svis = [name for name, info in interfaces.items() if info.get("routed") and name.lower().startswith("vlan")]
+        if svis and not any(r.strip() == "ip routing" for r in raw):
+            self.issue("warning", "ip-routing-missing", "VLAN interfaces have addresses but `ip routing` is not in this export. A "
+                       "switch without it does not route between VLANs, so these ACLs would filter nothing between them. Check the "
+                       "export is complete.")
 
     def read_nat(self):
         for number, tokens, _ in self.blocks():
