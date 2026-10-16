@@ -4,6 +4,8 @@
 
 First working version.
 
+* UniFi to ASA translation of policies to the Gateway, VPN policies and MAC filters (CP21). Policies whose destination is the Gateway are written as the ASA's own `ssh`, `http` and `icmp` commands for the networks they name (ordered as UniFi orders them; other local services stay unresolved until you say you handle them); a VPN client address pool you give turns traffic that VPN clients start into a `vpn-filter` access list and group policy; the IPv4 address you give for each MAC in a MAC filter replaces it, with the cost of that said in the report. The gateway commands and the VPN filter have not been tried on a device by the authors, and the validation does not cover them. The "I handle traffic to the firewall itself" box now means "the other local services", because ssh, http and icmp are written for you. An IPv4-only policy with no address limit is no longer reported as lying outside its zone.
+
 * Security process (no change to the application): the test plan now follows the NIST SSDF and MITRE SAF, with a practice-by-practice self-assessment in docs/SECURITY_FRAMEWORKS.md. `tools/security_checks.py` also lists every suppression comment against a reviewed baseline and (optionally) converts the results with MITRE's SAF CLI. CI gains a weekly schedule, osv-scanner, zizmor, CodeQL, dependency review and OpenSSF Scorecard; Dependabot now also watches the pip files with a seven-day cooldown. SECURITY.md states response targets. Security checkpoint CP9 in `reports/cp9-security-framework/`.
 
 * Named RuleTruss, with the OkieOTSec brand kit (shield, lockups, colour tokens, light and dark themes; contrast is tested).
