@@ -22,6 +22,7 @@ from ..redact import single_line
 from .directional import _is_reply_rule
 
 MAX_EXPANSION_LINES = 2_000
+VPN_FILTER = "@vpn-filter"              # the src_zone of rules that belong to the VPN filter access list, which no interface carries
 
 TARGETS = {
     "cisco-asa": {"label": "Cisco ASA (ACLs with access-group)", "stateful": True, "negate": False, "dst_zone": False,
@@ -70,6 +71,9 @@ class Translation:
     iface_zone: dict = field(default_factory=dict)   # zone-pair sources: target interface key -> the source zone it belongs to
     confirmed: list = field(default_factory=list)    # things the user said they handle themselves ("gateway", "vpn")
     ids: dict = field(default_factory=dict)         # source name -> the id written into the text (names that clean alike stay apart)
+    local_access: dict = field(default_factory=dict)  # ASA: interface key -> ssh, http nets; icmp (verb, net, kind)
+    vpn_pool: list = field(default_factory=list)    # ASA: the VPN client pool the user gave, when a vpn-filter was written
+    inputs: dict = field(default_factory=dict)      # what the user can still supply: MAC filters to give addresses for, the VPN pool
 
 
 def _issue(sev, code, msg, ev=None):
@@ -185,8 +189,12 @@ def _default_behaviour_notes(policy, caps):
     return notes
 
 
-def translate_policy(policy, target, zone_map=None, identity=False, ctx=None, confirmed=()):
-    """Preserve workflow: source PolicySet to destination rules."""
+def translate_policy(policy, target, zone_map=None, identity=False, ctx=None, confirmed=(), supplied=None):
+    """Preserve workflow: source PolicySet to destination rules.
+
+    `supplied` holds what the export cannot say and the user states: {"mac_map": {mac: ip}, "vpn_networks": [cidr]}. Nothing in it is
+    guessed or taken from a capture without the user's say.
+    """
     caps = TARGETS[target]
     zone_map = dict(zone_map or {})
     t = Translation(target=target, workflow="preserve", zone_map=zone_map, confirmed=sorted(set(confirmed)))
@@ -205,7 +213,7 @@ def translate_policy(policy, target, zone_map=None, identity=False, ctx=None, co
                                "or static NAT are blocked; check the others against your NAT design."))
     if policy.default_mode == "zone_pairs" and target in ("cisco-asa", "cisco-ios"):
         from . import zonepairs  # imported here: that module builds on the classes above
-        zonepairs.translate(policy, caps, t, zone_map, identity, set(confirmed))
+        zonepairs.translate(policy, caps, t, zone_map, identity, set(confirmed), supplied or {})
         for note in _default_behaviour_notes(policy, caps):
             t.issues.append(note)
         _finish(t, policy, zone_map, identity)
@@ -361,8 +369,10 @@ def _finish(t, policy, zone_map, identity):
     for rule in t.rules:
         if rule.kind != "blocked":
             for z in (rule.src_zone, rule.dst_zone):
-                if z is not None:
+                if z is not None and z != VPN_FILTER:
                     _zone_name(z, zone_map, t, identity)
+    for key in sorted(t.local_access):
+        _zone_name(key, zone_map, t, identity)
     for rule in t.rules:
         t.issues.extend(rule.warnings)
     for rule in t.rules:
@@ -561,6 +571,23 @@ def _cisco_lines(rule, flavour):
     return out
 
 
+def _local_access_lines(t, identity):
+    """ASA commands for traffic to the box itself, which interface ACLs do not govern. ssh and http only permit; icmp is an ordered list."""
+    out = ["! ---- Access to the ASA itself (policies whose destination is the Gateway) ----"]
+    for key in sorted(t.local_access):
+        iface = _zone_name(key, t.zone_map, t, identity)
+        access = t.local_access[key]
+        for command in ("ssh", "http"):
+            for text in access.get(command, []):
+                net = ipaddress.ip_network(text)
+                out.append(f"{command} {net.network_address} {net.netmask} {iface}")
+        for verb, text, kind in access.get("icmp", []):
+            net = ipaddress.ip_network(text)
+            where = "any" if net.prefixlen == 0 else f"{net.network_address} {net.netmask}"
+            out.append(f"icmp {verb} {where}{' echo' if kind == 8 else ''} {iface}")
+    return out
+
+
 def render_cisco(t, flavour, identity=False):
     """Text for a Cisco ASA ('asa') or IOS ('ios') destination."""
     label = TARGETS["cisco-" + flavour]["label"]
@@ -578,7 +605,7 @@ def render_cisco(t, flavour, identity=False):
         acls[key].sort(key=lambda r: r.kind != "return-path")
     bindings, v6_present = [], set()
     for key, rules in acls.items():
-        name = "RT-GLOBAL" if key == "global" else f"RT-{unique_id(t, key)}-IN"
+        name = "RT-GLOBAL" if key == "global" else "RT-VPN-FILTER" if key == VPN_FILTER else f"RT-{unique_id(t, key)}-IN"
         if key == "global" and flavour == "ios":
             for rule in rules:
                 why = (single_line(rule.comment[16:], 200) if rule.kind == "blocked"
@@ -617,7 +644,7 @@ def render_cisco(t, flavour, identity=False):
                 v6_present.add(name)
                 lines.append(f"ipv6 access-list {name}-V6")
                 lines.extend(f" remark {text}" if kind == "remark" else f" {text}" for kind, text in v6_lines)
-        if key != "global":
+        if key not in ("global", VPN_FILTER):
             bindings.append((name, _zone_name(key, t.zone_map, t, identity)))
     for name, iface in bindings:
         if flavour == "asa":
@@ -631,6 +658,12 @@ def render_cisco(t, flavour, identity=False):
             lines.extend([f"interface {iface}", f" ip access-group {name} in", f" ipv6 traffic-filter {name}-V6 in"])
     if flavour == "asa" and any(r.kind != "blocked" for r in acls.get("global", [])):
         lines.append("access-group RT-GLOBAL global")
+    if flavour == "asa" and VPN_FILTER in acls:
+        lines += ["! The VPN filter limits what connected VPN clients reach. Assign this group policy to the VPN connection profile that",
+                  "! hands out the client address pool (see the warnings), or the filter has no effect.",
+                  "group-policy RT-VPN-POLICY internal", "group-policy RT-VPN-POLICY attributes", " vpn-filter value RT-VPN-FILTER"]
+    if flavour == "asa" and t.local_access:
+        lines += _local_access_lines(t, identity)
     if flavour == "ios" and any(r.src.any and r.dst.any for r in t.rules if r.kind != "blocked"):
         lines.append("! NOTE: rules with 'any' on both sides were written for IPv4 only; IPv6 needs its own ACL")
     lines += _appendix(t, "!")
