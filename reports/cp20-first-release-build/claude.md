@@ -23,3 +23,12 @@ date first. The workflow artifact expires after 90 days, so the verified files s
 ## Tests and tools
 
 `tools/security_checks.py` output beside this report; the full suite passed on the runner as part of the workflow and locally (567 tests).
+
+## After the verification (same day)
+
+At the owner's request the GitHub release and settings were done through the `gh` tool logged in as the owner's account:
+
+* A ruleset for `v*` tags (no creation, update, deletion or force push except by the repository admin) and a ruleset for `main` (no deletion or force push, the seven CI and security checks required, admin bypass).
+* The GitHub **pre-release** `v0.1.0` with the three verified files and notes that repeat the README's status; the files were then downloaded from the public release page and verified again (checksums OK, attestation exit status 0), and the tag still points to the verified commit.
+* Topics, Wiki and Projects off, "require actions pinned to a commit SHA" on, Dependabot security updates on (private vulnerability reporting, secret scanning and push protection were already on).
+* **Not done:** dismissing the two code-scanning alerts (#12, the `mcp` vulnerability that CI never reaches, and #8, code review with a single maintainer). The tool blocked the action, rightly: accepting a risk is the owner's decision. The reasons are written in `reports/cp19-first-github-run/claude.md`.
