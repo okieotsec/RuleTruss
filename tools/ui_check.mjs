@@ -198,6 +198,25 @@ try {
     check("translating again with an address keeps the page working", await waitFor("document.body.textContent.includes('Limits of this comparison') && document.querySelector('pre.code') && document.querySelector('input[aria-label^=IP]').value === '10.0.20.31'"));
     await shot("local-access");
   }
+  if (process.env.SWITCH_CONFIG) {     // a layer 3 switch as the source: interfaces it left open are listed and kept open on request
+    await tab("Import");
+    await waitFor("document.getElementById('fileInput')");
+    const doc = (await send("DOM.getDocument", {})).result.root.nodeId;
+    const field = (await send("DOM.querySelector", { nodeId: doc, selector: "#fileInput" })).result.nodeId;
+    await send("DOM.setFileInputFiles", { files: [process.env.SWITCH_CONFIG], nodeId: field });
+    check("a layer 3 switch configuration is imported", await waitFor("document.body.textContent.includes('dist-sw.cfg')"));
+    await tab("Migrate");
+    await evaluate("(() => { const s = [...document.querySelectorAll('#view select')].find(x => [...x.options].some(o => o.textContent.includes('dist-sw'))); const o = [...s.options].find(x => x.textContent.includes('dist-sw')); s.value = o.value; s.dispatchEvent(new Event('change')); })()");
+    await new Promise((r) => setTimeout(r, 600));
+    await evaluate("(()=>{const s=[...document.querySelectorAll('select')].find(x=>[...x.options].some(o=>o.value==='cisco-asa')); s.value='cisco-asa'; s.dispatchEvent(new Event('change'))})()");
+    await click("Translate and validate");
+    check("the interfaces the switch left open are listed with a checkbox each", await waitFor("document.body.textContent.includes('Interfaces the switch left open') && document.querySelectorAll('input[aria-label^=\"Keep \"]').length >= 2"));
+    check("an outbound ACL is written as an outbound binding", await evaluate("/access-group RT-Vlan30-OUT out interface/.test(document.querySelector('pre.code').textContent)"));
+    await evaluate("document.querySelector('input[aria-label^=\"Keep \"]').click()");
+    await click("Translate again with these choices");
+    check("keeping an interface open writes its labelled permit", await waitFor("/kept open as the switch had it/.test(document.querySelector('pre.code').textContent)"));
+    await shot("switch-open-interfaces");
+  }
   if (process.env.BIG_CAPTURE) {       // a capture over the background-import size, chosen through the real file input
     await tab("Import");
     await waitFor("document.getElementById('fileInput')");

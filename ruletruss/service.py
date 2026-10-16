@@ -573,8 +573,12 @@ class Service:
                 mac_map, vpn_networks = zonepairs.check_supplied(policy, body.get("mac_map") or {}, body.get("vpn_networks") or [])
             except ValueError as error:
                 raise ApiError(str(error)) from error
+            try:
+                keep_open = firewall.check_keep_open(policy, body.get("keep_open") or [])
+            except ValueError as error:
+                raise ApiError(str(error)) from error
             t = firewall.translate_policy(policy, target, zone_map, ctx=ctx, confirmed=confirmed,
-                                          supplied={"mac_map": mac_map, "vpn_networks": vpn_networks})
+                                          supplied={"mac_map": mac_map, "vpn_networks": vpn_networks, "keep_open": keep_open})
             self._suggest_addresses(project, t)
             firewall.render(t, target)
             report = validate.validate_preserve(policy, t, ctx)

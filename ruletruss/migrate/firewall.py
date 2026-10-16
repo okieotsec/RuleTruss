@@ -22,13 +22,14 @@ from ..redact import single_line
 from .directional import _is_reply_rule
 
 MAX_EXPANSION_LINES = 2_000
+OUT_PREFIX = "@out:"                    # the ACL key of rules bound outbound on an interface: OUT_PREFIX + the interface
 VPN_FILTER = "@vpn-filter"              # the src_zone of rules that belong to the VPN filter access list, which no interface carries
 
 TARGETS = {
     "cisco-asa": {"label": "Cisco ASA (ACLs with access-group)", "stateful": True, "negate": False, "dst_zone": False,
-                  "global_acl": True, "address_context": "internal-real"},
+                  "global_acl": True, "out_acl": True, "address_context": "internal-real"},
     "cisco-ios": {"label": "Cisco IOS / IOS-XE (extended ACLs, stateless)", "stateful": False, "negate": False, "dst_zone": False,
-                  "global_acl": False, "address_context": "original-packet"},
+                  "global_acl": False, "out_acl": True, "address_context": "original-packet"},
     "fortios": {"label": "Fortinet FortiOS (firewall policy)", "stateful": True, "negate": True, "dst_zone": True,
                 "global_acl": False, "address_context": "original-packet"},
 }
@@ -51,6 +52,7 @@ class OutRule:
     evidence: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
     broader: bool = False               # known to permit more than the source rule did
+    direction: str = "in"               # "out": an ACL bound outbound on dst_zone (Cisco targets)
 
 
 @dataclass
@@ -189,6 +191,76 @@ def _default_behaviour_notes(policy, caps):
     return notes
 
 
+def open_interfaces(policy):
+    """Routed interfaces of a router or layer 3 switch (IOS) that carry IPv4 and have no inbound ACL with entries: whatever enters there
+    is permitted. {interface: {"networks": [...], "acl": the name of an ACL that is applied but has no entries, else ""}}."""
+    if policy.vendor != "cisco-ios":
+        return {}
+    defined = {r.scope for r in policy.rules}
+    found = {}
+    for name, info in policy.interfaces.items():
+        v4 = [n for n in info.get("nets", []) if ":" not in n]
+        if not info.get("routed") or info.get("shutdown") or not v4:
+            continue
+        acl = info.get("acl_in") or ""
+        if acl and acl in defined:
+            continue
+        found[name] = {"networks": v4, "acl": acl, "ipv6": any(":" in n for n in info.get("nets", []))}
+    return found
+
+
+def check_keep_open(policy, names):
+    """The interfaces the user named to keep open, checked against the ones that really are open on the source. Raises ValueError."""
+    if not isinstance(names, (list, tuple)) or not all(isinstance(n, str) for n in names):
+        raise ValueError("keep_open must be a list of interface names")
+    eligible = open_interfaces(policy)
+    for name in names:
+        if name not in eligible:
+            raise ValueError(f"{name[:60]!r} is not a routed interface with an open IPv4 side in this configuration "
+                             f"(open ones: {', '.join(sorted(eligible)[:8]) or 'none'})")
+    return sorted(set(names))
+
+
+def _open_interface_report(t, policy, keep_open):
+    """One report entry per open interface, so the traffic the switch let through unfiltered is accounted for like any other rule. A
+    firewall denies what no rule permits: unless the user names an interface to keep open, it stays unresolved."""
+    rows = open_interfaces(policy)
+    t.inputs["open_interfaces"] = [{"interface": n, "networks": r["networks"][:4], "kept": n in keep_open} for n, r in rows.items()]
+    left = []
+    for name, row in rows.items():
+        kept = name in keep_open
+        why = (f"the inbound ACL {row['acl']} has no entries in this export, and an empty or missing ACL filters nothing" if row["acl"]
+               else "there is no inbound ACL on this routed interface")
+        reason = f"{why}, so the switch permitted everything that enters here from {', '.join(row['networks'][:3])} (IPv4)"
+        if row["ipv6"]:
+            reason += "; the interface also carries IPv6, which is not translated"
+        if kept:
+            reason += ("; you chose to keep it open, so `permit ip any4 any4` is written for it, which is broader than a firewall should "
+                       "allow and is the first thing to replace with specific rules")
+            t.rules.append(OutRule(name=safe_id(f"keep-open-{name}"), action="allow", src=AddrSet(nets=["0.0.0.0/0"]),
+                                   dst=AddrSet(nets=["0.0.0.0/0"]), svc=ServiceSet(any=True), src_zone=name,
+                                   comment="kept open as the switch had it (you chose this)", broader=True,
+                                   source_ids_text=safe_id(f"no-ACL-on-{name}")))
+        else:
+            reason += ("; the firewall denies whatever no rule permits, so that traffic stops until you add rules or name this interface "
+                       "to keep it open")
+            left.append(name)
+        t.report.append({"source_rule": f"(no inbound ACL on {name})", "rule_id": "", "policy_id": "", "index": None,
+                         "pair": f"{name} to anywhere", "origin": "implicit", "action": "allow",
+                         "status": "translated" if kept else "blocked", "disposition": "translated" if kept else "unresolved",
+                         "reason": reason, "interfaces": [name], "bypassed_by": [], "evidence": [], "warnings": []})
+    if left:
+        t.issues.append(_issue("blocker", "switch-open-interface", f"{len(left)} routed interface(s) had no inbound ACL on the switch "
+                               f"({', '.join(left[:6])}), so it permitted everything they carry. The firewall denies what no rule permits "
+                               "and that traffic will stop. Add rules (the narrowing workflow can propose them from a capture) or name the "
+                               "interface to keep it open."))
+    kept = [n for n in rows if n in keep_open]
+    if kept:
+        t.issues.append(_issue("warning", "switch-kept-open", f"Kept open as the switch had it (IPv4 only): {', '.join(kept[:6])}. Each "
+                               "has a `permit ip any4 any4` entry that is broader than a firewall should allow; replace it with "
+                               "specific rules."))
+
+
 def translate_policy(policy, target, zone_map=None, identity=False, ctx=None, confirmed=(), supplied=None):
     """Preserve workflow: source PolicySet to destination rules.
 
@@ -234,6 +306,10 @@ def translate_policy(policy, target, zone_map=None, identity=False, ctx=None, co
         if rule.extra.get("stage") == "unbound":
             entry.update(status="skipped", reason="the ACL is not applied to any interface in the source export")
             continue
+        if rule.extra.get("layer2"):
+            entry.update(status="skipped", reason="a port ACL: it filters at layer 2 on the switch, also inside one VLAN, and stays there; "
+                                                  "a firewall that routes between VLANs does not replace it")
+            continue
         if rule.extra.get("new_connections") is False:
             if rule.action == "allow":
                 reason = "permits reply traffic only (existing connections); " + (
@@ -269,7 +345,8 @@ def translate_policy(policy, target, zone_map=None, identity=False, ctx=None, co
         src_zone = rule.src_zones[0] if len(rule.src_zones) == 1 else None
         if len(rule.src_zones) > 1:
             problems.append("more than one source zone in one rule (split the rule per zone first)")
-        if not rule.src_zones and target == "cisco-ios":
+        outbound = rule.extra.get("stage") == "out" and caps.get("out_acl")
+        if not rule.src_zones and target == "cisco-ios" and not outbound:
             problems.append("no source interface: IOS ACLs apply per interface and have no global form, so choose an interface")
         if rule.dst_zones and len(rule.dst_zones) > 1:
             problems.append("more than one destination zone in one rule")
@@ -288,7 +365,9 @@ def translate_policy(policy, target, zone_map=None, identity=False, ctx=None, co
         out = OutRule(name=safe_id(rule.original_id), action=rule.action, src=rule.src, dst=rule.dst, svc=rule.svc,
                       src_zone=src_zone, dst_zone=dst_zone, log=rule.log, comment=limits.clip(rule.comment, 80),
                       source_rule_ids=[rule.rule_id], source_ids_text=safe_id(rule.original_id), evidence=rule.evidence[:2])
-        if dst_zone and not caps["dst_zone"]:
+        if outbound and dst_zone:
+            out.direction = "out"                                    # kept as an outbound ACL on that interface
+        elif dst_zone and not caps["dst_zone"]:
             out.broader = True
             out.warnings.append(_issue("warning", "dst-zone-dropped", f"Rule {rule.original_id} was limited to destination zone "
                                        f"{dst_zone}; the destination cannot express that, so the rule matches those addresses on "
@@ -305,6 +384,8 @@ def translate_policy(policy, target, zone_map=None, identity=False, ctx=None, co
                 t.rules.append(ret)
                 if ret.kind == "blocked":
                     entry["warnings"].append(ret.warnings[0])
+    if caps["stateful"]:
+        _open_interface_report(t, policy, set((supplied or {}).get("keep_open") or []))
     _finish(t, policy, zone_map, identity)
     return t
 
@@ -597,7 +678,10 @@ def render_cisco(t, flavour, identity=False):
     lines[1:1] = _preface(t, "!")
     acls = {}
     for rule in t.rules:
-        key = rule.src_zone if rule.src_zone is not None else "global"
+        if rule.direction == "out" and rule.dst_zone is not None:
+            key = OUT_PREFIX + rule.dst_zone
+        else:
+            key = rule.src_zone if rule.src_zone is not None else "global"
         acls.setdefault(key, []).append(rule)
     # A stateful device accepts replies before it consults the rules for new connections, so return-path entries go first in
     # their ACL: put after a catch-all deny they would never match.
@@ -605,7 +689,9 @@ def render_cisco(t, flavour, identity=False):
         acls[key].sort(key=lambda r: r.kind != "return-path")
     bindings, v6_present = [], set()
     for key, rules in acls.items():
-        name = "RT-GLOBAL" if key == "global" else "RT-VPN-FILTER" if key == VPN_FILTER else f"RT-{unique_id(t, key)}-IN"
+        out_zone = key[len(OUT_PREFIX):] if key.startswith(OUT_PREFIX) else None
+        name = ("RT-GLOBAL" if key == "global" else "RT-VPN-FILTER" if key == VPN_FILTER
+                else f"RT-{unique_id(t, out_zone)}-OUT" if out_zone is not None else f"RT-{unique_id(t, key)}-IN")
         if key == "global" and flavour == "ios":
             for rule in rules:
                 why = (single_line(rule.comment[16:], 200) if rule.kind == "blocked"
@@ -645,17 +731,18 @@ def render_cisco(t, flavour, identity=False):
                 lines.append(f"ipv6 access-list {name}-V6")
                 lines.extend(f" remark {text}" if kind == "remark" else f" {text}" for kind, text in v6_lines)
         if key not in ("global", VPN_FILTER):
-            bindings.append((name, _zone_name(key, t.zone_map, t, identity)))
-    for name, iface in bindings:
+            where = _zone_name(key if out_zone is None else out_zone, t.zone_map, t, identity)
+            bindings.append((name, where, "out" if out_zone is not None else "in"))
+    for name, iface, direction in bindings:
         if flavour == "asa":
-            lines.append(f"access-group {name} in interface {iface}")
+            lines.append(f"access-group {name} {direction} interface {iface}")
         else:
             if name not in v6_present:
                 # An IPv4 ACL does not touch IPv6. Without this, IPv6 would pass through the interface unfiltered.
                 lines += [f"ipv6 access-list {name}-V6", " remark default deny for IPv6 (an IPv4 ACL does not filter IPv6)",
                           " deny ipv6 any any"]
                 v6_present.add(name)
-            lines.extend([f"interface {iface}", f" ip access-group {name} in", f" ipv6 traffic-filter {name}-V6 in"])
+            lines.extend([f"interface {iface}", f" ip access-group {name} {direction}", f" ipv6 traffic-filter {name}-V6 {direction}"])
     if flavour == "asa" and any(r.kind != "blocked" for r in acls.get("global", [])):
         lines.append("access-group RT-GLOBAL global")
     if flavour == "asa" and VPN_FILTER in acls:

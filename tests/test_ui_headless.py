@@ -54,6 +54,9 @@ class HeadlessInterfaceTests(unittest.TestCase):
                 with open(zones, "w", encoding="utf-8") as handle:
                     handle.write(unifi_zones.text())
                 env["UNIFI_ZONES"] = zones
+                switch = os.path.join(data, "dist-sw.cfg")
+                shutil.copy(ROOT / "tests" / "fixtures" / "ios_l3_switch.cfg", switch)
+                env["SWITCH_CONFIG"] = switch
                 url = f"http://127.0.0.1:{srv.server_address[1]}/#token={token}"
                 proc = subprocess.run([NODE, str(ROOT / "tools" / "ui_check.mjs"), url], env=env, capture_output=True, text=True,  # noqa: S603
                                       timeout=300, check=False)
