@@ -21,3 +21,4 @@ The `cp0`, `cp1` and `cp2` folders are kept exactly as they were produced, so fi
 `cp18-release-preparation` covers the first-release checks: a stale-analysis defect, a missing test fixture found by running the committed bundle on its own, and the release workflow.
 `cp19-first-github-run` covers the first run of the workflows on GitHub: two test failures, eleven scanning alerts and how each was handled.
 `cp19-first-github-run` covers what the first push to GitHub found: two test failures on the runner, eleven code-scanning alerts, and a vulnerability in a CI tool that was accepted on purpose.
+`cp20-first-release-build` covers the first run of the release workflow on tag v0.1.0 and how its output was verified.
