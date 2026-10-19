@@ -1,0 +1,2 @@
+# Anything under .github (workflows, Dependabot config, this file) needs the owner's review
+/.github/ @okieotsec
