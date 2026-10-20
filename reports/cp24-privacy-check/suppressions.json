@@ -1,0 +1,678 @@
+[
+ {
+  "file": "ruletruss/isolate.py",
+  "line": 4,
+  "marker": "nosec",
+  "codes": [
+   "B404"
+  ],
+  "text": "# nosec B404 - runs this project's own worker module with a fixed argument vector, never a shell"
+ },
+ {
+  "file": "ruletruss/isolate.py",
+  "line": 41,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "ruletruss/isolate.py",
+  "line": 41,
+  "marker": "nosec",
+  "codes": [
+   "B603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "ruletruss/isolate.py",
+  "line": 97,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "ruletruss/isolate.py",
+  "line": 97,
+  "marker": "nosec",
+  "codes": [
+   "B603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "ruletruss/oui_build.py",
+  "line": 21,
+  "marker": "nosec",
+  "codes": [
+   "B410"
+  ],
+  "text": "# nosec B410 - fixed https URLs on the IEEE host, restricted redirects; runs only when the user asks"
+ },
+ {
+  "file": "ruletruss/oui_build.py",
+  "line": 62,
+  "marker": "noqa",
+  "codes": [
+   "S310"
+  ],
+  "text": "# noqa: S310"
+ },
+ {
+  "file": "ruletruss/oui_build.py",
+  "line": 64,
+  "marker": "nosec",
+  "codes": [
+   "B310"
+  ],
+  "text": "# nosec B310"
+ },
+ {
+  "file": "ruletruss/riverbend.py",
+  "line": 248,
+  "marker": "nosec",
+  "codes": [
+   "B104"
+  ],
+  "text": "# nosec B104 - a packet source address in generated data, not a bind"
+ },
+ {
+  "file": "ruletruss/riverbend.py",
+  "line": 271,
+  "marker": "nosec",
+  "codes": [
+   "B104"
+  ],
+  "text": "# nosec B104 - a packet source address in generated data, not a bind"
+ },
+ {
+  "file": "ruletruss/riverbend_configs.py",
+  "line": 88,
+  "marker": "noqa",
+  "codes": [
+   "E731"
+  ],
+  "text": "# noqa: E731"
+ },
+ {
+  "file": "ruletruss/service.py",
+  "line": 713,
+  "marker": "nosemgrep",
+  "codes": [
+   "dynamic-urllib-use-detected"
+  ],
+  "text": "# nosemgrep: dynamic-urllib-use-detected - the scheme is restricted to http/https above, so file: and ftp: cannot be used"
+ },
+ {
+  "file": "ruletruss/service.py",
+  "line": 714,
+  "marker": "noqa",
+  "codes": [
+   "S310"
+  ],
+  "text": "# noqa: S310  # nosec B310"
+ },
+ {
+  "file": "ruletruss/service.py",
+  "line": 714,
+  "marker": "nosec",
+  "codes": [
+   "B310"
+  ],
+  "text": "# noqa: S310  # nosec B310"
+ },
+ {
+  "file": "ruletruss/service.py",
+  "line": 716,
+  "marker": "nosemgrep",
+  "codes": [
+   "dynamic-urllib-use-detected"
+  ],
+  "text": "# nosemgrep: dynamic-urllib-use-detected - same check as above; the response is read with a size cap and shown as text"
+ },
+ {
+  "file": "ruletruss/service.py",
+  "line": 717,
+  "marker": "nosec",
+  "codes": [
+   "B310"
+  ],
+  "text": "# nosec B310 - scheme and host checked above"
+ },
+ {
+  "file": "ruletruss/store.py",
+  "line": 114,
+  "marker": "nosemgrep",
+  "codes": [
+   "insecure-file-permissions"
+  ],
+  "text": "# nosemgrep: insecure-file-permissions - 0o700 is owner-only; directories need the execute bit"
+ },
+ {
+  "file": "ruletruss/adapters/xmlsafe.py",
+  "line": 7,
+  "marker": "nosemgrep",
+  "codes": [
+   "use-defused-xml"
+  ],
+  "text": "# nosemgrep: use-defused-xml"
+ },
+ {
+  "file": "ruletruss/adapters/xmlsafe.py",
+  "line": 8,
+  "marker": "nosec",
+  "codes": [
+   "B405"
+  ],
+  "text": "# nosec B405"
+ },
+ {
+  "file": "ruletruss/adapters/xmlsafe.py",
+  "line": 21,
+  "marker": "noqa",
+  "codes": [
+   "S314"
+  ],
+  "text": "# noqa: S314  # nosec B314 - DTDs and entities were refused above"
+ },
+ {
+  "file": "ruletruss/adapters/xmlsafe.py",
+  "line": 21,
+  "marker": "nosec",
+  "codes": [
+   "B314"
+  ],
+  "text": "# noqa: S314  # nosec B314 - DTDs and entities were refused above"
+ },
+ {
+  "file": "ruletruss/capture/fingerprint.py",
+  "line": 21,
+  "marker": "noqa",
+  "codes": [
+   "S104"
+  ],
+  "text": "# noqa: S104  # nosec B104 - compared against, never bound to"
+ },
+ {
+  "file": "ruletruss/capture/fingerprint.py",
+  "line": 21,
+  "marker": "nosec",
+  "codes": [
+   "B104"
+  ],
+  "text": "# noqa: S104  # nosec B104 - compared against, never bound to"
+ },
+ {
+  "file": "tests/test_capture.py",
+  "line": 252,
+  "marker": "noqa",
+  "codes": [
+   "S311"
+  ],
+  "text": "# noqa: S311 - a fixed seed for reproducible test data, not security"
+ },
+ {
+  "file": "tests/test_devices.py",
+  "line": 32,
+  "marker": "noqa",
+  "codes": [
+   "S104"
+  ],
+  "text": "# noqa: S104 - a packet source address in generated data, not a bind"
+ },
+ {
+  "file": "tests/test_malicious.py",
+  "line": 2,
+  "marker": "nosec",
+  "codes": [
+   "B404"
+  ],
+  "text": "# nosec B404 - runs the project's own worker with a fixed argument list"
+ },
+ {
+  "file": "tests/test_malicious.py",
+  "line": 123,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603"
+ },
+ {
+  "file": "tests/test_privacy_check.py",
+  "line": 137,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603"
+ },
+ {
+  "file": "tests/test_privacy_check.py",
+  "line": 157,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603"
+ },
+ {
+  "file": "tests/test_server.py",
+  "line": 216,
+  "marker": "noqa",
+  "codes": [
+   "S104"
+  ],
+  "text": "# noqa: S104 - proving that this is refused"
+ },
+ {
+  "file": "tests/test_ui_headless.py",
+  "line": 5,
+  "marker": "nosec",
+  "codes": [
+   "B404"
+  ],
+  "text": "# nosec B404 - runs node on this repository's own script with a fixed argument list"
+ },
+ {
+  "file": "tests/test_ui_headless.py",
+  "line": 61,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603"
+ },
+ {
+  "file": "tests/test_unifi.py",
+  "line": 8,
+  "marker": "nosec",
+  "codes": [
+   "B404"
+  ],
+  "text": "# nosec B404 - runs openssl with a fixed argument list to make a throw-away test certificate"
+ },
+ {
+  "file": "tests/test_unifi.py",
+  "line": 644,
+  "marker": "noqa",
+  "codes": [
+   "S607"
+  ],
+  "text": "# noqa: S607"
+ },
+ {
+  "file": "tests/test_unifi.py",
+  "line": 653,
+  "marker": "noqa",
+  "codes": [
+   "S603",
+   "S607"
+  ],
+  "text": "# noqa: S603, S607"
+ },
+ {
+  "file": "tools/make_demo.py",
+  "line": 9,
+  "marker": "nosec",
+  "codes": [
+   "B404"
+  ],
+  "text": "# nosec B404 - runs this project's own test suite with a fixed command line"
+ },
+ {
+  "file": "tools/make_demo.py",
+  "line": 17,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_demo.py",
+  "line": 18,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_demo.py",
+  "line": 19,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_demo.py",
+  "line": 20,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_demo.py",
+  "line": 21,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_demo.py",
+  "line": 22,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_demo.py",
+  "line": 23,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_demo.py",
+  "line": 40,
+  "marker": "noqa",
+  "codes": [
+   "E731"
+  ],
+  "text": "# noqa: E731"
+ },
+ {
+  "file": "tools/make_demo.py",
+  "line": 106,
+  "marker": "nosec",
+  "codes": [
+   "B603"
+  ],
+  "text": "# nosec B603"
+ },
+ {
+  "file": "tools/make_samples.py",
+  "line": 15,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_samples.py",
+  "line": 16,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_samples.py",
+  "line": 17,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_samples.py",
+  "line": 18,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_samples.py",
+  "line": 19,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_sbom.py",
+  "line": 16,
+  "marker": "nosec",
+  "codes": [
+   "B404"
+  ],
+  "text": "# nosec B404 - runs pip and cyclonedx-py on a throwaway environment this tool creates"
+ },
+ {
+  "file": "tools/make_sbom.py",
+  "line": 24,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_sbom.py",
+  "line": 61,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/make_sbom.py",
+  "line": 61,
+  "marker": "nosec",
+  "codes": [
+   "B603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/make_sbom.py",
+  "line": 64,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/make_sbom.py",
+  "line": 64,
+  "marker": "nosec",
+  "codes": [
+   "B603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/make_screenshots.py",
+  "line": 11,
+  "marker": "nosec",
+  "codes": [
+   "B404"
+  ],
+  "text": "# nosec B404 - runs headless Chromium with a fixed argument list"
+ },
+ {
+  "file": "tools/make_screenshots.py",
+  "line": 19,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_screenshots.py",
+  "line": 20,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_screenshots.py",
+  "line": 42,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/make_screenshots.py",
+  "line": 42,
+  "marker": "nosec",
+  "codes": [
+   "B603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/make_screenshots.py",
+  "line": 52,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/make_screenshots.py",
+  "line": 52,
+  "marker": "nosec",
+  "codes": [
+   "B603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/make_training.py",
+  "line": 15,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_training.py",
+  "line": 16,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_training.py",
+  "line": 17,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/make_training.py",
+  "line": 18,
+  "marker": "noqa",
+  "codes": [
+   "E402"
+  ],
+  "text": "# noqa: E402"
+ },
+ {
+  "file": "tools/privacy_check.py",
+  "line": 36,
+  "marker": "nosec",
+  "codes": [
+   "B404"
+  ],
+  "text": "# nosec B404 - runs git with an argument list, never a shell"
+ },
+ {
+  "file": "tools/privacy_check.py",
+  "line": 223,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/privacy_check.py",
+  "line": 223,
+  "marker": "nosec",
+  "codes": [
+   "B603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/security_checks.py",
+  "line": 25,
+  "marker": "nosec",
+  "codes": [
+   "B404"
+  ],
+  "text": "# nosec B404 - runs fixed command lines for the security tools; no shell, no untrusted input"
+ },
+ {
+  "file": "tools/security_checks.py",
+  "line": 55,
+  "marker": "noqa",
+  "codes": [
+   "S603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/security_checks.py",
+  "line": 55,
+  "marker": "nosec",
+  "codes": [
+   "B603"
+  ],
+  "text": "# noqa: S603  # nosec B603"
+ },
+ {
+  "file": "tools/unifi_export.py",
+  "line": 69,
+  "marker": "nosemgrep",
+  "codes": [
+   "httpsconnection-detected"
+  ],
+  "text": "# nosemgrep: httpsconnection-detected - an explicit SSLContext is passed (verifying by default, or pinned by fingerprint)"
+ },
+ {
+  "file": "tools/unifi_export.py",
+  "line": 118,
+  "marker": "nosemgrep",
+  "codes": [
+   "httpsconnection-detected"
+  ],
+  "text": "# nosemgrep: httpsconnection-detected - this call only reads the certificate, to show its fingerprint; nothing is sent"
+ }
+]

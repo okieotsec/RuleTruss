@@ -1,0 +1,5 @@
+tests/test_privacy_check.py|noqa|S603 (now 2, accepted 0)
+tests/test_privacy_check.py|nosec|B603 (now 2, accepted 0)
+tools/privacy_check.py|noqa|S603 (now 1, accepted 0)
+tools/privacy_check.py|nosec|B404 (now 1, accepted 0)
+tools/privacy_check.py|nosec|B603 (now 1, accepted 0)

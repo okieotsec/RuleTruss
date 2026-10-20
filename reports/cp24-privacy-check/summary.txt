@@ -1,0 +1,9 @@
+Security checks written to reports/cp24-privacy-check
+  ruff            0 findings
+  bandit          0 findings
+  semgrep         0 findings
+  gitleaks        0 findings
+  pip-audit       0 findings
+  osv-scanner     0 findings
+  suppressions    0 findings  (75 suppression(s) accepted into security/suppressions.baseline.json)
+  saf (optional)  NOT RUN  (saf not found (npm install @mitre/saf, then put it on PATH or set SAF_CLI); optional)
