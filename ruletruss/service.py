@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 from . import analysis, devices, exports, isolate, limits, netutil, oui, store
 from .adapters.registry import SOURCE_FORMATS
-from .migrate import directional, firewall, validate
+from .migrate import directional, firewall, validate, zonepairs
 from .model import CaptureInfo, Flow, PolicySet, Subnet, from_plain, to_plain
 from .store import StoreError
 
@@ -569,7 +569,17 @@ class Service:
         if workflow == "preserve":
             _, policy = self.policy(project, str(body.get("policy", "")))
             confirmed = [c for c in (body.get("confirm") or []) if c in ("gateway", "vpn")]
-            t = firewall.translate_policy(policy, target, zone_map, ctx=ctx, confirmed=confirmed)
+            try:
+                mac_map, vpn_networks = zonepairs.check_supplied(policy, body.get("mac_map") or {}, body.get("vpn_networks") or [])
+            except ValueError as error:
+                raise ApiError(str(error)) from error
+            try:
+                keep_open = firewall.check_keep_open(policy, body.get("keep_open") or [])
+            except ValueError as error:
+                raise ApiError(str(error)) from error
+            t = firewall.translate_policy(policy, target, zone_map, ctx=ctx, confirmed=confirmed,
+                                          supplied={"mac_map": mac_map, "vpn_networks": vpn_networks, "keep_open": keep_open})
+            self._suggest_addresses(project, t)
             firewall.render(t, target)
             report = validate.validate_preserve(policy, t, ctx)
         elif workflow == "narrow":
@@ -587,6 +597,24 @@ class Service:
             raise ApiError("workflow must be 'preserve' or 'narrow'")
         return t, report
 
+    def _suggest_addresses(self, project, t):
+        """For each MAC address filter with no address yet: the one address a capture confirmed for that MAC through ARP or DHCP, with the
+        basis. A suggestion is only shown, never applied. A frame alone, a shared MAC (a router) or two addresses give none."""
+        wanted = [m for m in t.inputs.get("mac_filters", []) if not m["ip"]]
+        for item in t.inputs.get("mac_filters", []):
+            item.update(suggestion="", suggestion_basis="")
+        if not wanted:
+            return
+        found = {}
+        for b in self.device_facts(project).get("bindings", []):
+            if b.get("basis") in ("arp", "dhcp"):
+                found.setdefault(b["mac"], {}).setdefault(b["ip"], set()).add(b["basis"])
+        for item in wanted:
+            seen = found.get(item["mac"], {})
+            if len(seen) == 1:
+                address, basis = next(iter(seen.items()))
+                item.update(suggestion=address, suggestion_basis="+".join(sorted(basis)))
+
     def translation_json(self, project_id, body):
         t, report = self.translation(project_id, body)
         return {"kind": "PROPOSED", "target": t.target, "workflow": t.workflow, "summary": t.summary, "report": [
@@ -596,7 +624,8 @@ class Service:
              "origin": e.get("origin", ""), "interfaces": e.get("interfaces", []), "bypassed_by": e.get("bypassed_by", []),
              "evidence": [to_plain(x) for x in e.get("evidence", [])]} for e in t.report],
             "issues": [to_plain(i) for i in t.issues], "text": t.text, "placeholders": t.placeholders, "validation": report,
-            "deployable": t.deployable, "blockers": t.blockers, "dispositions": t.dispositions, "confirmed": t.confirmed}
+            "deployable": t.deployable, "blockers": t.blockers, "dispositions": t.dispositions, "confirmed": t.confirmed,
+            "inputs": t.inputs}
 
     # ------------------------------------------------------------ export
     def export(self, project_id, body):

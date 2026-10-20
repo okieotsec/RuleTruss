@@ -140,16 +140,16 @@ class MappingTests(TranslationCase):
         self.assertEqual(set(self.result["placeholders"]), {f"<TARGET-IF:{k}>" for k in MAP})
         self.assertFalse(any("Default_LAN" in p for p in self.result["placeholders"]))      # a zone is not an interface
 
-    def test_gateway_and_vpn_stay_unresolved_until_you_say_you_handle_them(self):
+    def test_vpn_stays_unresolved_until_you_give_the_pool_or_say_you_handle_it_and_the_gateway_is_translated(self):
         by = {}
         for e in self.result["report"]:
             by.setdefault(e["disposition"], []).append(e)
-        reasons = " | ".join(e["reason"] for e in by["unresolved"])
-        self.assertIn("firewall itself", reasons)
-        self.assertIn("VPN", reasons)
-        handled = translate(self.service, self.pid, self.sid, confirm=["gateway", "vpn"])
+        self.assertIn("VPN", " | ".join(e["reason"] for e in by["unresolved"]))
+        gateway = [e for e in self.result["report"] if e["pair"].endswith(" to Gateway") and e["source_rule"] == "Allow All Traffic"]
+        self.assertTrue(gateway and all(e["disposition"] == "translated" for e in gateway))       # written as ssh/http/icmp for the ASA
+        handled = translate(self.service, self.pid, self.sid, confirm=["vpn"])
         self.assertLess(handled["dispositions"].get("unresolved", 0), self.result["dispositions"]["unresolved"])
-        self.assertFalse(any("firewall itself" in e["reason"] and e["disposition"] == "unresolved" for e in handled["report"]))
+        self.assertFalse(any("VPN" in e["reason"] and e["disposition"] == "unresolved" for e in handled["report"]))
 
     def test_the_external_zone_with_missing_networks_is_reported_not_guessed(self):
         view = self.service.policy_view(self.pid, self.sid)

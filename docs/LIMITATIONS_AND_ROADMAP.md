@@ -23,9 +23,17 @@ undecidable. A single rule that needs more than 2,000 access-list lines is not w
 
 ## UniFi to Cisco ASA
 
-IPv4 only; no IPv6 prefixes for zones in the export. Gateway (local services) and VPN are left to you and stay unresolved until you say so. MAC filters,
-applications, domains, regions and schedules are unsupported. The ASA allows replies of every permitted connection, which UniFi's all-states blocks do not.
+IPv4 only; no IPv6 prefixes for zones in the export. Policies to the Gateway are written as the ASA's `ssh`, `http` and `icmp` commands (ASA only; other local
+services stay unresolved until you say you handle them); traffic that VPN clients start is written as a VPN filter once you give the client pool; MAC
+filters are written for the IP addresses you give. The gateway commands and the VPN filter have not been tried on a device, and the validation does not cover them. Traffic toward VPN clients,
+applications, domains, regions and schedules are unsupported or unresolved. The ASA allows replies of every permitted connection, which UniFi's all-states blocks do not.
 The result is a reviewable preview until every placeholder, unsupported and unresolved item is dealt with. See [EXPORT_UNIFI.md](EXPORT_UNIFI.md).
+
+## Layer 3 switch ACLs to a firewall
+
+Cisco IOS / IOS-XE text only. Open interfaces (routed, no inbound ACL) are handled for IPv4; IPv6 on them is not translated. VLAN access maps and port ACLs are reported, not
+modelled. Cut-over items (gateway move, DHCP relay, routing protocols, multicast, NAT, high availability) are not read or generated. The translation has not been tried on a
+device; a lab test with a virtual switch and firewall in CML is the way to turn that into evidence. See [MIGRATE_SWITCH_ACLS.md](MIGRATE_SWITCH_ACLS.md).
 
 ## Parsing and evaluation limits
 
