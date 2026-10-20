@@ -93,7 +93,7 @@ class ZoneScopeTests(TranslationCase):
     def test_every_pair_default_is_scoped_to_its_own_destination(self):
         for name in ("RT-SOC_SERVICES-IN", "RT-OT_LAB_DEVICES-IN", "RT-WIRELESS_DEVICES-IN", "RT-Default-IN"):
             for ace in self.acl(name):
-                self.assertRegex(ace, r"^(permit|deny) ip 10\.0\.\d+\.0 255\.255\.255\.0 (10\.0\.\d+\.0 255\.255\.255\.0|any)$", ace)
+                self.assertRegex(ace, r"^(permit|deny) ip 10\.(?:0|77)\.\d+\.0 255\.255\.255\.0 (10\.(?:0|77)\.\d+\.0 255\.255\.255\.0|any)$", ace)
 
     def test_nothing_is_written_for_traffic_inside_one_network(self):
         for name in ("RT-SOC_SERVICES-IN",):
