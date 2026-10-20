@@ -28,15 +28,15 @@ config firewall service custom
     next
 end
 # NOT TRANSLATED CORP-IN:2: schedule MAINTENANCE-WINDOW
-# NOT TRANSLATED ENG-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# NOT TRANSLATED ENG-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# NOT TRANSLATED ENG-IN:3: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# NOT TRANSLATED ENG-IN:4: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# NOT TRANSLATED ENG-IN:5: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# NOT TRANSLATED HIST-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# NOT TRANSLATED HIST-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# NOT TRANSLATED PLC-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# NOT TRANSLATED PLC-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
+# NOT TRANSLATED ENG-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# NOT TRANSLATED ENG-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# NOT TRANSLATED ENG-IN:3: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# NOT TRANSLATED ENG-IN:4: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# NOT TRANSLATED ENG-IN:5: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# NOT TRANSLATED HIST-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# NOT TRANSLATED HIST-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# NOT TRANSLATED PLC-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# NOT TRANSLATED PLC-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
 config firewall policy
     edit 1
         set name "RT-1"
@@ -166,16 +166,16 @@ end
 # translated     CORP-IN:1
 # unsupported    CORP-IN:2: schedule MAINTENANCE-WINDOW
 # translated     CORP-IN:3
-# unsupported    ENG-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# unsupported    ENG-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# unsupported    ENG-IN:3: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# unsupported    ENG-IN:4: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# unsupported    ENG-IN:5: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
+# unsupported    ENG-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# unsupported    ENG-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# unsupported    ENG-IN:3: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# unsupported    ENG-IN:4: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# unsupported    ENG-IN:5: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
 # translated     ENG-IN:6
 # translated     ENG-IN:7
-# unsupported    HIST-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# unsupported    HIST-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
+# unsupported    HIST-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# unsupported    HIST-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
 # translated     HIST-IN:3
-# unsupported    PLC-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-# unsupported    PLC-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
+# unsupported    PLC-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+# unsupported    PLC-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
 # translated     PLC-IN:3

@@ -574,7 +574,7 @@ VIEWS.migrate = async () => {
     mig.workflow === "preserve" ? h("p", { class: "small muted", text: "Translates the configured rules one by one. Every place it widens or narrows is reported." })
       : [h("p", { class: "small muted", text: "Built only from what was seen. Not proof of need; every proposal needs review." }),
         h("label", { class: "small" }, h("input", { type: "checkbox", checked: mig.low, onchange: (e) => { mig.low = e.target.checked; } }), " Include flows with uncertain direction (not recommended)")],
-    mig.workflow === "preserve" ? (policies.length ? h("div", { class: "row" }, h("label", { class: "field" }, "Source configuration", (() => { const sel = h("select", {}, policies.map((p) => h("option", { value: p.id, selected: p.id === mig.policy }, `${p.filename} (${p.vendor})`))); sel.addEventListener("change", () => { mig.policy = sel.value; }); return sel; })())) : notice("Import a configuration first.", "bad")) : null)];
+    mig.workflow === "preserve" ? (policies.length ? h("div", { class: "row" }, h("label", { class: "field" }, "Source configuration", (() => { const sel = h("select", {}, policies.map((p) => h("option", { value: p.id, selected: p.id === mig.policy }, `${p.filename} (${p.vendor})`))); sel.addEventListener("change", () => { mig.policy = sel.value; state.translation = null; state.macMap = {}; state.keepOpen = []; render(); }); return sel; })())) : notice("Import a configuration first.", "bad")) : null)];
   out.push(directionalCard(mig));
   out.push(firewallCard(mig, project, policies));
   return out;
@@ -637,16 +637,19 @@ function firewallCard(mig, project, policies) {
   const zoneInput = h("textarea", { class: "wide", rows: 3, placeholder: "source zone = destination interface, one per line\not = Vlan30\ncorp = Vlan10" }, Object.entries(state.zoneMap).map(([k, v]) => `${k} = ${v}`).join("\n"));
   const run = async () => {
     state.zoneMap = Object.fromEntries(zoneInput.value.split("\n").map((l) => l.split("=").map((x) => x.trim())).filter((p) => p.length === 2 && p[0] && p[1]));
-    const t = await guarded(() => api(`/api/projects/${state.pid}/translate`, { method: "POST", json: body(mig, { target: mig.target, zone_map: state.zoneMap, confirm: state.confirm || [] }) }));
+    state.vpn = vpnInput.value.split(/[\s,]+/).filter(Boolean);
+    const t = await guarded(() => api(`/api/projects/${state.pid}/translate`, { method: "POST", json: body(mig, { target: mig.target, zone_map: state.zoneMap, confirm: state.confirm || [], ...supplied() }) }));
     if (!t) return;
-    state.translation = t; holder.replaceChildren(...showTranslation(t));
+    state.translation = t; holder.replaceChildren(...showTranslation(t, run));
   };
-  if (state.translation && state.translation.workflow === mig.workflow) holder.replaceChildren(...showTranslation(state.translation));
+  const vpnInput = h("input", { class: "wide", type: "text", value: (state.vpn || []).join(" "), placeholder: "10.200.0.0/24" });
+  if (state.translation && state.translation.workflow === mig.workflow) holder.replaceChildren(...showTranslation(state.translation, run));
   return h("section", { class: "card" }, h("h2", {}, "Translate to another firewall ", kindChip("PROPOSED")),
     h("p", { class: "small", text: "Order and statefulness are kept or called out. A rule the destination cannot express is blocked, never turned into 'any'." }),
     h("div", { class: "row" }, h("label", { class: "field" }, "Destination", targetSel)),
     h("label", { class: "field" }, "Interface mapping (never guessed; unmapped zones show as <TARGET-IF:...>)", zoneInput),
     confirmBoxes(policies, mig),
+    vpnField(policies, mig, vpnInput),
     h("div", { class: "row" }, h("button", { type: "button", class: "primary", onclick: run }, "Translate and validate")), holder);
 }
 // Things a zone-based source (UniFi) leaves to you: they are unresolved until you say you will handle them on the destination.
@@ -655,10 +658,44 @@ function confirmBoxes(policies, mig) {
   if (mig.workflow !== "preserve" || !source || source.vendor !== "unifi") return null;
   state.confirm = state.confirm || [];
   const box = (key, text) => h("label", { class: "small" }, h("input", { type: "checkbox", checked: state.confirm.includes(key), onchange: (e) => { state.confirm = state.confirm.filter((x) => x !== key); if (e.target.checked) state.confirm.push(key); } }), ` ${text}`);
-  return h("div", { class: "row" }, box("gateway", "I handle traffic to the firewall itself (ssh, ICMP, DNS, DHCP) separately"), box("vpn", "I handle VPN separately"));
+  return h("div", { class: "row" }, box("gateway", "I handle the other local services (DHCP, DNS, mDNS, IPv6) of the firewall itself separately"), box("vpn", "I handle VPN traffic that is not translated separately"));
+}
+// What a UniFi export cannot say and you can: the VPN client pool, and the IP address of each device named by a MAC filter.
+function supplied() { return { vpn_networks: state.vpn || [], mac_map: state.macMap || {}, keep_open: state.keepOpen || [] }; }
+function vpnField(policies, mig, input) {
+  const source = policies.find((p) => p.id === mig.policy);
+  if (mig.workflow !== "preserve" || !source || source.vendor !== "unifi") return null;
+  return h("label", { class: "field" }, "VPN client address pool (optional; the export has none). With it, traffic that VPN clients start is written as a VPN filter (not yet tried on a device)", input);
+}
+function macTable(t, again) {
+  const rows = (t.inputs && t.inputs.mac_filters) || [];
+  if (!rows.length) return null;
+  state.macMap = state.macMap || {};
+  const fields = rows.map((m) => {
+    const field = h("input", { type: "text", value: state.macMap[m.mac] || m.ip || "", placeholder: "10.77.20.31", "aria-label": `IP address for ${m.mac}` });
+    return { m, field, cell: h("td", {}, field, m.suggestion ? h("button", { type: "button", class: "linkbtn", onclick: () => { field.value = m.suggestion; } }, `use ${m.suggestion} (${m.suggestion_basis} in a capture)`) : null) };
+  });
+  const apply = () => { state.macMap = Object.fromEntries(fields.filter((f) => f.field.value.trim()).map((f) => [f.m.mac, f.field.value.trim()])); again(); };
+  return more(`MAC address filters (${rows.length}): give each device's IP address`, { __open: true },
+    h("p", { class: "small", text: "An ASA matches IP addresses, not MAC addresses. Say which address each device has and the policies that use it are written for that address. If a device's address changes, the rule no longer matches it: reserve the address on the DHCP server. A suggestion from a capture is only filled in when you press it." }),
+    h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["MAC", "Used by", "IPv4 address"].map((x) => h("th", { text: x })))),
+      h("tbody", {}, fields.map((f) => h("tr", {}, h("td", {}, h("code", { text: f.m.mac })), h("td", { text: f.m.policies.join(", ") }), f.cell))))),
+    h("button", { type: "button", onclick: apply }, "Translate again with these addresses"));
 }
 const DISPOSITION_CHIP = { translated: "allow", implemented: "medium", unsupported: "blocked", unresolved: "blocked", "not-applicable": "neutral", blocked: "blocked", skipped: "medium" };
-function showTranslation(t) {
+// Routed interfaces a switch left with no inbound ACL: the switch permitted everything there, a firewall will not unless you say so.
+function openTable(t, again) {
+  const rows = (t.inputs && t.inputs.open_interfaces) || [];
+  if (!rows.length) return null;
+  const boxes = rows.map((r) => ({ r, box: h("input", { type: "checkbox", checked: !!r.kept, "aria-label": `Keep ${r.interface} open` }) }));
+  const apply = () => { state.keepOpen = boxes.filter((b) => b.box.checked).map((b) => b.r.interface); again(); };
+  return more(`Interfaces the switch left open (${rows.length}): decide each one`, { __open: true },
+    h("p", { class: "small", text: "A routed interface with no inbound ACL permits everything that enters it. A firewall denies whatever no rule permits, so that traffic stops. Tick an interface to keep it open for now (IPv4 only, written as one broad permit that you should replace with specific rules), or leave it unticked and add rules; the narrowing workflow can propose them from a capture." }),
+    h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["Keep open", "Interface", "Networks"].map((x) => h("th", { text: x })))),
+      h("tbody", {}, boxes.map((b) => h("tr", {}, h("td", {}, b.box), h("td", {}, h("code", { text: b.r.interface })), h("td", { text: b.r.networks.join(", ") })))))),
+    h("button", { type: "button", onclick: apply }, "Translate again with these choices"));
+}
+function showTranslation(t, again) {
   const out = [];
   const s_ = t.summary;
   if (t.deployable === false) out.push(h("div", { class: "notice bad" }, h("b", { text: "Diagnostic preview: not deployable. " }), (t.blockers || []).slice(0, 4).join("; ") + "."));
@@ -670,6 +707,10 @@ function showTranslation(t) {
     table(["Policy", "Pair", "Disposition", "Where or why"], t.report.map((e) => ({ cells: [h("span", {}, e.source_rule, e.policy_id ? h("span", { class: "muted small", text: ` ${e.policy_id.slice(0, 8)}` }) : null), e.pair || "-",
       chip(e.disposition || e.status, DISPOSITION_CHIP[e.disposition || e.status] || "medium"), brief(((e.interfaces || []).length ? `on ${e.interfaces.join(", ")}. ` : "") + (e.reason || "-"))] })))));
   if (t.issues.length) out.push(more(`Issues (${t.issues.length})`, warnList(t.issues)));
+  const macs = again ? macTable(t, again) : null;
+  if (macs) out.push(macs);
+  const open = again ? openTable(t, again) : null;
+  if (open) out.push(open);
   const v = t.validation, rows = (v.mismatches || v.problems || []);
   out.push(h("h3", { text: "Validation on sampled connections" }), h("div", { class: "row" }, chip(rows.length ? "differences found" : "no difference", rows.length ? "medium" : "allow"), h("span", { class: "small", text: v.summary.result })),
     h("div", { class: "grid" }, Object.entries(v.summary).filter(([k]) => k !== "result").map(([k, x]) => stat(k.replace(/_/g, " "), x))));
@@ -693,7 +734,7 @@ VIEWS.export = async () => {
   const mig = state.mig || (state.mig = { workflow: "preserve", policy: "", low: false, ack: false, target: "cisco-asa" });
   const policies = project.sources.filter((x) => x.kind === "policy");
   if (!policies.find((p) => p.id === mig.policy) && policies.length) mig.policy = policies[0].id;
-  const b = (extra) => body(mig, { ...extra, acknowledge_observation_limits: mig.ack, acknowledge_preview: !!mig.preview, target: mig.target, zone_map: state.zoneMap, confirm: state.confirm || [] });
+  const b = (extra) => body(mig, { ...extra, acknowledge_observation_limits: mig.ack, acknowledge_preview: !!mig.preview, target: mig.target, zone_map: state.zoneMap, confirm: state.confirm || [], ...supplied() });
   const btn = (label, kind, extra) => h("button", { type: "button", onclick: () => download(kind, b(extra)) }, label);
   const out = [h("section", { class: "card" }, h("h2", { text: "Export" }),
     h("p", { class: "small muted", text: `Workflow: ${mig.workflow === "preserve" ? "preserve what is configured" : "narrower from observation"} (change it on Migrate).` }),

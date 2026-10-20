@@ -39,18 +39,18 @@ Every source policy has exactly one of: translated, implemented (by the target's
 |  | CORP-IN:1 |  |  | translated |  | config line 66; config line 72 |
 |  | CORP-IN:2 |  |  | unsupported | schedule MAINTENANCE-WINDOW | config line 67; config line 72 |
 |  | CORP-IN:3 |  |  | translated |  | config line 68; config line 72 |
-|  | ENG-IN:1 |  |  | unsupported | NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination | config line 50; config line 69 |
-|  | ENG-IN:2 |  |  | unsupported | NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination | config line 52; config line 69 |
-|  | ENG-IN:3 |  |  | unsupported | NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination | config line 53; config line 69 |
-|  | ENG-IN:4 |  |  | unsupported | NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination | config line 55; config line 69 |
-|  | ENG-IN:5 |  |  | unsupported | NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination | config line 57; config line 69 |
+|  | ENG-IN:1 |  |  | unsupported | NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination | config line 50; config line 69 |
+|  | ENG-IN:2 |  |  | unsupported | NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination | config line 52; config line 69 |
+|  | ENG-IN:3 |  |  | unsupported | NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination | config line 53; config line 69 |
+|  | ENG-IN:4 |  |  | unsupported | NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination | config line 55; config line 69 |
+|  | ENG-IN:5 |  |  | unsupported | NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination | config line 57; config line 69 |
 |  | ENG-IN:6 |  |  | translated |  | config line 58; config line 69 |
 |  | ENG-IN:7 |  |  | translated |  | config line 59; config line 69 |
-|  | HIST-IN:1 |  |  | unsupported | NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination | config line 63; config line 71 |
-|  | HIST-IN:2 |  |  | unsupported | NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination | config line 64; config line 71 |
+|  | HIST-IN:1 |  |  | unsupported | NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination | config line 63; config line 71 |
+|  | HIST-IN:2 |  |  | unsupported | NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination | config line 64; config line 71 |
 |  | HIST-IN:3 |  |  | translated |  | config line 65; config line 71 |
-|  | PLC-IN:1 |  |  | unsupported | NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination | config line 60; config line 70 |
-|  | PLC-IN:2 |  |  | unsupported | NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination | config line 61; config line 70 |
+|  | PLC-IN:1 |  |  | unsupported | NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination | config line 60; config line 70 |
+|  | PLC-IN:2 |  |  | unsupported | NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination | config line 61; config line 70 |
 |  | PLC-IN:3 |  |  | translated |  | config line 62; config line 70 |
 
 ## Issues
@@ -60,15 +60,15 @@ Every source policy has exactly one of: translated, implemented (by the target's
 - **WARNING** The source writes rule addresses as 'internal-real' and the destination as 'original-packet'. Rules whose addresses are touched by destination or static NAT are blocked; check the others against your NAT design.
 - **WARNING** The ASA allows traffic from a higher security level to a lower one when no ACL is applied inbound on the source interface. That default is not translated: the destination denies it unless a rule permits it, so such traffic stops. Add explicit rules where it must continue.
 - **BLOCKER** Rule CORP-IN:2 was not translated: schedule MAINTENANCE-WINDOW. Traffic this rule allowed will be dropped by the destination's default deny.
-- **BLOCKER** Rule ENG-IN:1 was not translated: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
-- **BLOCKER** Rule ENG-IN:2 was not translated: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
-- **BLOCKER** Rule ENG-IN:3 was not translated: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
-- **BLOCKER** Rule ENG-IN:4 was not translated: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
-- **BLOCKER** Rule ENG-IN:5 was not translated: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
-- **BLOCKER** Rule HIST-IN:1 was not translated: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
-- **BLOCKER** Rule HIST-IN:2 was not translated: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
-- **BLOCKER** Rule PLC-IN:1 was not translated: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
-- **BLOCKER** Rule PLC-IN:2 was not translated: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
+- **BLOCKER** Rule ENG-IN:1 was not translated: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
+- **BLOCKER** Rule ENG-IN:2 was not translated: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
+- **BLOCKER** Rule ENG-IN:3 was not translated: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
+- **BLOCKER** Rule ENG-IN:4 was not translated: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
+- **BLOCKER** Rule ENG-IN:5 was not translated: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
+- **BLOCKER** Rule HIST-IN:1 was not translated: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
+- **BLOCKER** Rule HIST-IN:2 was not translated: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
+- **BLOCKER** Rule PLC-IN:1 was not translated: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
+- **BLOCKER** Rule PLC-IN:2 was not translated: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination. Traffic this rule allowed will be dropped by the destination's default deny.
 - **INFO** The return ACL for rule CORP-IN:1 is placed on hist, the zone whose network holds the destination addresses.
 - **WARNING** TCP return rule using 'established': it matches any segment with ACK or RST set, so the server side can send such packets to the client side at will. This is not a stateful check.
 - **INFO** The return ACL for rule ENG-IN:6 is placed on plc, the zone whose network holds the destination addresses.
@@ -136,16 +136,16 @@ ip access-list extended RT-corp-IN
 ip access-list extended RT-hist-IN
  remark source rule CORP-IN:1 (return-path): return path for CORP-IN:1
  permit tcp host 10.30.5.10 eq 443 10.10.0.0 0.0.255.255 established
- ! NOT TRANSLATED HIST-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
- ! NOT TRANSLATED HIST-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
+ ! NOT TRANSLATED HIST-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+ ! NOT TRANSLATED HIST-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
  remark source rule HIST-IN:3 (translated)
  deny ip any any log
 ip access-list extended RT-eng-IN
- ! NOT TRANSLATED ENG-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
- ! NOT TRANSLATED ENG-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
- ! NOT TRANSLATED ENG-IN:3: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
- ! NOT TRANSLATED ENG-IN:4: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
- ! NOT TRANSLATED ENG-IN:5: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
+ ! NOT TRANSLATED ENG-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+ ! NOT TRANSLATED ENG-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+ ! NOT TRANSLATED ENG-IN:3: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+ ! NOT TRANSLATED ENG-IN:4: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+ ! NOT TRANSLATED ENG-IN:5: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
  remark source rule ENG-IN:6 (translated)
  permit tcp host 10.20.1.99 host 10.30.2.41 eq 502
  remark source rule ENG-IN:7 (translated)
@@ -153,8 +153,8 @@ ip access-list extended RT-eng-IN
 ip access-list extended RT-plc-IN
  remark source rule ENG-IN:6 (return-path): return path for ENG-IN:6
  permit tcp host 10.30.2.41 eq 502 host 10.20.1.99 established
- ! NOT TRANSLATED PLC-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
- ! NOT TRANSLATED PLC-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
+ ! NOT TRANSLATED PLC-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+ ! NOT TRANSLATED PLC-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
  remark source rule PLC-IN:3 (translated)
  deny ip any any log
 ipv6 access-list RT-corp-IN-V6
@@ -187,18 +187,18 @@ interface Vlan30
 ! translated     CORP-IN:1
 ! unsupported    CORP-IN:2: schedule MAINTENANCE-WINDOW
 ! translated     CORP-IN:3
-! unsupported    ENG-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-! unsupported    ENG-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-! unsupported    ENG-IN:3: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-! unsupported    ENG-IN:4: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-! unsupported    ENG-IN:5: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
+! unsupported    ENG-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+! unsupported    ENG-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+! unsupported    ENG-IN:3: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+! unsupported    ENG-IN:4: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+! unsupported    ENG-IN:5: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
 ! translated     ENG-IN:6
 ! translated     ENG-IN:7
-! unsupported    HIST-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-! unsupported    HIST-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
+! unsupported    HIST-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+! unsupported    HIST-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
 ! translated     HIST-IN:3
-! unsupported    PLC-IN:1: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
-! unsupported    PLC-IN:2: NAT (ce0a724d7d172e80#nat1) changes which address this rule should name in the destination
+! unsupported    PLC-IN:1: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
+! unsupported    PLC-IN:2: NAT (a808f8ca109ec31f#nat1) changes which address this rule should name in the destination
 ! translated     PLC-IN:3
 
 ```

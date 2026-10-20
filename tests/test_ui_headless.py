@@ -3,10 +3,14 @@ import os
 import secrets
 import shutil
 import subprocess  # nosec B404 - runs node on this repository's own script with a fixed argument list
+import sys
 import tempfile
 import threading
 import unittest
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import unifi_zones
 
 from ruletruss import server
 from ruletruss.samples import create_demo
@@ -46,6 +50,13 @@ class HeadlessInterfaceTests(unittest.TestCase):
                 unifi = os.path.join(data, "unifi-export.json")
                 shutil.copy(ROOT / "tests" / "fixtures" / "unifi-export.json", unifi)
                 env["UNIFI_EXPORT"] = unifi
+                zones = os.path.join(data, "unifi-zones.json")
+                with open(zones, "w", encoding="utf-8") as handle:
+                    handle.write(unifi_zones.text())
+                env["UNIFI_ZONES"] = zones
+                switch = os.path.join(data, "dist-sw.cfg")
+                shutil.copy(ROOT / "tests" / "fixtures" / "ios_l3_switch.cfg", switch)
+                env["SWITCH_CONFIG"] = switch
                 url = f"http://127.0.0.1:{srv.server_address[1]}/#token={token}"
                 proc = subprocess.run([NODE, str(ROOT / "tools" / "ui_check.mjs"), url], env=env, capture_output=True, text=True,  # noqa: S603
                                       timeout=300, check=False)

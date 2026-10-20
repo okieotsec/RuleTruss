@@ -80,14 +80,31 @@ destination zone, so RuleTruss combines the pairs on purpose rather than flatten
   accepted for permitted connections) and *Block Invalid Traffic* (the ASA drops packets of unknown connections; similar, not identical). UniFi's
   all-states blocks can also drop replies, which the ASA does not do; those policies are flagged. A block on established or related
   traffic, and an allow of invalid traffic, cannot be written as an interface ACL and are marked *unsupported*, not implemented.
-* **Traffic to the firewall itself** (the Gateway zone) is not governed by interface ACLs and needs explicit ssh/http/icmp/DNS/DHCP/control-plane
-  configuration. **VPN** needs the target's VPN design. Both stay *unresolved* until you tick that you handle them; then they are marked as handled by you.
+* **Traffic to the firewall itself** (the Gateway zone) is not governed by interface ACLs on an ASA, which has its own commands for it. RuleTruss
+  writes those for the three things an ASA offers: `ssh <net> <mask> <interface>`, `http ...` (the ASDM/HTTPS server, port 443) and
+  `icmp permit|deny ...`, from the policies whose destination is the Gateway, in the order UniFi would apply them. `ssh` and `http` only have
+  permit lines, so a block that comes first is written by cutting its addresses out of the later permits; `icmp` is an ordered list and is written
+  in order. A zone-wide *Block All* writes no `ssh`/`http` line (the ASA denies by default) but does write `icmp deny`, because an ASA answers ping on
+  an interface until some `icmp` command exists for it. A policy about anything else (DHCP service, DNS, mDNS, IPv6 neighbour discovery, other
+  ports) has no access list on an ASA: it stays *unresolved* until you tick that you handle those yourself. This opens management access from the networks
+  the policies name, so the output carries a warning. **These lines follow the ASA documentation and have not been tried on a device by the authors,
+  and the validation does not cover them** (it samples through-traffic). Only the ASA gets these lines; for IOS the policies stay unresolved.
+* **VPN** needs a design the export does not contain: the export lists the Vpn zone with no networks. If you give the **VPN client address pool**,
+  traffic that VPN clients start (Vpn to a zone with networks) is written as an access list `RT-VPN-FILTER` with a group policy `RT-VPN-POLICY` that
+  uses it (`vpn-filter`); you assign that group policy to your VPN connection profile. The pool must be an IPv4 network that overlaps none of your
+  networks. **The VPN filter has never been tried on a device by the authors**, so while it is present the output is a preview (a blocker says so).
+  Traffic toward VPN clients, and VPN to the Gateway or to the Internet, still need the VPN design and stay *unresolved* until you tick that you handle them.
+* **MAC address filters.** An ASA's ACL does not match MAC addresses. If you give the IPv4 address of every device a policy names, the policy is written for
+  those addresses and says so: if a device's address changes (DHCP) the rule no longer matches it, which for an allow fails closed and for a deny
+  fails open (the report says so for each deny; reserve the addresses). A policy with even one MAC you did not give is left *unsupported*, never
+  partly translated. An address outside the zone the policy belongs to is *unresolved*, not moved. If a capture in the project saw one
+  address for a MAC through ARP or DHCP, it is shown next to the box as a suggestion with its basis; nothing is filled in until you press it. This works
+  for the zone-pair translation to an ASA or IOS; the older generic path still reports MAC filters as unsupported.
 * **Every source policy ends with one disposition:** translated, implemented through target behaviour, unsupported, unresolved or not applicable
   (for example a zone with no networks in the export, a disabled policy, or traffic inside one network). The generated text ends with one comment line
   per policy and the report has the full table with each policy's id.
 * **Impact is stated.** Leaving out a block says that its protection is gone and which later policies now decide the traffic; leaving out an allow says
-  its traffic falls through to the pair's later policies. MAC filters are never turned into IP addresses (the identity semantics would change, and the
-  mapping would need verifying); ICMPv6 policies whose message type the API omits are unsupported.
+  its traffic falls through to the pair's later policies. ICMPv6 policies whose message type the API omits are unsupported.
 * **Preview, not deployable.** While anything is unsupported, unresolved or still a placeholder the output carries a banner, its file name says
   `PREVIEW-NOT-DEPLOYABLE`, and exporting it needs your acknowledgement. IPv4 only: the export has no IPv6 prefixes for the zones. IOS (stateless) is
   also a preview because return paths are not generated for zone-pair sources. For an ASA, replies to an allowed ping come back only if ICMP inspection

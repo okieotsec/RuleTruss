@@ -44,7 +44,7 @@ production device without that review. Review by people who read Python, or who 
 | --- | --- | --- |
 | Packet captures | PCAP, PCAPNG (Ethernet, raw IP, Linux cooked, loopback; IPv4, IPv6, VLAN) | |
 | Flow records | Zeek conn.log (TSV, JSON lines) | NetFlow/IPFIX, firewall traffic logs |
-| Configuration sources | Cisco ASA, Cisco IOS/IOS-XE ACLs, PAN-OS XML, FortiOS CLI, pfSense and OPNsense config.xml, UniFi zone-based firewall (JSON from `tools/unifi_export.py`; see [docs/EXPORT_UNIFI.md](docs/EXPORT_UNIFI.md)) | Cisco FTD, Juniper SRX, Check Point |
+| Configuration sources | Cisco ASA, Cisco IOS/IOS-XE ACLs, PAN-OS XML, FortiOS CLI, pfSense and OPNsense config.xml, UniFi zone-based firewall (JSON from `tools/unifi_export.py`; see [docs/EXPORT_UNIFI.md](docs/EXPORT_UNIFI.md)); moving from layer 3 switch ACLs to a firewall: [docs/MIGRATE_SWITCH_ACLS.md](docs/MIGRATE_SWITCH_ACLS.md) | Cisco FTD, Juniper SRX, Check Point |
 | Destination rules | Cisco ASA, Cisco IOS, FortiOS | PAN-OS, SRX, Check Point, pfSense |
 | Directional group policy | Worksheets (Markdown, JSON, CSV) | Native import files (the model is this project's own, not any product's format) |
 
