@@ -109,10 +109,10 @@ class GatewayTests(unittest.TestCase):
     def test_allow_all_to_the_gateway_opens_ssh_http_and_ping_from_that_network_only(self):
         result = translate(make())
         text = result["text"]
-        for line in ("ssh 10.0.100.0 255.255.255.0 Gi0/3", "http 10.0.100.0 255.255.255.0 Gi0/3",
-                     "icmp permit 10.0.100.0 255.255.255.0 Gi0/3"):
+        for line in ("ssh 10.77.100.0 255.255.255.0 Gi0/3", "http 10.77.100.0 255.255.255.0 Gi0/3",
+                     "icmp permit 10.77.100.0 255.255.255.0 Gi0/3"):
             self.assertIn("\n" + line + "\n", text)
-        self.assertEqual(covered(result, "ssh", "Gi0/3"), [ipaddress.ip_network("10.0.100.0/24")])      # not another network's addresses
+        self.assertEqual(covered(result, "ssh", "Gi0/3"), [ipaddress.ip_network("10.77.100.0/24")])      # not another network's addresses
         got = entry(result, "Allow All Traffic", "SOC Services to Gateway")
         self.assertEqual(got["disposition"], "translated")
         self.assertIn("ssh, http and icmp", got["reason"])                      # what the ASA offers; the rest is said, not implied
@@ -123,8 +123,8 @@ class GatewayTests(unittest.TestCase):
         result = translate(make(edit))
         self.assertEqual(covered(result, "ssh", "Gi0/1"), [])
         self.assertEqual(covered(result, "http", "Gi0/1"), [])
-        self.assertIn("\nicmp deny 10.0.10.0 255.255.255.0 Gi0/1\n", result["text"])           # the ASA answers ping unless told not to
-        self.assertNotIn("icmp permit 10.0.10.0", result["text"])
+        self.assertIn("\nicmp deny 10.77.10.0 255.255.255.0 Gi0/1\n", result["text"])           # the ASA answers ping unless told not to
+        self.assertNotIn("icmp permit 10.77.10.0", result["text"])
         self.assertEqual(entry(result, "Cameras may not manage the firewall")["disposition"], "translated")
         shadowed = entry(result, "Allow All Traffic", "IP Cameras to Gateway")
         self.assertEqual(shadowed["disposition"], "not-applicable")
@@ -136,9 +136,9 @@ class GatewayTests(unittest.TestCase):
             add(data, "Isolation", "Gateway", "Block All Traffic", "BLOCK", unifi_zones.LAST, "SYSTEM_DEFINED")
             add(data, "Isolation", "Gateway", "SSH for the isolation network", "ALLOW", dst_filter=ports(22), scope=TCP)
         result = translate(make(edit))
-        self.assertEqual(covered(result, "ssh", "Gi0/5"), [ipaddress.ip_network("10.0.250.0/24")])
+        self.assertEqual(covered(result, "ssh", "Gi0/5"), [ipaddress.ip_network("10.77.250.0/24")])
         self.assertEqual(covered(result, "http", "Gi0/5"), [])
-        self.assertIn("\nicmp deny 10.0.250.0 255.255.255.0 Gi0/5\n", result["text"])
+        self.assertIn("\nicmp deny 10.77.250.0 255.255.255.0 Gi0/5\n", result["text"])
         self.assertEqual(entry(result, "SSH for the isolation network")["disposition"], "translated")
 
     def test_a_service_the_asa_does_not_offer_stays_unresolved_for_you_and_says_what_it_does_offer(self):
@@ -157,18 +157,18 @@ class GatewayTests(unittest.TestCase):
 
     def test_a_host_blocked_before_an_allow_is_cut_out_of_what_the_allow_opens(self):
         def edit(data):
-            add(data, "SOC Services", "Gateway", "Not that host", "BLOCK", src_filter=ip("10.0.100.5"), dst_filter=ports(22), scope=TCP)
+            add(data, "SOC Services", "Gateway", "Not that host", "BLOCK", src_filter=ip("10.77.100.5"), dst_filter=ports(22), scope=TCP)
         result = translate(make(edit))
         nets = covered(result, "ssh", "Gi0/3")
-        self.assertFalse(has(nets, "10.0.100.5"))
-        self.assertTrue(has(nets, "10.0.100.4") and has(nets, "10.0.100.6") and has(nets, "10.0.100.200"))
-        self.assertTrue(has(covered(result, "http", "Gi0/3"), "10.0.100.5"))          # the block was about ssh only
+        self.assertFalse(has(nets, "10.77.100.5"))
+        self.assertTrue(has(nets, "10.77.100.4") and has(nets, "10.77.100.6") and has(nets, "10.77.100.200"))
+        self.assertTrue(has(covered(result, "http", "Gi0/3"), "10.77.100.5"))          # the block was about ssh only
         self.assertEqual(entry(result, "Not that host")["disposition"], "translated")
 
     def test_thousands_of_earlier_blocks_are_refused_not_ground_through(self):
         def edit(data):
             for n in range(300):
-                add(data, "SOC Services", "Gateway", f"Block host {n}", "BLOCK", 9000 + n, src_filter=ip(f"10.0.100.{n % 250}/32"), dst_filter=ports(22), scope=TCP)
+                add(data, "SOC Services", "Gateway", f"Block host {n}", "BLOCK", 9000 + n, src_filter=ip(f"10.77.100.{n % 250}/32"), dst_filter=ports(22), scope=TCP)
         result = translate(make(edit))
         self.assertEqual(entry(result, "Allow All Traffic", "SOC Services to Gateway")["disposition"], "unsupported")
         self.assertEqual(covered(result, "ssh", "Gi0/3"), [])                  # nothing half-written for that interface
@@ -178,14 +178,14 @@ class GatewayTests(unittest.TestCase):
         def edit(data):
             drop(data, "Isolation", "Gateway", "Allow All Traffic")
             add(data, "Isolation", "Gateway", "Block All Traffic", "BLOCK", unifi_zones.LAST, "SYSTEM_DEFINED")
-            own = {**ip("10.0.250.1"), "portFilter": ports(22)["portFilter"]}
+            own = {**ip("10.77.250.1"), "portFilter": ports(22)["portFilter"]}
             add(data, "Isolation", "Gateway", "SSH to the gateway address", "ALLOW", dst_filter=own, scope=TCP)
-            other = {**ip("10.0.250.99"), "portFilter": ports(22)["portFilter"]}
+            other = {**ip("10.77.250.99"), "portFilter": ports(22)["portFilter"]}
             add(data, "Isolation", "Gateway", "SSH to some other address", "ALLOW", dst_filter=other, scope=TCP)
         result = translate(make(edit))
         self.assertEqual(entry(result, "SSH to the gateway address")["disposition"], "translated")
         self.assertIn("own interface", entry(result, "SSH to the gateway address")["reason"])
-        self.assertEqual(covered(result, "ssh", "Gi0/5"), [ipaddress.ip_network("10.0.250.0/24")])
+        self.assertEqual(covered(result, "ssh", "Gi0/5"), [ipaddress.ip_network("10.77.250.0/24")])
         got = entry(result, "SSH to some other address")
         self.assertEqual(got["disposition"], "unsupported")
         self.assertIn("not an address of the gateway", got["reason"])
@@ -279,8 +279,8 @@ class VpnTests(unittest.TestCase):
         result = translate(make(self.edit), vpn_networks=self.POOL)
         acl = [ln.split(" extended ", 1)[1] for ln in lines(result) if ln.startswith("access-list RT-VPN-FILTER extended")]
         self.assertEqual(acl, ["permit ip 10.200.0.0 255.255.255.0 10.0.0.0 255.255.255.0",
-                               "permit tcp 10.200.0.0 255.255.255.0 10.0.100.0 255.255.255.0 eq 443",
-                               "deny ip 10.200.0.0 255.255.255.0 10.0.100.0 255.255.255.0"])
+                               "permit tcp 10.200.0.0 255.255.255.0 10.77.100.0 255.255.255.0 eq 443",
+                               "deny ip 10.200.0.0 255.255.255.0 10.77.100.0 255.255.255.0"])
         self.assertIn("\ngroup-policy RT-VPN-POLICY internal\n", result["text"])
         self.assertIn("\ngroup-policy RT-VPN-POLICY attributes\n vpn-filter value RT-VPN-FILTER\n", result["text"])
         self.assertEqual(entry(result, "VPN to LAN")["disposition"], "translated")
@@ -303,7 +303,7 @@ class VpnTests(unittest.TestCase):
     def test_a_pool_that_is_not_a_network_or_overlaps_a_zone_is_refused_not_guessed(self):
         text = make(self.edit)
         service = project(text)
-        for bad in (["not-a-network"], ["0.0.0.0/0"], ["10.0.100.0/25"], ["2001:db8::/64"], "10.200.0.0/24", [f"10.{i}.0.0/24" for i in range(40)]):
+        for bad in (["not-a-network"], ["0.0.0.0/0"], ["10.77.100.0/25"], ["2001:db8::/64"], "10.200.0.0/24", [f"10.{i}.0.0/24" for i in range(40)]):
             with self.assertRaises(ApiError, msg=bad):
                 translate(service, vpn_networks=bad)
 
@@ -340,43 +340,43 @@ class MacFilterTests(unittest.TestCase):
         self.assertEqual(wanted[self.A]["ip"], "")
 
     def test_mapped_macs_become_host_addresses_and_the_text_says_so(self):
-        result = translate(make(self.edit), mac_map={self.A.upper(): "10.0.20.31", self.B: "10.0.20.32"})
+        result = translate(make(self.edit), mac_map={self.A.upper(): "10.77.20.31", self.B: "10.77.20.32"})
         aces = [ln for ln in lines(result) if ln.startswith("access-list RT-WIRELESS_DEVICES-IN extended")]
-        self.assertIn("access-list RT-WIRELESS_DEVICES-IN extended permit ip host 10.0.20.31 10.0.100.0 255.255.255.0", aces)
-        self.assertIn("access-list RT-WIRELESS_DEVICES-IN extended permit ip host 10.0.20.32 10.0.100.0 255.255.255.0", aces)
+        self.assertIn("access-list RT-WIRELESS_DEVICES-IN extended permit ip host 10.77.20.31 10.77.100.0 255.255.255.0", aces)
+        self.assertIn("access-list RT-WIRELESS_DEVICES-IN extended permit ip host 10.77.20.32 10.77.100.0 255.255.255.0", aces)
         got = entry(result, "Two phones to SOC")
         self.assertEqual(got["disposition"], "translated")
         self.assertIn("60:45:2e:77:05:2e", got["reason"])
-        self.assertIn("10.0.20.31", got["reason"])
+        self.assertIn("10.77.20.31", got["reason"])
         self.assertIn("address changes", got["reason"])
         remark = [ln for ln in lines(result) if ln.startswith("access-list RT-WIRELESS_DEVICES-IN remark") and "Two_phones_to_SOC" in ln]
         self.assertTrue(remark and all("MAC filter replaced" in ln for ln in remark))
 
     def test_a_block_by_mac_says_it_stops_working_if_the_device_gets_another_address(self):
-        result = translate(make(self.edit), mac_map={"bc:24:11:81:fa:29": "10.0.10.77"})
+        result = translate(make(self.edit), mac_map={"bc:24:11:81:fa:29": "10.77.10.77"})
         got = entry(result, "Block one camera")
         self.assertEqual(got["disposition"], "translated")
         self.assertIn("BROADENS", got["reason"])
-        self.assertIn("RT-IP_CAMERAS-IN extended deny ip host 10.0.10.77 any\n", result["text"])
+        self.assertIn("RT-IP_CAMERAS-IN extended deny ip host 10.77.10.77 any\n", result["text"])
         issue = next(i for i in result["issues"] if i["code"] == "mac-substituted")
         self.assertEqual(issue["severity"], "warning")
         self.assertIn("1 deny", issue["message"])
 
     def test_one_missing_mac_leaves_the_whole_policy_untranslated(self):
-        result = translate(make(self.edit), mac_map={self.A: "10.0.20.31"})
+        result = translate(make(self.edit), mac_map={self.A: "10.77.20.31"})
         got = entry(result, "Two phones to SOC")
         self.assertEqual(got["disposition"], "unsupported")
         self.assertIn(self.B, got["reason"])
-        self.assertNotIn("10.0.20.31 10.0.100.0", result["text"])               # no partial rule that narrows or widens it
+        self.assertNotIn("10.77.20.31 10.77.100.0", result["text"])               # no partial rule that narrows or widens it
 
     def test_an_address_outside_the_source_zone_is_unresolved_not_moved(self):
-        result = translate(make(self.edit), mac_map={self.A: "10.0.20.31", self.B: "10.0.0.9"})
+        result = translate(make(self.edit), mac_map={self.A: "10.77.20.31", self.B: "10.0.0.9"})
         got = entry(result, "Two phones to SOC")
         self.assertEqual(got["disposition"], "unresolved")
         self.assertIn("10.0.0.9", got["reason"])
 
     def test_an_address_for_a_mac_no_policy_uses_is_reported_not_ignored_silently(self):
-        result = translate(make(self.edit), mac_map={self.A: "10.0.20.31", self.B: "10.0.20.32", "02:00:00:00:00:99": "10.0.20.99"})
+        result = translate(make(self.edit), mac_map={self.A: "10.77.20.31", self.B: "10.77.20.32", "02:00:00:00:00:99": "10.77.20.99"})
         issue = next(i for i in result["issues"] if i["code"] == "mac-map-unused")
         self.assertIn("02:00:00:00:00:99", issue["message"])
         self.assertEqual(issue["severity"], "warning")
@@ -384,32 +384,32 @@ class MacFilterTests(unittest.TestCase):
     def test_bad_input_is_refused(self):
         service = project(make(self.edit))
         for bad in ({"nonsense": "10.0.0.1"}, {self.A: "not-an-address"}, {self.A: "10.0.0.0/24"}, {self.A: "2001:db8::1"},
-                    {self.A: ".".join("0000")}, {self.A: "10.0.20.1\nno shutdown"}, ["x"], {f"aa:bb:cc:dd:ee:{i:02x}": "10.0.20.9" for i in range(250)} | {
-                        f"aa:bb:cc:dd:{j:02x}:00": "10.0.20.9" for j in range(250)}):
+                    {self.A: ".".join("0000")}, {self.A: "10.77.20.1\nno shutdown"}, ["x"], {f"aa:bb:cc:dd:ee:{i:02x}": "10.77.20.9" for i in range(250)} | {
+                        f"aa:bb:cc:dd:{j:02x}:00": "10.77.20.9" for j in range(250)}):
             with self.assertRaises(ApiError, msg=str(bad)[:60]):
                 translate(service, mac_map=bad)
 
     def test_the_address_text_that_reaches_the_configuration_is_only_what_ipaddress_wrote(self):
-        result = translate(make(self.edit), mac_map={"60-45-2E-77-05-2E": " 10.0.20.031 ".strip().replace("031", "31"), self.B: "10.0.20.32"})
+        result = translate(make(self.edit), mac_map={"60-45-2E-77-05-2E": " 10.77.20.031 ".strip().replace("031", "31"), self.B: "10.77.20.32"})
         self.assertNotIn("\r", result["text"])
-        self.assertIn("host 10.0.20.31 ", result["text"])
+        self.assertIn("host 10.77.20.31 ", result["text"])
 
     def test_a_captured_arp_or_dhcp_binding_is_offered_as_a_suggestion_with_its_basis_and_never_applied(self):
-        facts = {"bindings": [{"mac": self.A, "ip": "10.0.20.31", "basis": "arp", "packets": 9, "evidence": []},
-                              {"mac": self.B, "ip": "10.0.20.32", "basis": "frame", "packets": 9, "evidence": []},
-                              {"mac": "bc:24:11:81:fa:29", "ip": "10.0.10.77", "basis": "dhcp", "packets": 1, "evidence": []},
-                              {"mac": "bc:24:11:81:fa:29", "ip": "10.0.10.78", "basis": "dhcp", "packets": 1, "evidence": []}],
+        facts = {"bindings": [{"mac": self.A, "ip": "10.77.20.31", "basis": "arp", "packets": 9, "evidence": []},
+                              {"mac": self.B, "ip": "10.77.20.32", "basis": "frame", "packets": 9, "evidence": []},
+                              {"mac": "bc:24:11:81:fa:29", "ip": "10.77.10.77", "basis": "dhcp", "packets": 1, "evidence": []},
+                              {"mac": "bc:24:11:81:fa:29", "ip": "10.77.10.78", "basis": "dhcp", "packets": 1, "evidence": []}],
                  "l2_senders": [], "observations": [], "limits_hit": []}
         with mock.patch.object(Service, "device_facts", return_value=facts):
             result = translate(make(self.edit))
         wanted = {m["mac"]: m for m in result["inputs"]["mac_filters"]}
-        self.assertEqual((wanted[self.A]["suggestion"], wanted[self.A]["suggestion_basis"]), ("10.0.20.31", "arp"))
+        self.assertEqual((wanted[self.A]["suggestion"], wanted[self.A]["suggestion_basis"]), ("10.77.20.31", "arp"))
         self.assertEqual(wanted[self.B]["suggestion"], "")                  # a frame only shows which MAC carried the packet
         self.assertEqual(wanted["bc:24:11:81:fa:29"]["suggestion"], "")     # two addresses: not a single answer
         self.assertEqual(entry(result, "Two phones to SOC")["disposition"], "unsupported")      # a suggestion is not an answer
 
     def test_mac_filters_are_translated_for_ios_too(self):
-        result = translate(make(self.edit), target="cisco-ios", mac_map={self.A: "10.0.20.31", self.B: "10.0.20.32"})
+        result = translate(make(self.edit), target="cisco-ios", mac_map={self.A: "10.77.20.31", self.B: "10.77.20.32"})
         self.assertEqual(entry(result, "Two phones to SOC")["disposition"], "translated")
 
 

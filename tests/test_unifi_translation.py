@@ -47,25 +47,25 @@ class SourceDecisionTests(unittest.TestCase):
         return Probe(src, dst, "tcp", 40000, 443, src_zone=src_zone, dst_zone=dst_zone, **kw)
 
     def test_ot_lab_to_soc_services_is_allowed(self):
-        self.assertEqual(evaluate(self.policy, self.probe("10.0.101.5", "10.0.100.5", "OT Lab", "SOC Services")).outcome, ALLOW)
+        self.assertEqual(evaluate(self.policy, self.probe("10.77.101.5", "10.77.100.5", "OT Lab", "SOC Services")).outcome, ALLOW)
 
     def test_soc_services_to_ot_lab_new_connection_is_denied(self):
-        decision = evaluate(self.policy, self.probe("10.0.100.5", "10.0.101.5", "SOC Services", "OT Lab"))
+        decision = evaluate(self.policy, self.probe("10.77.100.5", "10.77.101.5", "SOC Services", "OT Lab"))
         self.assertEqual((decision.outcome, decision.original_id), (DENY, "Block All Traffic"))
 
     def test_the_reply_to_an_allowed_session_is_allowed(self):
-        forward, reply = evaluate_connection(self.policy, self.probe("10.0.101.5", "10.0.100.5", "OT Lab", "SOC Services"))
+        forward, reply = evaluate_connection(self.policy, self.probe("10.77.101.5", "10.77.100.5", "OT Lab", "SOC Services"))
         self.assertEqual((forward.outcome, reply.outcome), (ALLOW, ALLOW))
 
     def test_a_wireless_device_outside_the_two_mac_allowlist_is_denied_and_an_unknown_one_is_undecidable(self):
-        outside = self.probe("10.0.20.50", "10.0.100.5", "Wireless Devices", "SOC Services", src_mac="aa:aa:aa:aa:aa:aa")
+        outside = self.probe("10.77.20.50", "10.77.100.5", "Wireless Devices", "SOC Services", src_mac="aa:aa:aa:aa:aa:aa")
         self.assertEqual(evaluate(self.policy, outside).outcome, DENY)
-        listed = self.probe("10.0.20.51", "10.0.100.5", "Wireless Devices", "SOC Services", src_mac="60:45:2E:77:05:2E")
+        listed = self.probe("10.77.20.51", "10.77.100.5", "Wireless Devices", "SOC Services", src_mac="60:45:2E:77:05:2E")
         self.assertEqual(evaluate(self.policy, listed).outcome, ALLOW)
-        self.assertEqual(evaluate(self.policy, self.probe("10.0.20.52", "10.0.100.5", "Wireless Devices", "SOC Services")).outcome, INDETERMINATE)
+        self.assertEqual(evaluate(self.policy, self.probe("10.77.20.52", "10.77.100.5", "Wireless Devices", "SOC Services")).outcome, INDETERMINATE)
 
     def test_isolation_to_external_new_connection_is_allowed(self):
-        self.assertEqual(evaluate(self.policy, self.probe("10.0.250.5", "198.51.100.7", "Isolation", "External")).outcome, ALLOW)
+        self.assertEqual(evaluate(self.policy, self.probe("10.77.250.5", "198.51.100.7", "Isolation", "External")).outcome, ALLOW)
 
 
 class TranslationCase(unittest.TestCase):
@@ -87,17 +87,17 @@ class ZoneScopeTests(TranslationCase):
             self.assertNotRegex(ace, r"extended (permit|deny) ip any4 any4$", ace)
 
     def test_a_zone_to_zone_policy_keeps_both_ends(self):
-        self.assertIn("permit ip 10.0.100.0 255.255.255.0 10.0.0.0 255.255.255.0", self.acl("RT-SOC_SERVICES-IN"))       # SOC -> Default LAN
-        self.assertIn("permit ip 10.0.101.0 255.255.255.0 10.0.100.0 255.255.255.0", self.acl("RT-OT_LAB_DEVICES-IN"))   # OT Lab -> SOC
+        self.assertIn("permit ip 10.77.100.0 255.255.255.0 10.0.0.0 255.255.255.0", self.acl("RT-SOC_SERVICES-IN"))       # SOC -> Default LAN
+        self.assertIn("permit ip 10.77.101.0 255.255.255.0 10.77.100.0 255.255.255.0", self.acl("RT-OT_LAB_DEVICES-IN"))   # OT Lab -> SOC
 
     def test_every_pair_default_is_scoped_to_its_own_destination(self):
         for name in ("RT-SOC_SERVICES-IN", "RT-OT_LAB_DEVICES-IN", "RT-WIRELESS_DEVICES-IN", "RT-Default-IN"):
             for ace in self.acl(name):
-                self.assertRegex(ace, r"^(permit|deny) ip 10\.0\.\d+\.0 255\.255\.255\.0 (10\.0\.\d+\.0 255\.255\.255\.0|any)$", ace)
+                self.assertRegex(ace, r"^(permit|deny) ip 10\.(?:0|77)\.\d+\.0 255\.255\.255\.0 (10\.(?:0|77)\.\d+\.0 255\.255\.255\.0|any)$", ace)
 
     def test_nothing_is_written_for_traffic_inside_one_network(self):
         for name in ("RT-SOC_SERVICES-IN",):
-            self.assertNotIn("deny ip 10.0.100.0 255.255.255.0 10.0.100.0 255.255.255.0", self.acl(name))
+            self.assertNotIn("deny ip 10.77.100.0 255.255.255.0 10.77.100.0 255.255.255.0", self.acl(name))
 
     def test_unknown_scope_is_never_widened(self):
         for e in self.result["report"]:
@@ -110,8 +110,8 @@ class OrderingTests(TranslationCase):
         """Permits for destination B must not be shadowed by the default of pair A: each default names only its own destination."""
         acl = self.acl("RT-SOC_SERVICES-IN")
         first_deny = next(i for i, ace in enumerate(acl) if ace.startswith("deny"))
-        permit_default_lan = acl.index("permit ip 10.0.100.0 255.255.255.0 10.0.0.0 255.255.255.0")
-        self.assertLess(permit_default_lan, acl.index("deny ip 10.0.100.0 255.255.255.0 10.0.0.0 255.255.255.0"))
+        permit_default_lan = acl.index("permit ip 10.77.100.0 255.255.255.0 10.0.0.0 255.255.255.0")
+        self.assertLess(permit_default_lan, acl.index("deny ip 10.77.100.0 255.255.255.0 10.0.0.0 255.255.255.0"))
         self.assertTrue(first_deny >= 0)
 
     def test_external_is_last_in_every_acl(self):
@@ -128,11 +128,11 @@ class OrderingTests(TranslationCase):
 
         def decide(src, dst, iface):
             return evaluate(target, Probe(src, dst, "tcp", 40000, 443, src_zone=iface)).outcome
-        self.assertEqual(decide("10.0.101.5", "10.0.100.5", "Gi0/4"), ALLOW)      # OT Lab -> SOC Services
-        self.assertEqual(decide("10.0.100.5", "10.0.101.5", "Gi0/3"), DENY)       # SOC Services -> OT Lab, new
-        self.assertEqual(decide("10.0.250.5", "198.51.100.7", "Gi0/5"), ALLOW)    # Isolation -> External
-        self.assertEqual(decide("10.0.100.5", "10.0.0.5", "Gi0/3"), ALLOW)        # SOC Services -> Default LAN
-        self.assertEqual(decide("10.0.0.5", "10.0.100.5", "Gi0/0"), DENY)         # nothing allows Default LAN -> SOC Services
+        self.assertEqual(decide("10.77.101.5", "10.77.100.5", "Gi0/4"), ALLOW)      # OT Lab -> SOC Services
+        self.assertEqual(decide("10.77.100.5", "10.77.101.5", "Gi0/3"), DENY)       # SOC Services -> OT Lab, new
+        self.assertEqual(decide("10.77.250.5", "198.51.100.7", "Gi0/5"), ALLOW)    # Isolation -> External
+        self.assertEqual(decide("10.77.100.5", "10.0.0.5", "Gi0/3"), ALLOW)        # SOC Services -> Default LAN
+        self.assertEqual(decide("10.0.0.5", "10.77.100.5", "Gi0/0"), DENY)         # nothing allows Default LAN -> SOC Services
 
 
 class MappingTests(TranslationCase):
@@ -206,10 +206,10 @@ class DispositionTests(TranslationCase):
         self.assertGreaterEqual(self.result["summary"]["blocked_deny_rules"], 1)
 
     def test_stale_assignments_are_unresolved_and_not_moved(self):
-        stale = next(e for e in self.result["report"] if e["source_rule"].startswith("Block Traffic from 10.0.20.197"))
+        stale = next(e for e in self.result["report"] if e["source_rule"].startswith("Block Traffic from 10.77.20.197"))
         self.assertEqual(stale["disposition"], "unresolved")
         self.assertIn("no networks", stale["reason"])
-        self.assertFalse(any("10.0.20.197" in ace for ace in self.aces))
+        self.assertFalse(any("10.77.20.197" in ace for ace in self.aces))
 
     def test_the_validation_calls_the_untranslated_block_the_cause_of_the_difference(self):
         summary = self.result["validation"]["summary"]
@@ -340,7 +340,7 @@ class ReviewFindingTests(unittest.TestCase):
                 policy["ipProtocolScope"] = {"ipVersion": "IPV4", "protocolFilter": {"type": "NAMED_PROTOCOL", "matchOpposite": True,
                                                                                     "protocol": {"name": "TCP"}}}
         parsed = registry.parse_config(json.dumps(doc), "s", "unifi")
-        probe = Probe("10.0.250.5", "198.51.100.5", "tcp", 40000, 443, src_zone="Isolation", dst_zone="External")
+        probe = Probe("10.77.250.5", "198.51.100.5", "tcp", 40000, 443, src_zone="Isolation", dst_zone="External")
         self.assertNotEqual(evaluate(parsed, probe).outcome, ALLOW, "the rule excludes TCP, so it cannot be what allows this TCP connection")
 
     def test_the_asa_translation_warns_that_icmp_replies_need_inspection(self):

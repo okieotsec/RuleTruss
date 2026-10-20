@@ -9,13 +9,13 @@ interface GigabitEthernet0/0
 interface GigabitEthernet0/1
  nameif wifi
  security-level 80
- ip address 10.0.20.1 255.255.255.0
+ ip address 10.77.20.1 255.255.255.0
  no shutdown
 !
 interface GigabitEthernet0/2
  nameif cameras
  security-level 60
- ip address 10.0.10.1 255.255.255.0
+ ip address 10.77.10.1 255.255.255.0
  no shutdown
 !
 interface GigabitEthernet0/3
@@ -32,31 +32,31 @@ policy-map global_policy
 service-policy global_policy global
 !
 access-list RT-Default-IN remark source rule Block_All_Traffic__00000000_ (translated)
-access-list RT-Default-IN extended deny ip 10.0.0.0 255.255.255.0 10.0.10.0 255.255.255.0
+access-list RT-Default-IN extended deny ip 10.0.0.0 255.255.255.0 10.77.10.0 255.255.255.0
 access-list RT-Default-IN remark source rule Block_All_Traffic__00000000_ (translated)
-access-list RT-Default-IN extended deny ip 10.0.0.0 255.255.255.0 10.0.20.0 255.255.255.0
+access-list RT-Default-IN extended deny ip 10.0.0.0 255.255.255.0 10.77.20.0 255.255.255.0
 access-list RT-Default-IN remark source rule Allow_All_Traffic__00000000_ (translated)
 access-list RT-Default-IN extended permit ip 10.0.0.0 255.255.255.0 any
 access-list RT-zone-External-IN remark source rule Block_All_Traffic__00000000_ (translated)
 access-list RT-zone-External-IN extended deny ip any 10.0.0.0 255.255.255.0
 access-list RT-zone-External-IN remark source rule Block_All_Traffic__00000000_ (translated)
-access-list RT-zone-External-IN extended deny ip any 10.0.10.0 255.255.255.0
+access-list RT-zone-External-IN extended deny ip any 10.77.10.0 255.255.255.0
 access-list RT-zone-External-IN remark source rule Block_All_Traffic__00000000_ (translated)
-access-list RT-zone-External-IN extended deny ip any 10.0.20.0 255.255.255.0
+access-list RT-zone-External-IN extended deny ip any 10.77.20.0 255.255.255.0
 access-list RT-IP_CAMERAS-IN remark source rule Block_All_Traffic__00000000_ (translated)
-access-list RT-IP_CAMERAS-IN extended deny ip 10.0.10.0 255.255.255.0 10.0.0.0 255.255.255.0
+access-list RT-IP_CAMERAS-IN extended deny ip 10.77.10.0 255.255.255.0 10.0.0.0 255.255.255.0
 access-list RT-IP_CAMERAS-IN remark source rule Block_All_Traffic__00000000_ (translated)
-access-list RT-IP_CAMERAS-IN extended deny ip 10.0.10.0 255.255.255.0 10.0.20.0 255.255.255.0
+access-list RT-IP_CAMERAS-IN extended deny ip 10.77.10.0 255.255.255.0 10.77.20.0 255.255.255.0
 access-list RT-IP_CAMERAS-IN remark source rule Allow_All_Traffic__00000000_ (translated)
-access-list RT-IP_CAMERAS-IN extended permit ip 10.0.10.0 255.255.255.0 any
+access-list RT-IP_CAMERAS-IN extended permit ip 10.77.10.0 255.255.255.0 any
 access-list RT-WIRELESS_DEVICES-IN remark source rule Block_All_Traffic__00000000_ (translated)
-access-list RT-WIRELESS_DEVICES-IN extended deny ip 10.0.20.0 255.255.255.0 10.0.0.0 255.255.255.0
+access-list RT-WIRELESS_DEVICES-IN extended deny ip 10.77.20.0 255.255.255.0 10.0.0.0 255.255.255.0
 access-list RT-WIRELESS_DEVICES-IN remark source rule Cameras_for_phones__00000000_ (translated)
-access-list RT-WIRELESS_DEVICES-IN extended permit ip 10.0.20.0 255.255.255.0 10.0.10.0 255.255.255.0
+access-list RT-WIRELESS_DEVICES-IN extended permit ip 10.77.20.0 255.255.255.0 10.77.10.0 255.255.255.0
 access-list RT-WIRELESS_DEVICES-IN remark source rule Block_All_Traffic__00000000_ (translated)
-access-list RT-WIRELESS_DEVICES-IN extended deny ip 10.0.20.0 255.255.255.0 10.0.10.0 255.255.255.0
+access-list RT-WIRELESS_DEVICES-IN extended deny ip 10.77.20.0 255.255.255.0 10.77.10.0 255.255.255.0
 access-list RT-WIRELESS_DEVICES-IN remark source rule Allow_All_Traffic__00000000_ (translated)
-access-list RT-WIRELESS_DEVICES-IN extended permit ip 10.0.20.0 255.255.255.0 any
+access-list RT-WIRELESS_DEVICES-IN extended permit ip 10.77.20.0 255.255.255.0 any
 access-group RT-Default-IN in interface lan
 access-group RT-zone-External-IN in interface outside
 access-group RT-IP_CAMERAS-IN in interface cameras

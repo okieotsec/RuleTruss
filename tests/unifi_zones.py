@@ -9,8 +9,8 @@ def U(n):
     return f"00000000-0000-4000-8000-{n:012d}"
 
 
-NETWORKS = {"Default": "10.0.0.0/24", "IP_CAMERAS": "10.0.10.0/24", "WIRELESS_DEVICES": "10.0.20.0/24", "SOC_SERVICES": "10.0.100.0/24",
-            "OT_LAB_DEVICES": "10.0.101.0/24", "ISOLATION": "10.0.250.0/24", "SANDBOX": "10.0.251.0/24"}
+NETWORKS = {"Default": "10.0.0.0/24", "IP_CAMERAS": "10.77.10.0/24", "WIRELESS_DEVICES": "10.77.20.0/24", "SOC_SERVICES": "10.77.100.0/24",
+            "OT_LAB_DEVICES": "10.77.101.0/24", "ISOLATION": "10.77.250.0/24", "SANDBOX": "10.77.251.0/24"}
 ZONE_NETWORKS = {"Default LAN": ["Default"], "IP Cameras": ["IP_CAMERAS"], "Wireless Devices": ["WIRELESS_DEVICES"], "SOC Services": ["SOC_SERVICES"],
                  "OT Lab": ["OT_LAB_DEVICES"], "Isolation": ["ISOLATION"], "Sandbox": ["SANDBOX"]}
 EMPTY_ZONES = ["Internal", "Dmz", "Hotspot", "Vpn", "Gateway"]
@@ -70,7 +70,7 @@ def build(with_problems=True):
     if with_problems:
         add("Wireless Devices", "SOC Services", "ALLOW Wireless -> SOC (two devices)", "ALLOW", 10000, src_filter=mac("60:45:2e:77:05:2e", "72:e9:41:e8:b1:16"))
         add("Internal", "Internal", "BLOCK tablet", "BLOCK", 10000, src_filter=mac("bc:24:11:81:fa:29"))
-        add("Internal", "External", "Block Traffic from 10.0.20.197 to 104.26.15.72", "BLOCK", 10000, src_filter=ip("10.0.20.197"), dst_filter=ip("104.26.15.72"))
+        add("Internal", "External", "Block Traffic from 10.77.20.197 to 104.26.15.72", "BLOCK", 10000, src_filter=ip("10.77.20.197"), dst_filter=ip("104.26.15.72"))
         icmp6 = {"ipVersion": "IPV6", "protocolFilter": {"type": "NAMED_PROTOCOL", "matchOpposite": False, "protocol": {"name": "ICMPV6"}}}
         add("External", "Gateway", "Allow Neighbor Solicitations", "ALLOW", 30002, "SYSTEM_DEFINED", scope=icmp6)
         add("Vpn", "Default LAN", "Allow VPN to LAN", "ALLOW", 10000)

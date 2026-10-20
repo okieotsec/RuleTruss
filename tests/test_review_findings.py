@@ -294,7 +294,7 @@ class EvaluatorTests(unittest.TestCase):
         rule["destination"]["trafficFilter"] = {"type": "MAC_ADDRESS", "macAddressFilter": {"macAddresses": ["bb:bb:bb:bb:bb:bb"]}}
         doc["policies"].append(rule)
         policy = parse(json.dumps(doc), "unifi")
-        probe = Probe("10.0.101.5", "10.0.100.5", "tcp", 40000, 443, src_zone="OT Lab", dst_zone="SOC Services", src_mac="aa:aa:aa:aa:aa:aa")
+        probe = Probe("10.77.101.5", "10.77.100.5", "tcp", 40000, 443, src_zone="OT Lab", dst_zone="SOC Services", src_mac="aa:aa:aa:aa:aa:aa")
         self.assertEqual(evaluate(policy, probe).outcome, INDETERMINATE, "the destination MAC is unknown, so the block might apply")
 
 

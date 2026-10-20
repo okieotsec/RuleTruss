@@ -17,10 +17,10 @@ KEEP_NETWORKS = ("Default", "IP_CAMERAS", "WIRELESS_DEVICES")
 LAB = {
     "Default": {"zone": "Default LAN", "nameif": "lan", "port": "GigabitEthernet0/0", "asa": "10.0.0.1", "mask": "255.255.255.0", "level": 100,
                 "host": "h-lan", "ip": "10.0.0.10"},
-    "WIRELESS_DEVICES": {"zone": "Wireless Devices", "nameif": "wifi", "port": "GigabitEthernet0/1", "asa": "10.0.20.1", "mask": "255.255.255.0",
-                         "level": 80, "host": "h-wifi", "ip": "10.0.20.10"},
-    "IP_CAMERAS": {"zone": "IP Cameras", "nameif": "cameras", "port": "GigabitEthernet0/2", "asa": "10.0.10.1", "mask": "255.255.255.0",
-                   "level": 60, "host": "h-cam", "ip": "10.0.10.10"},
+    "WIRELESS_DEVICES": {"zone": "Wireless Devices", "nameif": "wifi", "port": "GigabitEthernet0/1", "asa": "10.77.20.1", "mask": "255.255.255.0",
+                         "level": 80, "host": "h-wifi", "ip": "10.77.20.10"},
+    "IP_CAMERAS": {"zone": "IP Cameras", "nameif": "cameras", "port": "GigabitEthernet0/2", "asa": "10.77.10.1", "mask": "255.255.255.0",
+                   "level": 60, "host": "h-cam", "ip": "10.77.10.10"},
     "zone-External": {"zone": "External", "nameif": "outside", "port": "GigabitEthernet0/3", "asa": "198.51.100.1", "mask": "255.255.255.0",
                       "level": 0, "host": "h-ext", "ip": "198.51.100.10"},
 }

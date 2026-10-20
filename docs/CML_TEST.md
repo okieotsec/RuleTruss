@@ -21,8 +21,8 @@ The lab file follows the layout of the lab files CML 2.10 writes (lab file versi
 
 * One **ASAv** node and four **Alpine Linux** nodes, each Alpine node linked directly to the ASAv port named below (no switch). The imported lab already has these links.
 * **h-lan** (Default LAN): address 10.0.0.10, gateway 10.0.0.1, ASA port `GigabitEthernet0/0`
-* **h-wifi** (Wireless Devices): address 10.0.20.10, gateway 10.0.20.1, ASA port `GigabitEthernet0/1`
-* **h-cam** (IP Cameras): address 10.0.10.10, gateway 10.0.10.1, ASA port `GigabitEthernet0/2`
+* **h-wifi** (Wireless Devices): address 10.77.20.10, gateway 10.77.20.1, ASA port `GigabitEthernet0/1`
+* **h-cam** (IP Cameras): address 10.77.10.10, gateway 10.77.10.1, ASA port `GigabitEthernet0/2`
 * **h-ext** (External): address 198.51.100.10, gateway 198.51.100.1, ASA port `GigabitEthernet0/3`
 * The ASAv's data ports should show up as `GigabitEthernet0/0` to `0/3` in its console (check with `show interface ip brief`). If the numbers differ, change the port
   names in the configuration to match.
@@ -44,9 +44,9 @@ The lab file follows the layout of the lab files CML 2.10 writes (lab file versi
 # h-lan
 ip addr add 10.0.0.10/24 dev eth0 && ip link set eth0 up && ip route add default via 10.0.0.1
 # h-wifi
-ip addr add 10.0.20.10/24 dev eth0 && ip link set eth0 up && ip route add default via 10.0.20.1
+ip addr add 10.77.20.10/24 dev eth0 && ip link set eth0 up && ip route add default via 10.77.20.1
 # h-cam
-ip addr add 10.0.10.10/24 dev eth0 && ip link set eth0 up && ip route add default via 10.0.10.1
+ip addr add 10.77.10.10/24 dev eth0 && ip link set eth0 up && ip route add default via 10.77.10.1
 # h-ext
 ip addr add 198.51.100.10/24 dev eth0 && ip link set eth0 up && ip route add default via 198.51.100.1
 ```
@@ -59,7 +59,7 @@ ip addr add 198.51.100.10/24 dev eth0 && ip link set eth0 up && ip route add def
    **The manual way**, for any single row of the table below, from the host in the **from** column:
    * ping: `ping -c 2 -W 2 <to address>`; **ALLOW** if replies arrive, **DENY** if none do.
    * TCP 443: `nc -w 2 <to address> 443 </dev/null | grep OPEN`; **ALLOW** if it prints OPEN, **DENY** if it prints nothing. (Every host's listener sends the word OPEN to whoever connects.)
-   Addresses: h-lan 10.0.0.10, h-wifi 10.0.20.10, h-cam 10.0.10.10, h-ext 198.51.100.10.
+   Addresses: h-lan 10.0.0.10, h-wifi 10.77.20.10, h-cam 10.77.10.10, h-ext 198.51.100.10.
 7. Also paste the output of `show access-list` from the ASAv after the tests, which shows hit counts for each entry. (If you tested by hand, fill in the **observed** column of the table; the same
    table is in `samples/cml-test/expected.csv`.)
 

@@ -193,9 +193,9 @@ try {
     await click("Translate and validate");
     check("MAC filters are listed for you to give addresses", await waitFor("document.body.textContent.includes('MAC address filters') && document.querySelectorAll('input[aria-label^=IP]').length >= 1"));
     check("the gateway policies are written as ssh, http and icmp commands", await evaluate("document.querySelector('pre.code').textContent.includes('Access to the ASA itself')"));
-    await evaluate("document.querySelector('input[aria-label^=IP]').value = '10.0.20.31'");
+    await evaluate("document.querySelector('input[aria-label^=IP]').value = '10.77.20.31'");
     await click("Translate again with these addresses");
-    check("translating again with an address keeps the page working", await waitFor("document.body.textContent.includes('Limits of this comparison') && document.querySelector('pre.code') && document.querySelector('input[aria-label^=IP]').value === '10.0.20.31'"));
+    check("translating again with an address keeps the page working", await waitFor("document.body.textContent.includes('Limits of this comparison') && document.querySelector('pre.code') && document.querySelector('input[aria-label^=IP]').value === '10.77.20.31'"));
     await shot("local-access");
   }
   if (process.env.SWITCH_CONFIG) {     // a layer 3 switch as the source: interfaces it left open are listed and kept open on request

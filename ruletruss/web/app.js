@@ -672,7 +672,7 @@ function macTable(t, again) {
   if (!rows.length) return null;
   state.macMap = state.macMap || {};
   const fields = rows.map((m) => {
-    const field = h("input", { type: "text", value: state.macMap[m.mac] || m.ip || "", placeholder: "10.0.20.31", "aria-label": `IP address for ${m.mac}` });
+    const field = h("input", { type: "text", value: state.macMap[m.mac] || m.ip || "", placeholder: "10.77.20.31", "aria-label": `IP address for ${m.mac}` });
     return { m, field, cell: h("td", {}, field, m.suggestion ? h("button", { type: "button", class: "linkbtn", onclick: () => { field.value = m.suggestion; } }, `use ${m.suggestion} (${m.suggestion_basis} in a capture)`) : null) };
   });
   const apply = () => { state.macMap = Object.fromEntries(fields.filter((f) => f.field.value.trim()).map((f) => [f.m.mac, f.field.value.trim()])); again(); };
