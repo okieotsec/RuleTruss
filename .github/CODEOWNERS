@@ -1,2 +1,4 @@
 # Anything under .github (workflows, Dependabot config, this file) needs the owner's review
 /.github/ @okieotsec
+# The privacy check handles a secret in CI, so changing it needs the owner's review
+/tools/privacy_check.py @okieotsec
