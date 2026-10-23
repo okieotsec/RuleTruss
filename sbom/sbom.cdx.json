@@ -26,7 +26,7 @@
   ],
   "dependencies": [
     {
-      "ref": "pkg:generic/ruletruss@0.1.0",
+      "ref": "pkg:generic/ruletruss@0.1.1",
       "dependsOn": [
         "dpkt==1.9.8"
       ]
@@ -143,9 +143,9 @@
     },
     "component": {
       "type": "application",
-      "bom-ref": "pkg:generic/ruletruss@0.1.0",
+      "bom-ref": "pkg:generic/ruletruss@0.1.1",
       "name": "ruletruss",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "Local-first workbench that explains network communications and migrates security policies",
       "licenses": [
         {

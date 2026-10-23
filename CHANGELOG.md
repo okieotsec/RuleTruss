@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+* Rebuilt release. The repository history was rewritten to remove private details from old test fixtures and sample files, so `v0.1.0` was withdrawn and its source bundle and attestation no longer match the repository.
+* Includes everything merged since `v0.1.0` was built: the Gateway, VPN and MAC-filter translation (CP21) and layer 3 switch ACLs (CP22), both described under 0.1.0 below; the replacement of addresses in tests and samples (CP23); and the privacy check (CP24).
+* Updated `certifi` in the lint toolset (pip-audit finding).
+
 ## 0.1.0 (unreleased)
 
 First working version.
