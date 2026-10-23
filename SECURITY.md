@@ -60,7 +60,7 @@ gh attestation verify ruletruss-<version>.tar.gz --repo <owner>/<repository>
 ```
 
 The second command asks GitHub whether that exact file was built by this repository's release workflow from the tag it names. It proves where the file came from, not that the code is free of
-bugs: see the review status below. The bundle for `v0.1.0` was built by the workflow and verified with exactly these two commands (checksums OK; one provenance attestation naming this repository, the tag and the commit). Verify every release yourself; one check of one release is not a guarantee about the next.
+bugs: see the review status below. The bundle for each release is built by the workflow; verify it yourself with exactly these two commands (checksums OK; one provenance attestation naming this repository, the tag and the commit). `v0.1.0` was withdrawn and replaced by `v0.1.1` after the repository history was rewritten (see the changelog). Verify every release yourself; one check of one release is not a guarantee about the next.
 
 ## Known limitations
 

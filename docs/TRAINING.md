@@ -1,6 +1,6 @@
 # RuleTruss training guide
 
-For network and security engineers who want to understand what is on a network and what a firewall allows, and to turn that into reviewed policy. Written for RuleTruss 0.1.0. **Everything in the examples is invented**, so you can click anything.
+For network and security engineers who want to understand what is on a network and what a firewall allows, and to turn that into reviewed policy. Written for RuleTruss 0.1.1. **Everything in the examples is invented**, so you can click anything.
 
 | | |
 | --- | --- |

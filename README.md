@@ -8,7 +8,7 @@ It reads packet captures, flow logs and firewall / router / switch exports; expl
 
 ![Inventory](docs/images/inventory.png)
 
-> Status: version 0.1.0, pre-release. The adapters are tested against synthetic fixtures, not against real exports from every software version (see [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md)). Nothing here is endorsed by or certified with any vendor.
+> Status: version 0.1.1, pre-release. The adapters are tested against synthetic fixtures, not against real exports from every software version (see [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md)). Nothing here is endorsed by or certified with any vendor.
 
 ## How this project was made, and what has and has not been reviewed
 
