@@ -1,5 +1,5 @@
 hypothesis==6.170.1
-ruff==0.16.10
+ruff==0.17.1
 bandit[sarif]==1.9.4
 semgrep==1.180.0
 pip-audit
