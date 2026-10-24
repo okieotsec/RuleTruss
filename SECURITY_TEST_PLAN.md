@@ -109,6 +109,16 @@ Finding <ID>
 - Title / Severity / Location (file:line) / Description / Evidence / Recommended fix / Root cause and prevention / Confidence (Confirmed, Likely, Needs verification)
 ```
 
+**Findings table.** Findings in a checkpoint report are listed in a table with the header
+`| ID | Sev | Finding | Root cause | Fix and prevention | Code | Why this severity | Impact |` and an ID such as `CP22-01`. The tool that loads findings into the
+project's DefectDojo reads exactly this. The first five columns are required. The last three are optional but should always be filled, because without them it
+has to guess:
+
+* `Code`: where the fix is, in backticks: a function, a file or a route (for example `check_keep_open` in `ruletruss/migrate/firewall.py`). Without it the
+  location is guessed from the wording of the fix, which worked for under half of the first fifty findings.
+* `Why this severity`: one sentence tying the rating to the rubric in section 7.
+* `Impact`: what happens to a user or a device if the finding is not fixed. Left empty rather than invented.
+
 The project lead merges findings, verifies each by reproducing it, and assigns: fix now, fix before release, or accept with documented reasoning. After a fix the finding is re-tested and marked
 verified. AI-written findings can be plausible but wrong: nothing is fixed or accepted until it is reproduced.
 
