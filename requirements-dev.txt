@@ -1,7 +1,7 @@
 hypothesis==6.170.1
 ruff==0.17.1
 bandit[sarif]==1.9.4
-semgrep==1.180.0
+semgrep==1.182.1
 pip-audit
 cyclonedx-bom==7.5.0
 pip-tools==7.6.2
