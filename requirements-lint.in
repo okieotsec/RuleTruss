@@ -1,4 +1,4 @@
 ruff==0.17.1
 bandit==1.9.4
-semgrep==1.180.0
+semgrep==1.182.1
 pip-audit==2.10.1
