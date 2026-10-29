@@ -1,4 +1,4 @@
-hypothesis==6.170.1
+hypothesis==6.170.5
 ruff==0.17.1
 bandit[sarif]==1.9.4
 semgrep==1.180.0
