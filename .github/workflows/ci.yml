@@ -66,14 +66,15 @@ jobs:
       - name: semgrep
         run: semgrep scan --config p/python --config p/security-audit --metrics off --error --quiet ruletruss tools
       - name: pip-audit
-        # Two named exceptions, both in packages that only semgrep brings in and pins, and that CI never exercises:
+        # Named exceptions, all in packages that only semgrep brings in and pins, and that CI never exercises:
         # GHSA-84m7-p3x7-pcfv (memory growth in `mcp`'s stateful HTTP server transport). `mcp` is pinned by semgrep to exactly 1.29.0, and CI
-        # runs `semgrep scan` once and never starts an MCP server, so the code is not reached. Remove it when semgrep allows mcp 1.30.0 or later.
+        # runs `semgrep scan` once and never starts an MCP server, so the code is not reached. CVE-2026-116684, CVE-2026-116685 and CVE-2026-116686 are further `mcp` 1.29.0 advisories (fixed in 1.30.0) with the same reasoning.
+        # Remove them together with GHSA-84m7-p3x7-pcfv when semgrep allows mcp 1.30.0 or later.
         # GHSA-xcq7-p3pf-p88h (slow parsing of an incoming `tracestate` header in `opentelemetry-api`, fixed in 1.45.1). semgrep pins
         # `opentelemetry-api~=1.37.0` (every release up to 1.182.1 does), the flaw needs a server that accepts requests carrying trace headers,
         # and CI runs `semgrep scan` once with metrics off and never starts a server, so as far as we can tell the code is not reached.
         # Remove it when semgrep allows opentelemetry-api 1.45.1 or later. Dependabot will propose both upgrades.
-        run: pip-audit -r requirements.txt -r requirements-test.txt -r requirements-lint.txt -r requirements-workflow.txt --require-hashes --ignore-vuln GHSA-84m7-p3x7-pcfv --ignore-vuln GHSA-xcq7-p3pf-p88h
+        run: pip-audit -r requirements.txt -r requirements-test.txt -r requirements-lint.txt -r requirements-workflow.txt --require-hashes --ignore-vuln GHSA-84m7-p3x7-pcfv --ignore-vuln GHSA-xcq7-p3pf-p88h --ignore-vuln CVE-2026-116684 --ignore-vuln CVE-2026-116685 --ignore-vuln CVE-2026-116686
 
   secrets:
     name: Secret scan
