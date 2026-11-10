@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: ${{ matrix.python }}
       - name: Install the runtime dependency (hash-checked) and the test library
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.14"
       - run: python -m pip install --require-hashes -r requirements-lint.txt
@@ -66,10 +66,11 @@ jobs:
       - name: semgrep
         run: semgrep scan --config p/python --config p/security-audit --metrics off --error --quiet ruletruss tools
       - name: pip-audit
-        # Named exceptions, all in packages that only semgrep brings in and pins, and that CI never exercises:
-        # GHSA-84m7-p3x7-pcfv (memory growth in `mcp`'s stateful HTTP server transport). `mcp` is pinned by semgrep to exactly 1.29.0, and CI
-        # runs `semgrep scan` once and never starts an MCP server, so the code is not reached. CVE-2026-116684, CVE-2026-116685 and CVE-2026-116686 are further `mcp` 1.29.0 advisories (fixed in 1.30.0) with the same reasoning.
-        # Remove them together with GHSA-84m7-p3x7-pcfv when semgrep allows mcp 1.30.0 or later.
+        # Five named exceptions, all in packages that only semgrep brings in and pins, and that CI never exercises:
+        # GHSA-84m7-p3x7-pcfv (memory growth in `mcp`'s stateful HTTP server transport). Semgrep 1.180.0 pins `mcp` to exactly 1.29.0, and CI
+        # runs `semgrep scan` once without starting an MCP server or using MCP's HTTP client transports, so the code is not reached.
+        # CVE-2026-116684, CVE-2026-116685 and CVE-2026-116686 are further `mcp` 1.29.0 advisories (fixed in 1.30.0) with the same reasoning.
+        # Remove these exceptions together when semgrep allows mcp 1.30.0 or later.
         # GHSA-xcq7-p3pf-p88h (slow parsing of an incoming `tracestate` header in `opentelemetry-api`, fixed in 1.45.1). semgrep pins
         # `opentelemetry-api~=1.37.0` (every release up to 1.182.1 does), the flaw needs a server that accepts requests carrying trace headers,
         # and CI runs `semgrep scan` once with metrics off and never starts a server, so as far as we can tell the code is not reached.
