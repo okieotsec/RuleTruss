@@ -74,7 +74,13 @@ jobs:
         # `opentelemetry-api~=1.37.0` (every release up to 1.182.1 does), the flaw needs a server that accepts requests carrying trace headers,
         # and CI runs `semgrep scan` once with metrics off and never starts a server, so as far as we can tell the code is not reached.
         # Remove it when semgrep allows opentelemetry-api 1.45.1 or later. Dependabot will propose both upgrades.
-        run: pip-audit -r requirements.txt -r requirements-test.txt -r requirements-lint.txt -r requirements-workflow.txt --require-hashes --ignore-vuln GHSA-84m7-p3x7-pcfv --ignore-vuln GHSA-xcq7-p3pf-p88h --ignore-vuln CVE-2026-116684 --ignore-vuln CVE-2026-116685 --ignore-vuln CVE-2026-116686
+        # Three more advisories published 2026-11-12 to 2026-11-20, in packages that only semgrep brings in, with the same reasoning:
+        # CVE-2026-115563 (GHSA-qx49-fqc8-xw99, `mcp` OAuth client credentials; `mcp.client.auth` is a client feature and CI starts no MCP client),
+        # CVE-2026-126360 (GHSA-mf5v-w3w3-f6cg, quadratic parsing of a malformed `traceparent` in `opentelemetry-api` 1.37.0; needs an attacker-controlled
+        # carrier and CI runs no server), and CVE-2026-132276 (GHSA-53pm-wgxf-c6qf, polynomial-time matching in `wcmatch` 8.5.2 when an attacker
+        # controls the name matched; semgrep matches this repository's own file paths, so as far as we can tell the worst case is a slow CI job). Remove each when semgrep allows the fixed
+        # version (mcp 1.30.0, opentelemetry-api 1.45.2, wcmatch 11.2).
+        run: pip-audit -r requirements.txt -r requirements-test.txt -r requirements-lint.txt -r requirements-workflow.txt --require-hashes --ignore-vuln GHSA-84m7-p3x7-pcfv --ignore-vuln GHSA-xcq7-p3pf-p88h --ignore-vuln CVE-2026-116684 --ignore-vuln CVE-2026-116685 --ignore-vuln CVE-2026-116686 --ignore-vuln CVE-2026-115563 --ignore-vuln CVE-2026-126360 --ignore-vuln CVE-2026-132276
 
   secrets:
     name: Secret scan
