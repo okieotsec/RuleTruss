@@ -10,15 +10,23 @@ It reads packet captures, flow logs and firewall / router / switch exports; expl
 
 > Status: version 0.1.1, pre-release. The adapters are tested against synthetic fixtures, not against real exports from every software version (see [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md)). Nothing here is endorsed by or certified with any vendor.
 
-## How this project was made, and what has and has not been reviewed
+## How this project is made, and what has and has not been reviewed
 
-RuleTruss is directed by an OT security practitioner (OkieOTSec), who decides what it must do, supplies the network and security domain knowledge,
-and judges its output from that point of view. The practitioner is not a programmer and does not read the code line by line. **The code was written by an
-AI model** (Anthropic's Claude, through Claude Code). Quality is therefore argued from evidence, not from who wrote it:
+RuleTruss is designed and directed by me, an OT security practitioner (OkieOTSec). The ideas, designs and features are mine, and I decide what it must do and must never do. For example: evaluation is three-valued, so "cannot tell" is never treated as "no"; a rule is never silently widened; a device's type is never inferred from its traffic; and observed, configured and proposed data are always kept apart. I supply the network and OT security knowledge behind every explanation.
 
-* The code was reviewed twice by other AI models, not by the one that wrote it (OpenAI Codex, then GitHub Copilot; see [reports/](reports/): CP15 and CP16), and every confirmed finding that was fixed has a test that fails without the fix. They found different problems, one of them a mistake I had introduced in the first round, which shows what a single review misses.
+I am not a professional developer. I write a small amount of the code myself, and I make suggestions and changes during testing and prototyping, but most of the code is written by an AI coding assistant (Anthropic's Claude, through Claude Code), working to my direction.
+
+**What I do to check it:**
+
+* I review the changes, using Claude Code to explain them until I understand what they do, and I confirm they behave as I intended. I read some of the code myself; I do not claim to read all of it.
+* I do hands-on security testing, for example testing the limits of protections such as size caps, and I test manually before each release. I make the final decision on every security finding, which I track in DefectDojo, and I plan the work in a local Vikunja project board and mark it complete myself.
+* I have done this since the first release. A structured, recorded review process began in October 2026; see [REVIEW.md](REVIEW.md) for what is recorded and for what was written down later from memory.
+
+**What supplements it, and what is still missing:**
+
+* The code was also reviewed twice by other AI models, not by the one that wrote it (OpenAI Codex, then GitHub Copilot; see [reports/](reports/): CP15 and CP16), and every confirmed finding that was fixed has a test that fails without the fix. They found different problems, one of them a mistake introduced while fixing the first round, which shows what a single review misses.
 * It is checked by static analysis, secret and dependency scanners, a coverage-guided fuzzer (Atheris) and a dynamic web scanner (OWASP ZAP), and its ASA output was compared with an independent parser (Batfish).
-* **No person has reviewed the code.** One small translation (24 test connections) has been tried on a virtual Cisco ASA (an ASAv with software 9.24(1) in Cisco Modeling Labs) and behaved as the UniFi policy says; nothing has been loaded on a physical firewall.
+* **No independent third-party security audit has been done.** My review and testing are real, but I am also the maintainer, so they are not independent. One small translation (24 test connections) has been tried on a virtual Cisco ASA (an ASAv with software 9.24(1) in Cisco Modeling Labs) and behaved as the UniFi policy says; nothing has been loaded on a physical firewall.
 
 So: treat this as **experimental**, treat every generated configuration as **a proposal for the person who owns that firewall to review**, and do not apply one to a
 production device without that review. Review by people who read Python, or who run these firewalls, is welcome; see [SECURITY.md](SECURITY.md) for how to report what you find.
@@ -117,4 +125,8 @@ Read [docs/LIMITATIONS_AND_ROADMAP.md](docs/LIMITATIONS_AND_ROADMAP.md). The sho
 
 ## Licence and brand
 
-The code is MIT licensed ([LICENSE](LICENSE)). The OkieOTSec name and logo in `assets/brand/` and `ruletruss/web/brand/` are not part of that licence; see [assets/brand/README.md](assets/brand/README.md). A fork must use its own name and logo. RuleTruss ships no IEEE data: the vendor-prefix listings are downloaded by the user on request (see [docs/SOURCES.md](docs/SOURCES.md) for why).
+RuleTruss is licensed under the **GNU Affero General Public License v3.0 only** (AGPL-3.0-only); see [LICENSE](LICENSE) and [COPYRIGHT](COPYRIGHT). If you distribute it, or let others use a modified version over a network, you must make your source available under the same licence. Everything committed before the licence change was released under the MIT License and remains available under those terms; see [COPYRIGHT](COPYRIGHT).
+
+Bug reports, questions and review findings are welcome as issues. Code contributions are not being accepted at this time.
+
+The OkieOTSec name and logo in `assets/brand/` and `ruletruss/web/brand/` are not part of that licence; see [assets/brand/README.md](assets/brand/README.md). A fork must use its own name and logo. RuleTruss ships no IEEE data: the vendor-prefix listings are downloaded by the user on request (see [docs/SOURCES.md](docs/SOURCES.md) for why).

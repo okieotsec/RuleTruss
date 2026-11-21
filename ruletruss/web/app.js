@@ -774,7 +774,7 @@ VIEWS.privacy = async () => {
   const st = await api("/api/status"); state.status = st;
   return [h("section", { class: "card" }, h("h2", { text: "About RuleTruss" }),
     h("div", { class: "about" }, h("img", { class: "only-light", src: "/brand/okieotsec-lockup.svg", alt: "OkieOTSec" }), h("img", { class: "only-dark", src: "/brand/okieotsec-lockup-dark.svg", alt: "OkieOTSec" }),
-      h("p", { class: "small", text: `RuleTruss ${st.version} by OkieOTSec. MIT licensed code; the OkieOTSec name and logo are not part of that licence.` }))),
+      h("p", { class: "small", text: `RuleTruss ${st.version} by OkieOTSec. Licensed under the AGPL-3.0-only; the OkieOTSec name and logo are not part of that licence.` }))),
   h("section", { class: "card" }, h("h2", { text: "Your data" }),
     h("p", { text: `Stored in ${st.usage.data_dir} (${st.usage.files} files, ${fmtBytes(st.usage.bytes)}), readable only by your user account. ${st.network}` }),
     more("How uploads are handled", h("ul", { class: "plain small" }, h("li", { text: "Parsed in a separate process with memory, CPU and time limits; never executed." }), h("li", { text: "Passwords, keys and community strings are redacted from evidence, exports and anything shown." }),
