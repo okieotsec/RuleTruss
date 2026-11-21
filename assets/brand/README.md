@@ -14,7 +14,7 @@ To rebuild the PNGs from the SVGs: `rsvg-convert -w <size> -h <size> svg/okieots
 
 ## Rights
 
-The OkieOTSec name, logo and the other files in `assets/brand/` are © okieotsec and are **not** covered by the MIT
+The OkieOTSec name, logo and the other files in `assets/brand/` are © okieotsec and are **not** covered by the code's
 licence, which applies to the code only.
 
 - You may use them, unmodified, to refer to or link to this project (for example in an article, a talk or a link to

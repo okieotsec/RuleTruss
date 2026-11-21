@@ -48,7 +48,7 @@ def application_component():
     return {
         "type": "application", "bom-ref": BOM_REF, "name": "ruletruss", "version": __version__,
         "description": "Local-first workbench that explains network communications and migrates security policies",
-        "licenses": [{"license": {"id": "MIT"}}],
+        "licenses": [{"license": {"id": "AGPL-3.0-only"}}],
     }
 
 
