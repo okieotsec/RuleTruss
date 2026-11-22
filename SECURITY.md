@@ -4,7 +4,8 @@
 
 | Version | Supported |
 | --- | --- |
-| 0.1.x | Yes (pre-release; no public release has been made) |
+| 0.2.x | Yes (pre-release) |
+| 0.1.x | No (superseded by 0.2.0; `v0.1.0` was withdrawn) |
 
 ## Reporting a vulnerability
 
@@ -74,6 +75,6 @@ bugs: see the review status below. The bundle for each release is built by the w
 
 See [SECURITY_TEST_PLAN.md](SECURITY_TEST_PLAN.md) and the archived reports under [reports/](reports/): static analysis (ruff, bandit, semgrep, CodeQL), secret scanning (gitleaks), dependency scanning
 (pip-audit, osv-scanner), a review of every in-source suppression, an audit of the build workflows (zizmor), an SBOM ([sbom/sbom.cdx.json](sbom/sbom.cdx.json)), hostile-input and resource-limit tests, Hypothesis fuzzing, and tests of the server's access control. One runtime
-dependency (dpkt) is pinned with hashes in `requirements.txt`. The same checks run in continuous integration and again every week once the repository is published.
+dependency (dpkt) is pinned with hashes in `requirements.txt`. The same checks run in continuous integration and again every week.
 
 The practices are mapped to the NIST Secure Software Development Framework and MITRE's Security Automation Framework in [docs/SECURITY_FRAMEWORKS.md](docs/SECURITY_FRAMEWORKS.md), including what is not yet done. That page is the developer's own assessment, not an audit or a certification. **No independent third-party security audit has been done.** The project is directed by an OT security practitioner who is not a professional developer. Most of the code is written by an AI model; the maintainer reviews the changes, tests them by hand (including the limits of its protections) and makes the final decision on every security finding. A structured, recorded process for this began in October 2026 ([REVIEW.md](REVIEW.md)). That is a review by the maintainer, not an independent one. What else has been done is recorded in [reports/](reports/): read-only reviews by other AI models (CP15 and later), static analysis, fuzzing and a dynamic scan. That is evidence, not an audit, and it is weaker than an independent review by a person; the README says so. If you read Python or operate these firewalls and would review it, you are welcome, and this section will be updated with what you found. The local web server has had one dynamic scan (OWASP ZAP spider, passive and active scan, run once against a throwaway instance with synthetic data; see [CP14](reports/cp14-zap-scan/claude.md)), which is evidence and not a guarantee.

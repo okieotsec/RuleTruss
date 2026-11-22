@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
+* First release under the AGPL-3.0-only license and with the rewritten authorship and review statements (see below). The program itself is unchanged from 0.1.1.
+* Corrected statements that still said the repository was not published (`SECURITY.md`, the test plan, the framework assessment), and the supported-versions table in `SECURITY.md`.
 * New versions are licensed under the GNU Affero General Public License v3.0 only (AGPL-3.0-only); see `LICENSE` and `COPYRIGHT`. Everything committed before the change was released under the MIT License and remains available under those terms. Code contributions are not being accepted for now; issues are welcome.
 * Rewrote the statements about who makes RuleTruss and what has been reviewed (README, `SECURITY.md`, the test plan and the framework assessment). They now describe the maintainer's own review and hands-on testing, which were done from the first release, and say that no independent third-party audit has been done. Added `REVIEW.md`, the review log. No change to the program.
 
